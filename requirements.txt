@@ -1,0 +1,11 @@
+streamlit==1.38.0
+supabase==2.4.0
+httpx==0.25.2
+fpdf2==2.7.9
+passlib[bcrypt]==1.7.4
+pydantic==2.9.2
+python-dotenv==1.0.1
+pandas==2.2.3
+plotly==5.24.1
+fastapi==0.112.2
+uvicorn==0.30.6

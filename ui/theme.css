@@ -1,0 +1,6 @@
+.block-container { padding-top: 1.0rem; }
+.card { border:1px solid #1f2937; border-radius:14px; padding:18px; background:#0b1220; }
+.card:hover { border-color:#00d4ff66; box-shadow:0 0 0 1px #00d4ff33; }
+.kpi .label { color:#9ca3af; font-size:0.85rem; }
+.kpi .value { font-size:1.6rem; font-weight:700; }
+.badge { background:#111827; border:1px solid #1f2937; padding:3px 10px; border-radius:999px; font-size:0.8rem; color:#cbd5e1; display:inline-block; }
