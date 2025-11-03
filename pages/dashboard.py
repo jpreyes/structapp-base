@@ -1,6 +1,11 @@
 from collections import defaultdict
-from datetime import date, datetime
-from typing import Dict, Optional
+from datetime import date, datetime, timedelta
+from typing import Dict, List, Optional
+
+try:
+    from streamlit_calendar import calendar
+except ImportError:  # pragma: no cover - optional dependency
+    calendar = None
 
 import pandas as pd
 import streamlit as st
@@ -30,6 +35,42 @@ def _parse_date(value: Optional[str]) -> Optional[date]:
         return datetime.fromisoformat(value).date()
     except ValueError:
         return None
+
+
+def _build_task_events(projects: List[dict], tasks: List[dict]) -> List[dict]:
+    events: List[dict] = []
+    today_iso = date.today().isoformat()
+    colors = {
+        "todo": "#64748B",
+        "doing": "#0EA5E9",
+        "blocked": "#F97316",
+        "done": "#22C55E",
+    }
+    project_map = {proj["id"]: proj["name"] for proj in projects}
+    for task in tasks:
+        start = _parse_date(task.get("start_date"))
+        end = _parse_date(task.get("end_date")) or start
+        if not start or not end:
+            continue
+        end_plus = end + timedelta(days=1)
+        status = task.get("status", "todo")
+        project_name = project_map.get(task["project_id"], "-")
+        event = {
+            "id": task["id"],
+            "title": f"{project_name}: {task['title']}",
+            "start": start.isoformat(),
+            "end": end_plus.isoformat(),
+            "color": colors.get(status, "#64748B"),
+            "extendedProps": {
+                "estado": TASK_STATUS_LABELS.get(status, status),
+                "proyecto": project_name,
+                "responsable": task.get("assignee") or "-",
+                "avance": f"{int(task.get('progress') or 0)}%",
+                "hoy": today_iso,
+            },
+        }
+        events.append(event)
+    return events
 
 
 st.header("Dashboard")
@@ -156,3 +197,23 @@ else:
         ]
     )
     st.dataframe(overdue_table, use_container_width=True, hide_index=True)
+
+st.subheader("Calendario de tareas por proyecto")
+if calendar is None:
+    st.info("Para ver el calendario instala el componente streamlit-calendar (pip install streamlit-calendar).")
+else:
+    events = _build_task_events(projects, tasks_response)
+    if not events:
+        st.caption("Carga tareas con fechas de inicio y termino para mostrar el calendario.")
+    else:
+        options = {
+            "initialView": "timeGridWeek",
+            "height": 700,
+            "locale": "es",
+            "headerToolbar": {
+                "left": "prev,next today",
+                "center": "title",
+                "right": "dayGridMonth,timeGridWeek,listWeek",
+            },
+        }
+        calendar(events=events, options=options, key="dashboard_tasks_calendar")
