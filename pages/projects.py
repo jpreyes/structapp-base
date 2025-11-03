@@ -1,5 +1,5 @@
-from datetime import date, datetime
-from typing import Optional
+from datetime import date, datetime, timedelta
+from typing import List, Optional
 
 import pandas as pd
 import streamlit as st
@@ -7,6 +7,11 @@ import streamlit as st
 from core.feature_gates import max_projects
 from services.projects_service import create_project, fetch_projects, update_project
 from utils.format import clp, to_int
+
+try:
+    from streamlit_calendar import calendar
+except ImportError:  # pragma: no cover - optional dependency
+    calendar = None
 
 STATUS_CHOICES = [
     ("Planificacion", "draft"),
@@ -16,6 +21,15 @@ STATUS_CHOICES = [
 ]
 LABEL_TO_STATUS = {label: status for label, status in STATUS_CHOICES}
 STATUS_TO_LABEL = {status: label for label, status in STATUS_CHOICES}
+
+STATUS_COLORS = {
+    "draft": "#64748B",
+    "in_design": "#0EA5E9",
+    "in_review": "#FACC15",
+    "delivered": "#22C55E",
+}
+DEFAULT_STATUS_COLOR = "#2563EB"
+ACTIVE_PROJECT_COLOR = "#F97316"
 
 
 def _status_index(value: Optional[str]) -> int:
@@ -34,6 +48,33 @@ def _parse_date(value: Optional[str]) -> Optional[date]:
         return datetime.fromisoformat(value).date()
     except ValueError:
         return None
+
+
+def _build_calendar_events(projects: List[dict], active_project: Optional[dict]) -> List[dict]:
+    events: List[dict] = []
+    active_id = active_project.get("id") if active_project else None
+    for project in projects:
+        start = _parse_date(project.get("start_date"))
+        end = _parse_date(project.get("end_date"))
+        if not start or not end:
+            continue
+        color = STATUS_COLORS.get(project.get("status"), DEFAULT_STATUS_COLOR)
+        if project.get("id") == active_id:
+            color = ACTIVE_PROJECT_COLOR
+        event = {
+            "id": project["id"],
+            "title": project["name"],
+            "start": start.isoformat(),
+            "end": (end + timedelta(days=1)).isoformat(),
+            "color": color,
+            "extendedProps": {
+                "estado": STATUS_TO_LABEL.get(project.get("status"), project.get("status") or "-"),
+                "mandante": project.get("mandante") or "-",
+                "presupuesto": f"CLP {clp(project.get('budget'))}",
+            },
+        }
+        events.append(event)
+    return events
 
 
 def _increment_projects_version() -> None:
@@ -137,94 +178,85 @@ def render():
             expanded = st.session_state.get("project", {}).get("id") == project["id"]
             header_label = f"{project['name']} - CLP {clp(project.get('budget'))}"
             with st.expander(header_label, expanded=expanded):
-                name_col, mand_col, budget_col = st.columns([2, 1, 1])
-                new_name = name_col.text_input(
-                    "Nombre",
-                    value=project["name"],
-                    key=f"name_{project['id']}",
-                )
-                new_mandante = mand_col.text_input(
-                    "Mandante / Cliente",
-                    value=project.get("mandante") or "",
-                    key=f"mand_{project['id']}",
-                )
-                new_budget = budget_col.number_input(
-                    "Presupuesto (CLP)",
-                    min_value=0,
-                    value=to_int(project.get("budget")) or 0,
-                    step=500000,
-                    format="%i",
-                    key=f"budget_{project['id']}",
-                )
+                with st.form(f"project_edit_form_{project['id']}"):
+                    name_col, mand_col, budget_col = st.columns([2, 1, 1])
+                    new_name = name_col.text_input(
+                        "Nombre",
+                        value=project["name"],
+                        key=f"name_{project['id']}",
+                    )
+                    new_mandante = mand_col.text_input(
+                        "Mandante / Cliente",
+                        value=project.get("mandante") or "",
+                        key=f"mand_{project['id']}",
+                    )
+                    new_budget = budget_col.number_input(
+                        "Presupuesto (CLP)",
+                        min_value=0,
+                        value=to_int(project.get("budget")) or 0,
+                        step=500000,
+                        format="%i",
+                        key=f"budget_{project['id']}",
+                    )
 
-                status_idx = _status_index(project.get("status"))
-                status_label = st.selectbox(
-                    "Estado",
-                    options=[label for label, _ in STATUS_CHOICES],
-                    index=status_idx,
-                    key=f"status_{project['id']}",
-                )
+                    status_idx = _status_index(project.get("status"))
+                    status_label = st.selectbox(
+                        "Estado",
+                        options=[label for label, _ in STATUS_CHOICES],
+                        index=status_idx,
+                        key=f"status_{project['id']}",
+                    )
 
-                dates_container = st.container()
-                update_dates = dates_container.checkbox(
-                    "Actualizar fechas",
-                    value=bool(project.get("start_date") or project.get("end_date")),
-                    key=f"dates_toggle_{project['id']}",
-                )
-                clear_dates = False
-                new_start = project.get("start_date")
-                new_end = project.get("end_date")
-                if update_dates:
                     start_default = _parse_date(project.get("start_date")) or date.today()
                     end_default = _parse_date(project.get("end_date")) or start_default
-                    new_start = dates_container.date_input(
+                    new_start = st.date_input(
                         "Inicio",
                         value=start_default,
                         key=f"start_{project['id']}",
                     )
-                    new_end = dates_container.date_input(
+                    new_end = st.date_input(
                         "Termino",
                         value=end_default,
                         key=f"end_{project['id']}",
                     )
-                    clear_dates = dates_container.checkbox(
-                        "Limpiar fechas",
-                        value=False,
+                    clear_dates = st.checkbox(
+                        "Sin fechas definidas",
+                        value=project.get("start_date") is None and project.get("end_date") is None,
                         key=f"clear_dates_{project['id']}",
                     )
 
-                actions = st.columns([1, 1, 1])
-                if actions[0].button("Guardar cambios", key=f"save_{project['id']}"):
-                    if update_dates and not clear_dates and isinstance(new_start, date) and isinstance(new_end, date):
-                        if new_end < new_start:
-                            st.error("La fecha de termino no puede ser anterior a la de inicio.")
-                            st.stop()
-                    patch = {
-                        "name": new_name.strip(),
-                        "mandante": new_mandante.strip() or None,
-                        "budget": int(new_budget),
-                        "status": LABEL_TO_STATUS[status_label],
-                    }
-                    if update_dates:
+                    submitted = st.form_submit_button("Guardar cambios")
+
+                if submitted:
+                    if not clear_dates and new_end < new_start:
+                        st.error("La fecha de termino no puede ser anterior a la de inicio.")
+                    else:
+                        patch = {
+                            "name": new_name.strip(),
+                            "mandante": new_mandante.strip() or None,
+                            "budget": int(new_budget),
+                            "status": LABEL_TO_STATUS[status_label],
+                        }
                         if clear_dates:
                             patch["start_date"] = None
                             patch["end_date"] = None
                         else:
-                            patch["start_date"] = new_start
-                            patch["end_date"] = new_end
+                            patch["start_date"] = new_start.isoformat()
+                            patch["end_date"] = new_end.isoformat()
 
-                    updated = update_project(project["id"], patch)
-                    st.session_state["project"] = updated
-                    _increment_projects_version()
-                    st.success("Proyecto actualizado.")
-                    st.rerun()
+                        updated = update_project(project["id"], patch)
+                        st.session_state["project"] = updated
+                        _increment_projects_version()
+                        st.success("Proyecto actualizado.")
+                        st.rerun()
 
-                if actions[1].button("Seleccionar", key=f"select_{project['id']}"):
+                action_cols = st.columns([1, 1, 1])
+                if action_cols[0].button("Seleccionar", key=f"select_{project['id']}"):
                     st.session_state["project"] = project
                     st.success("Proyecto marcado como activo.")
                     st.rerun()
 
-                if actions[2].button("Archivar", key=f"archive_{project['id']}"):
+                if action_cols[1].button("Archivar", key=f"archive_{project['id']}"):
                     update_project(
                         project["id"],
                         {"is_archived": True, "archived_at": datetime.utcnow().isoformat()},
@@ -238,16 +270,38 @@ def render():
                     st.success("Proyecto archivado.")
                     st.rerun()
 
-                links = st.columns(3)
-                if links[0].button("RC Beam", key=f"beam_{project['id']}"):
+                nav_cols = st.columns(3)
+                if nav_cols[0].button("RC Beam", key=f"beam_{project['id']}"):
                     st.session_state["project"] = project
                     st.switch_page("pages/rc_beam.py")
-                if links[1].button("Kanban", key=f"kanban_{project['id']}"):
+                if nav_cols[1].button("Kanban", key=f"kanban_{project['id']}"):
                     st.session_state["project"] = project
                     st.switch_page("pages/kanban.py")
-                if links[2].button("Gantt", key=f"gantt_{project['id']}"):
+                if nav_cols[2].button("Gantt", key=f"gantt_{project['id']}"):
                     st.session_state["project"] = project
                     st.switch_page("pages/gantt.py")
+
+    st.subheader("Calendario de proyectos")
+    if calendar is None:
+        st.info(
+            "Para ver el calendario instala el componente streamlit-calendar (pip install streamlit-calendar)."
+        )
+    else:
+        events = _build_calendar_events(projects, st.session_state.get("project"))
+        if not events:
+            st.caption("Asigna fechas de inicio y termino a tus proyectos para poblar el calendario.")
+        else:
+            options = {
+                "initialView": "dayGridMonth",
+                "height": 650,
+                "locale": "es",
+                "headerToolbar": {
+                    "left": "prev,next today",
+                    "center": "title",
+                    "right": "dayGridMonth,timeGridWeek,listWeek",
+                },
+            }
+            calendar(events=events, options=options, key="projects_calendar")
 
     st.subheader("Archivados")
     if not archived:
