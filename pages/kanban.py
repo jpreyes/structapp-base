@@ -1,8 +1,37 @@
+from datetime import date
+from typing import List, Optional
+
 import streamlit as st
-from services.kanban_service import (
-    list_columns, create_column, delete_column, rename_column,
-    list_cards_by_column, create_card, update_card, delete_card, move_card
-)
+
+from services.tasks_service import create_task, delete_task, list_tasks, update_task
+
+STATUS_COLUMNS: List[dict] = [
+    {"key": "todo", "label": "Por iniciar"},
+    {"key": "doing", "label": "En curso"},
+    {"key": "blocked", "label": "Bloqueada"},
+    {"key": "done", "label": "Completada"},
+]
+STATUS_INDEX = {item["key"]: idx for idx, item in enumerate(STATUS_COLUMNS)}
+
+
+def _status_label(value: str) -> str:
+    return next((item["label"] for item in STATUS_COLUMNS if item["key"] == value), value)
+
+
+def _status_options() -> List[str]:
+    return [item["key"] for item in STATUS_COLUMNS]
+
+
+def _parse_date(value: Optional[str]) -> date:
+    if isinstance(value, date):
+        return value
+    if not value:
+        return date.today()
+    value_str = str(value)
+    if "T" in value_str:
+        value_str = value_str.split("T", 1)[0]
+    return date.fromisoformat(value_str)
+
 
 def render():
     st.header("Kanban del proyecto")
@@ -11,46 +40,128 @@ def render():
         st.info("Selecciona un proyecto primero (desde Proyectos).")
         st.stop()
 
-    with st.expander("Columnas"):
-        c1,c2,c3 = st.columns([2,1,1])
-        new_name = c1.text_input("Nueva columna")
-        if c2.button("Agregar", disabled=not new_name.strip()):
-            create_column(project["id"], new_name, position=1000.0)
-            st.rerun()
+    st.caption(f"Proyecto: **{project['name']}**")
 
-    cols = list_columns(project["id"])
-    if not cols:
-        st.warning("No hay columnas aún. Crea al menos una.")
-        st.stop()
+    tasks = list_tasks(project["id"])
 
-    holders = st.columns(len(cols))
-    for i, col in enumerate(cols):
-        with holders[i]:
-            st.subheader(col["name"])
-            with st.form(f"new_card_{col['id']}"):
-                t = st.text_input("Título")
-                ok = st.form_submit_button("Agregar")
-                if ok and t.strip():
-                    cards = list_cards_by_column(col["id"])
-                    last_pos = cards[-1]["position"] if cards else 0
-                    create_card(project["id"], col["id"], title=t.strip(), position=last_pos + 100)
-                    st.rerun()
+    with st.form("create_task_kanban"):
+        c1, c2, c3 = st.columns([2, 1, 1])
+        title = c1.text_input("Titulo de la tarea")
+        assignee = c2.text_input("Responsable")
+        status = c3.selectbox(
+            "Estado inicial",
+            options=_status_options(),
+            index=0,
+            format_func=_status_label,
+        )
+        c4, c5 = st.columns([1, 1])
+        start_date = c4.date_input("Inicio", value=date.today())
+        end_date = c5.date_input("Termino", value=date.today())
+        notes = st.text_input("Notas (opcional)")
+        progress = st.slider("Progreso (%)", 0, 100, 0, step=5)
+        submitted = st.form_submit_button("Agregar tarea", type="primary", use_container_width=True)
+        if submitted:
+            if not title.strip():
+                st.error("La tarea debe tener un titulo.")
+            elif end_date < start_date:
+                st.error("La fecha de termino no puede ser anterior a la de inicio.")
+            else:
+                create_task(
+                    project["id"],
+                    title.strip(),
+                    str(start_date),
+                    str(end_date),
+                    progress=progress,
+                    status=status,
+                    assignee=assignee.strip(),
+                    notes=notes.strip(),
+                )
+                st.success("Tarea creada.")
+                st.rerun()
 
-            cards = list_cards_by_column(col["id"])
-            if not cards:
-                st.caption("—")
-            for card in cards:
-                with st.container():
-                    st.markdown(f"**{card['title']}**")
-                    target = st.selectbox("Mover a", options=[c["name"] for c in cols],
-                                          index=i, key=f"mv_{card['id']}")
-                    if st.button("Mover", key=f"btn_mv_{card['id']}"):
-                        target_col = [c for c in cols if c["name"] == target][0]
-                        tcards = list_cards_by_column(target_col["id"])
-                        last_pos = tcards[-1]["position"] if tcards else 0
-                        move_card(card["id"], target_col["id"], last_pos + 100)
+    st.divider()
+
+    columns = st.columns(len(STATUS_COLUMNS))
+    for col_idx, column_info in enumerate(STATUS_COLUMNS):
+        column_tasks = [task for task in tasks if task.get("status") == column_info["key"]]
+        with columns[col_idx]:
+            st.markdown(f"### {column_info['label']} ({len(column_tasks)})")
+            if not column_tasks:
+                st.caption("Sin tareas en esta columna.")
+            for task in column_tasks:
+                title = task["title"]
+                progress = int(task.get("progress") or 0)
+                due = task.get("end_date") or "-"
+                assignee = task.get("assignee") or "-"
+                expander_label = f"{title} | {progress}% | Fin: {due}"
+                with st.expander(expander_label, expanded=False):
+                    c1, c2 = st.columns([2, 1])
+                    new_title = c1.text_input(
+                        "Titulo",
+                        value=task["title"],
+                        key=f"title_{task['id']}",
+                    )
+                    new_assignee = c2.text_input(
+                        "Responsable",
+                        value=task.get("assignee") or "",
+                        key=f"assignee_{task['id']}",
+                    )
+                    c3, c4 = st.columns([1, 1])
+                    new_start = c3.date_input(
+                        "Inicio",
+                        value=_parse_date(task.get("start_date")),
+                        key=f"start_{task['id']}",
+                    )
+                    new_end = c4.date_input(
+                        "Termino",
+                        value=_parse_date(task.get("end_date")),
+                        key=f"end_{task['id']}",
+                    )
+                    new_progress = st.slider(
+                        "Progreso (%)",
+                        0,
+                        100,
+                        progress,
+                        step=5,
+                        key=f"progress_{task['id']}",
+                    )
+                    new_status = st.selectbox(
+                        "Estado",
+                        options=_status_options(),
+                        index=STATUS_INDEX.get(task.get("status"), 0),
+                        format_func=_status_label,
+                        key=f"status_{task['id']}",
+                    )
+                    new_notes = st.text_area(
+                        "Notas",
+                        value=task.get("notes") or "",
+                        height=100,
+                        key=f"notes_{task['id']}",
+                    )
+                    save = st.button("Guardar cambios", key=f"save_{task['id']}")
+                    if save:
+                        if new_end < new_start:
+                            st.error("La fecha de termino no puede ser anterior al inicio.")
+                        else:
+                            update_task(
+                                task["id"],
+                                {
+                                    "title": new_title.strip() or task["title"],
+                                    "assignee": new_assignee.strip(),
+                                    "start_date": str(new_start),
+                                    "end_date": str(new_end),
+                                    "progress": new_progress,
+                                    "status": new_status,
+                                    "notes": new_notes.strip(),
+                                },
+                            )
+                            st.success("Tarea actualizada.")
+                            st.rerun()
+
+                    if st.button("Eliminar tarea", key=f"delete_{task['id']}"):
+                        delete_task(task["id"])
+                        st.success("Tarea eliminada.")
                         st.rerun()
-                    if st.button("Borrar", key=f"del_{card['id']}"):
-                        delete_card(card["id"])
-                        st.rerun()
+
+
 render()
