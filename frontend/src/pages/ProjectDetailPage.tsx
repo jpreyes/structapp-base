@@ -33,6 +33,7 @@ import { useProjectDetail } from "../hooks/useProjectDetail";
 import { useSession } from "../store/useSession";
 import PaymentFormDialog, { PaymentFormValues } from "../components/payments/PaymentFormDialog";
 import TaskFormDialog, { TaskFormValues } from "../components/tasks/TaskFormDialog";
+import { useProjects } from "../hooks/useProjects";
 import { Payment } from "../hooks/usePayments";
 import { Task } from "../hooks/useTasks";
 import apiClient from "../api/client";
@@ -58,6 +59,7 @@ const ProjectDetailPage = () => {
   const navigate = useNavigate();
   const setProject = useSession((state) => state.setProject);
   const { data, isLoading, isError } = useProjectDetail(projectId);
+  const { data: projectList } = useProjects();
   const queryClient = useQueryClient();
 
   const [editProjectOpen, setEditProjectOpen] = useState(false);
@@ -307,11 +309,35 @@ const ProjectDetailPage = () => {
         <Typography color="text.primary">{project.name}</Typography>
       </Breadcrumbs>
 
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
-        <Box>
-          <Typography variant="h4" fontWeight={600}>
-            {project.name}
-          </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+            <Typography variant="h4" fontWeight={600}>
+              {project.name}
+            </Typography>
+            {projectList?.length ? (
+              <TextField
+                select
+                size="small"
+                label="Cambiar proyecto"
+                value={projectId}
+                onChange={(event) => {
+                  const nextProjectId = event.target.value;
+                  if (nextProjectId && nextProjectId !== projectId) {
+                    setProject(nextProjectId);
+                    navigate(`/projects/${nextProjectId}`);
+                  }
+                }}
+                sx={{ minWidth: 220 }}
+              >
+                {projectList.map((item) => (
+                  <MenuItem key={item.id} value={item.id}>
+                    {item.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : null}
+          </Box>
           <Typography variant="body1" color="text.secondary">
             Mandante: {project.mandante ?? "—"}
           </Typography>
