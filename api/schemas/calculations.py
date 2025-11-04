@@ -1,0 +1,17 @@
+from typing import Any, Dict
+
+from pydantic import BaseModel
+
+
+class RCBeamPayload(BaseModel):
+    project_id: str
+    user_id: str
+    b_mm: float
+    h_mm: float
+    L_m: float
+    wl_kN_m: float
+
+
+class CalculationResponse(BaseModel):
+    results: Dict[str, Any]
+    run_id: str
