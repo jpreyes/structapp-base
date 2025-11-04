@@ -48,7 +48,10 @@ const Layout = () => {
         {navItems.map((item) => (
           <ListItemButton
             key={item.path}
-            selected={location.pathname === item.path}
+            selected={
+              location.pathname === item.path ||
+              location.pathname.startsWith(`${item.path}/`)
+            }
             onClick={() => {
               navigate(item.path);
               setMobileOpen(false);

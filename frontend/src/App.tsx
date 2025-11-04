@@ -1,4 +1,3 @@
-import { Box } from "@mui/material";
 import { Route, Routes } from "react-router-dom";
 
 import DashboardPage from "./pages/DashboardPage";
@@ -7,17 +6,22 @@ import TasksPage from "./pages/TasksPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import Layout from "./components/Layout";
 import LoginPage from "./pages/LoginPage";
+import RequireAuth from "./components/RequireAuth";
+import ProjectDetailPage from "./pages/ProjectDetailPage";
 
 function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/tasks" element={<TasksPage />} />
-        <Route path="/payments" element={<PaymentsPage />} />
+      <Route element={<RequireAuth />}>
+        <Route element={<Layout />}>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+          <Route path="/tasks" element={<TasksPage />} />
+          <Route path="/payments" element={<PaymentsPage />} />
+        </Route>
       </Route>
-      <Route path="/login" element={<Box sx={{ p: 4 }}><LoginPage /></Box>} />
+      <Route path="/login" element={<LoginPage />} />
     </Routes>
   );
 }

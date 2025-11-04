@@ -18,6 +18,15 @@ class PaymentCreate(PaymentBase):
     pass
 
 
+class PaymentUpdate(BaseModel):
+    kind: Optional[str] = None
+    amount: Optional[int] = Field(default=None, ge=0)
+    event_date: Optional[date] = None
+    reference: Optional[str] = None
+    note: Optional[str] = None
+    currency: Optional[str] = None
+
+
 class PaymentResponse(PaymentBase):
     id: str
     created_at: Optional[str] = None

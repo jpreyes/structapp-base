@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from api.dependencies import UserIdDep
-from api.schemas.payments import PaymentCreate, PaymentResponse
+from api.schemas.payments import PaymentCreate, PaymentResponse, PaymentUpdate
 from supa.client import supa
 
 router = APIRouter()
@@ -37,6 +37,26 @@ async def create_payment(payload: PaymentCreate, user_id: UserIdDep):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     if not response.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No payment created")
+    return response.data[0]
+
+
+@router.patch("/{payment_id}", response_model=PaymentResponse)
+async def update_payment(payment_id: str, payload: PaymentUpdate, user_id: UserIdDep):
+    try:
+        patch = payload.model_dump(exclude_unset=True)
+        if "event_date" in patch and hasattr(patch["event_date"], "isoformat"):
+            patch["event_date"] = patch["event_date"].isoformat()
+        response = (
+            supa()
+            .table("project_payments")
+            .update(patch)
+            .eq("id", payment_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    if not response.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
     return response.data[0]
 
 

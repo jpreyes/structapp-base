@@ -11,7 +11,7 @@ import {
   ToggleButtonGroup,
 } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
 import { useSession } from "../store/useSession";
 
@@ -26,6 +26,8 @@ const LoginPage = () => {
   const setToken = useSession((state) => state.setToken);
   const setUser = useSession((state) => state.setUser);
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from ?? "/";
 
   const authMutation = useMutation({
     mutationFn: async () => {
@@ -37,7 +39,7 @@ const LoginPage = () => {
       setUser({ id: data.id, email: data.email, plan: data.plan });
       if (data.session_token) {
         setToken(data.session_token);
-        navigate("/");
+        navigate(from, { replace: true });
       } else if (mode === "register") {
         setInfoMessage("Cuenta creada. Revisa tu correo y luego inicia sesión.");
         setMode("login");

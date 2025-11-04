@@ -15,6 +15,7 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import dayjs, { Dayjs } from "dayjs";
+import { useNavigate } from "react-router-dom";
 
 import { useProjects } from "../hooks/useProjects";
 import apiClient from "../api/client";
@@ -51,6 +52,7 @@ const ProjectsPage = () => {
   const [form, setForm] = useState<ProjectForm>(defaultForm);
   const setProject = useSession((state) => state.setProject);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const createProjectMutation = useMutation({
     mutationFn: async (payload: ProjectForm) => {
@@ -69,6 +71,7 @@ const ProjectsPage = () => {
       setDialogOpen(false);
       setForm(defaultForm);
       setProject(data.id);
+      navigate(`/projects/${data.id}`);
     },
   });
 
@@ -81,6 +84,22 @@ const ProjectsPage = () => {
     const budget = projects.reduce((acc, project) => acc + (project.budget ?? 0), 0);
     return { total, delivered, budget };
   }, [projects]);
+
+  const paymentTotals = useMemo(() => {
+    if (!projects?.length) {
+      return { facturado: 0, pagado: 0, saldo: 0 };
+    }
+    return projects.reduce(
+      (acc, project) => ({
+        facturado: acc.facturado + (project.payments_facturado ?? 0),
+        pagado: acc.pagado + (project.payments_pagado ?? 0),
+        saldo: acc.saldo + (project.payments_saldo ?? 0),
+      }),
+      { facturado: 0, pagado: 0, saldo: 0 }
+    );
+  }, [projects]);
+
+  const formatCurrency = (value: number) => value.toLocaleString("es-CL");
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -117,6 +136,36 @@ const ProjectsPage = () => {
             </CardContent>
           </Card>
         </Grid>
+        <Grid item xs={12} sm={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="button" color="text.secondary">
+                Facturado total
+              </Typography>
+              <Typography variant="h5">{formatCurrency(paymentTotals.facturado)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="button" color="text.secondary">
+                Pagado total
+              </Typography>
+              <Typography variant="h5">{formatCurrency(paymentTotals.pagado)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="button" color="text.secondary">
+                Saldo por cobrar
+              </Typography>
+              <Typography variant="h5">{formatCurrency(paymentTotals.saldo)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -131,8 +180,15 @@ const ProjectsPage = () => {
           <Grid item xs={12} md={6} lg={4} key={project.id}>
             <Card
               variant="outlined"
-              onClick={() => setProject(project.id)}
-              sx={{ cursor: "pointer", borderColor: "divider" }}
+              onClick={() => {
+                setProject(project.id);
+                navigate(`/projects/${project.id}`);
+              }}
+              sx={{
+                cursor: "pointer",
+                borderColor: "divider",
+                "&:hover": { borderColor: "primary.main", boxShadow: (theme) => theme.shadows[4] },
+              }}
             >
               <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                 <Typography variant="h6">{project.name}</Typography>
@@ -148,6 +204,32 @@ const ProjectsPage = () => {
                 <Typography variant="body2" color="text.secondary">
                   {project.start_date ?? "-"} → {project.end_date ?? "-"}
                 </Typography>
+                <Box sx={{ mt: 1, pt: 1, borderTop: "1px solid", borderColor: "divider", display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Facturado
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {formatCurrency(project.payments_facturado)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Pagado
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {formatCurrency(project.payments_pagado)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Saldo
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {formatCurrency(project.payments_saldo)}
+                    </Typography>
+                  </Box>
+                </Box>
               </CardContent>
             </Card>
           </Grid>

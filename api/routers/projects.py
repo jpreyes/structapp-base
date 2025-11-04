@@ -3,8 +3,13 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.dependencies import UserIdDep
-from api.schemas.projects import ProjectCreate, ProjectResponse, ProjectUpdate
-from services.projects_service import create_project, fetch_projects, update_project
+from api.schemas.projects import (
+    ProjectCreate,
+    ProjectDetailResponse,
+    ProjectResponse,
+    ProjectUpdate,
+)
+from services.projects_service import create_project, fetch_project_detail, fetch_projects, update_project
 
 router = APIRouter()
 
@@ -34,3 +39,14 @@ async def update_existing_project(project_id: str, user_id: UserIdDep, payload: 
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return project
+
+
+@router.get("/{project_id}", response_model=ProjectDetailResponse)
+async def get_project_detail(project_id: str, user_id: UserIdDep):
+    try:
+        detail = fetch_project_detail(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+    return detail
