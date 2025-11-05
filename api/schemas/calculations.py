@@ -1,4 +1,5 @@
-from typing import Any, Dict
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
@@ -15,3 +16,12 @@ class RCBeamPayload(BaseModel):
 class CalculationResponse(BaseModel):
     results: Dict[str, Any]
     run_id: str
+
+
+class CalculationRun(BaseModel):
+    id: str
+    project_id: str
+    element_type: str
+    created_at: Optional[datetime] = None
+    input_json: Dict[str, Any]
+    result_json: Dict[str, Any]

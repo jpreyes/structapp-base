@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from api.dependencies import UserIdDep
 from api.schemas.projects import (
@@ -9,7 +9,7 @@ from api.schemas.projects import (
     ProjectResponse,
     ProjectUpdate,
 )
-from services.projects_service import create_project, fetch_project_detail, fetch_projects, update_project
+from services.projects_service import create_project, delete_project, fetch_project_detail, fetch_projects, update_project
 
 router = APIRouter()
 
@@ -50,3 +50,12 @@ async def get_project_detail(project_id: str, user_id: UserIdDep):
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
     return detail
+
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_project(project_id: str, user_id: UserIdDep):
+    try:
+        delete_project(project_id)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

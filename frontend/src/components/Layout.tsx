@@ -16,22 +16,46 @@ import AssignmentIcon from "@mui/icons-material/Assignment";
 import FolderIcon from "@mui/icons-material/Folder";
 import PaymentIcon from "@mui/icons-material/Payments";
 import MenuIcon from "@mui/icons-material/Menu";
+import CalculateIcon from "@mui/icons-material/Calculate";
+import DescriptionIcon from "@mui/icons-material/Description";
+import LoginIcon from "@mui/icons-material/Login";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import { useSession } from "../store/useSession";
 
 const drawerWidth = 240;
-
-const navItems = [
-  { label: "Dashboard", icon: <DashboardIcon />, path: "/" },
-  { label: "Proyectos", icon: <FolderIcon />, path: "/projects" },
-  { label: "Tareas", icon: <AssignmentIcon />, path: "/tasks" },
-  { label: "Pagos", icon: <PaymentIcon />, path: "/payments" },
-];
 
 const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const token = useSession((state) => state.token);
+
+  const navItems = useMemo(
+    () => [
+      { label: "Dashboard", icon: <DashboardIcon />, path: "/", requiresAuth: true },
+      { label: "Proyectos", icon: <FolderIcon />, path: "/projects", requiresAuth: true },
+      {
+        label: "Cálculos de proyecto",
+        icon: <CalculateIcon />,
+        path: "/projects/calculations",
+        requiresAuth: true,
+        indent: true,
+      },
+      {
+        label: "Documentación",
+        icon: <DescriptionIcon />,
+        path: "/projects/documentation",
+        requiresAuth: true,
+        indent: true,
+      },
+      { label: "Tareas", icon: <AssignmentIcon />, path: "/tasks", requiresAuth: true },
+      { label: "Pagos", icon: <PaymentIcon />, path: "/payments", requiresAuth: true },
+      { label: "Login", icon: <LoginIcon />, path: "/login", showWhenLoggedOut: true },
+    ],
+    []
+  );
 
   const drawerContent = (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -45,22 +69,31 @@ const Layout = () => {
       </Box>
       <Divider />
       <List>
-        {navItems.map((item) => (
-          <ListItemButton
-            key={item.path}
-            selected={
+        {navItems
+          .filter((item) => (item.showWhenLoggedOut ? !token : true))
+          .map((item) => {
+            const selected =
               location.pathname === item.path ||
-              location.pathname.startsWith(`${item.path}/`)
-            }
-            onClick={() => {
-              navigate(item.path);
-              setMobileOpen(false);
-            }}
-          >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.label} />
-          </ListItemButton>
-        ))}
+              (item.path !== "/" && location.pathname.startsWith(`${item.path}/`));
+            return (
+              <ListItemButton
+                key={item.path}
+                selected={selected}
+                disabled={item.requiresAuth && !token}
+                onClick={() => {
+                  if (!item.path) {
+                    return;
+                  }
+                  navigate(item.path);
+                  setMobileOpen(false);
+                }}
+                sx={{ pl: item.indent ? 4 : 2 }}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            );
+          })}
       </List>
       <Box sx={{ flexGrow: 1 }} />
     </Box>

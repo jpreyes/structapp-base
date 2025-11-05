@@ -72,6 +72,7 @@ const ProjectDetailPage = () => {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [deleteProjectOpen, setDeleteProjectOpen] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -204,6 +205,22 @@ const ProjectDetailPage = () => {
     onSuccess: () => {
       setTaskToDelete(null);
       invalidateProjectQueries();
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => {
+      if (!projectId) throw new Error("No project selected");
+      await apiClient.delete(`/projects/${projectId}`);
+    },
+    onSuccess: () => {
+      setDeleteProjectOpen(false);
+      setProject(undefined);
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (projectId) {
+        queryClient.removeQueries({ queryKey: ["project-detail", projectId] });
+      }
+      navigate("/projects", { replace: true });
     },
   });
 
@@ -358,6 +375,14 @@ const ProjectDetailPage = () => {
           />
           <Button variant="outlined" startIcon={<EditIcon />} onClick={handleOpenProjectEdit}>
             Editar proyecto
+          </Button>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteProjectOpen(true)}
+          >
+            Eliminar
           </Button>
         </Box>
       </Box>
@@ -671,6 +696,26 @@ const ProjectDetailPage = () => {
         initialTask={editingTask ?? undefined}
         loading={taskCreateMutation.isPending || taskUpdateMutation.isPending}
       />
+
+      <Dialog open={deleteProjectOpen} onClose={() => setDeleteProjectOpen(false)}>
+        <DialogTitle>Eliminar proyecto</DialogTitle>
+        <DialogContent>
+          <Typography>
+            ¿Está seguro que quiere eliminar el proyecto "{project.name}"? Esta acción no se puede deshacer.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteProjectOpen(false)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => deleteProjectMutation.mutate()}
+            disabled={deleteProjectMutation.isPending}
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={Boolean(paymentToDelete)} onClose={() => setPaymentToDelete(null)}>
         <DialogTitle>Eliminar movimiento</DialogTitle>
