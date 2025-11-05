@@ -25,6 +25,16 @@ create table if not exists public.design_bases (
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
+create table if not exists public.design_base_runs (
+    id uuid primary key default uuid_generate_v4(),
+    project_id uuid not null references public.projects(id) on delete cascade,
+    created_by uuid not null references auth.users(id),
+    design_base_id uuid references public.design_bases(id) on delete set null,
+    name text not null,
+    data jsonb not null,
+    document_url text,
+    created_at timestamptz not null default now()
+);
 create index if not exists idx_projects_owner on public.projects(created_by, updated_at desc);
 create index if not exists idx_runs_project on public.calc_runs(project_id, created_at desc);
 create index if not exists idx_kb_cols_proj on public.kanban_columns(project_id, position);
@@ -32,6 +42,7 @@ create index if not exists idx_kb_cards_col on public.kanban_cards(column_id, po
 create index if not exists idx_kb_cards_proj on public.kanban_cards(project_id, position);
 create index if not exists idx_tasks_proj on public.project_tasks(project_id, start_date);
 create index if not exists idx_design_bases_proj on public.design_bases(project_id, created_at desc);
+create index if not exists idx_design_base_runs_proj on public.design_base_runs(project_id, created_at desc);
 alter table public.profiles enable row level security;
 alter table public.projects enable row level security;
 alter table public.calc_runs enable row level security;
@@ -41,6 +52,7 @@ alter table public.kanban_columns enable row level security;
 alter table public.kanban_cards enable row level security;
 alter table public.project_tasks enable row level security;
 alter table public.design_bases enable row level security;
+alter table public.design_base_runs enable row level security;
 create policy "profiles_select" on public.profiles for select using ( user_id = auth.uid() );
 create policy "profiles_upsert" on public.profiles for insert with check ( user_id = auth.uid() );
 create policy "profiles_update" on public.profiles for update using ( user_id = auth.uid() ) with check ( user_id = auth.uid() );
@@ -67,3 +79,6 @@ create policy "design_bases_select" on public.design_bases for select using ( cr
 create policy "design_bases_insert" on public.design_bases for insert with check ( created_by = auth.uid() );
 create policy "design_bases_update" on public.design_bases for update using ( created_by = auth.uid() ) with check ( created_by = auth.uid() );
 create policy "design_bases_delete" on public.design_bases for delete using ( created_by = auth.uid() );
+create policy "design_base_runs_select" on public.design_base_runs for select using ( created_by = auth.uid() );
+create policy "design_base_runs_insert" on public.design_base_runs for insert with check ( created_by = auth.uid() );
+create policy "design_base_runs_delete" on public.design_base_runs for delete using ( created_by = auth.uid() );

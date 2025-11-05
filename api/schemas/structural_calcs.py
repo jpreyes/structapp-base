@@ -1,0 +1,355 @@
+"""
+Schemas para cálculos estructurales de elementos:
+- Pilares y vigas de hormigón armado (ACI318)
+- Pilares y vigas de acero (AISC360)
+- Pilares y vigas de madera (NCh1198)
+- Zapatas de hormigón (ACI318)
+"""
+from typing import Optional
+from pydantic import BaseModel, Field
+
+
+# ============================================================================
+# PILARES DE HORMIGÓN ARMADO (ACI318)
+# ============================================================================
+
+class ConcreteColumnRequest(BaseModel):
+    """Parámetros para diseño de pilar de hormigón armado."""
+    # Esfuerzos
+    axial_load: float = Field(..., alias="axialLoad", description="Carga axial (kN)")
+    moment_x: float = Field(..., alias="momentX", description="Momento flector eje X (kN·m)")
+    moment_y: float = Field(..., alias="momentY", description="Momento flector eje Y (kN·m)")
+    shear_x: float = Field(..., alias="shearX", description="Cortante eje X (kN)")
+    shear_y: float = Field(..., alias="shearY", description="Cortante eje Y (kN)")
+
+    # Geometría
+    width: float = Field(..., gt=0, description="Ancho de la sección (cm)")
+    depth: float = Field(..., gt=0, description="Largo de la sección (cm)")
+    length: float = Field(..., gt=0, description="Altura del pilar (m)")
+
+    # Materiales
+    fc: float = Field(..., alias="fc", gt=0, description="Resistencia del hormigón (MPa)")
+    fy: float = Field(..., alias="fy", gt=0, description="Límite de fluencia del acero (MPa)")
+
+    # Parámetros adicionales
+    cover: float = Field(4.0, gt=0, description="Recubrimiento (cm)")
+    k_factor: float = Field(1.0, alias="kFactor", ge=0.5, le=2.0, description="Factor de longitud efectiva")
+
+
+class ConcreteColumnResponse(BaseModel):
+    """Resultados del diseño de pilar de hormigón."""
+    # Capacidad
+    pn_max: float = Field(..., alias="pnMax", description="Capacidad axial máxima (kN)")
+    mn_x: float = Field(..., alias="mnX", description="Momento nominal X (kN·m)")
+    mn_y: float = Field(..., alias="mnY", description="Momento nominal Y (kN·m)")
+    vn_x: float = Field(..., alias="vnX", description="Cortante nominal X (kN)")
+    vn_y: float = Field(..., alias="vnY", description="Cortante nominal Y (kN)")
+
+    # Diseño de refuerzo
+    as_required: float = Field(..., alias="asRequired", description="Área de acero requerida (cm²)")
+    rho: float = Field(..., description="Cuantía de acero (%)")
+    num_bars: int = Field(..., alias="numBars", description="Número de barras")
+    bar_diameter: float = Field(..., alias="barDiameter", description="Diámetro de barras (mm)")
+
+    # Verificaciones
+    slenderness_ratio: float = Field(..., alias="slendernessRatio", description="Esbeltez")
+    is_short_column: bool = Field(..., alias="isShortColumn", description="¿Es columna corta?")
+    utilization_ratio: float = Field(..., alias="utilizationRatio", description="Ratio de utilización")
+    passes: bool = Field(..., description="¿Cumple el diseño?")
+
+
+# ============================================================================
+# VIGAS DE HORMIGÓN ARMADO (ACI318)
+# ============================================================================
+
+class ConcreteBeamRequest(BaseModel):
+    """Parámetros para diseño de viga de hormigón armado."""
+    # Esfuerzos
+    moment_positive: float = Field(..., alias="momentPositive", description="Momento positivo máximo (kN·m)")
+    moment_negative: float = Field(..., alias="momentNegative", description="Momento negativo máximo (kN·m)")
+    shear_max: float = Field(..., alias="shearMax", description="Cortante máximo (kN)")
+
+    # Geometría
+    width: float = Field(..., gt=0, description="Ancho de la viga (cm)")
+    depth: float = Field(..., gt=0, description="Altura de la viga (cm)")
+    span: float = Field(..., gt=0, description="Luz de la viga (m)")
+
+    # Materiales
+    fc: float = Field(..., alias="fc", gt=0, description="Resistencia del hormigón (MPa)")
+    fy: float = Field(..., alias="fy", gt=0, description="Límite de fluencia del acero (MPa)")
+
+    # Parámetros adicionales
+    cover: float = Field(4.0, gt=0, description="Recubrimiento (cm)")
+
+
+class ConcreteBeamResponse(BaseModel):
+    """Resultados del diseño de viga de hormigón."""
+    # Capacidad
+    mn_positive: float = Field(..., alias="mnPositive", description="Momento nominal positivo (kN·m)")
+    mn_negative: float = Field(..., alias="mnNegative", description="Momento nominal negativo (kN·m)")
+    vn: float = Field(..., alias="vn", description="Cortante nominal (kN)")
+
+    # Refuerzo longitudinal
+    as_positive: float = Field(..., alias="asPositive", description="Acero positivo (cm²)")
+    as_negative: float = Field(..., alias="asNegative", description="Acero negativo (cm²)")
+    num_bars_positive: int = Field(..., alias="numBarsPositive", description="Barras inferiores")
+    num_bars_negative: int = Field(..., alias="numBarsNegative", description="Barras superiores")
+    bar_diameter: float = Field(..., alias="barDiameter", description="Diámetro barras (mm)")
+
+    # Refuerzo transversal
+    stirrup_diameter: float = Field(..., alias="stirrupDiameter", description="Diámetro estribos (mm)")
+    stirrup_spacing: float = Field(..., alias="stirrupSpacing", description="Espaciamiento (cm)")
+
+    # Verificaciones
+    deflection: float = Field(..., description="Deflexión estimada (cm)")
+    utilization_ratio: float = Field(..., alias="utilizationRatio", description="Ratio de utilización")
+    passes: bool = Field(..., description="¿Cumple el diseño?")
+
+
+# ============================================================================
+# PILARES DE ACERO (AISC360)
+# ============================================================================
+
+class SteelColumnRequest(BaseModel):
+    """Parámetros para diseño de pilar de acero."""
+    # Esfuerzos
+    axial_load: float = Field(..., alias="axialLoad", description="Carga axial (kN)")
+    moment_x: float = Field(..., alias="momentX", description="Momento flector X (kN·m)")
+    moment_y: float = Field(..., alias="momentY", description="Momento flector Y (kN·m)")
+
+    # Geometría del perfil
+    section_type: str = Field(..., alias="sectionType", description="Tipo de perfil (W, HSS, etc.)")
+
+    # Opción 1: Perfil estándar
+    profile_name: Optional[str] = Field(None, alias="profileName", description="Nombre del perfil (ej: W14x90)")
+
+    # Opción 2: Propiedades personalizadas
+    area: Optional[float] = Field(None, description="Área de la sección (cm²)")
+    ix: Optional[float] = Field(None, description="Inercia eje X (cm⁴)")
+    iy: Optional[float] = Field(None, description="Inercia eje Y (cm⁴)")
+    rx: Optional[float] = Field(None, description="Radio de giro X (cm)")
+    ry: Optional[float] = Field(None, description="Radio de giro Y (cm)")
+    zx: Optional[float] = Field(None, description="Módulo plástico X (cm³)")
+    zy: Optional[float] = Field(None, description="Módulo plástico Y (cm³)")
+
+    # Longitudes
+    length: float = Field(..., gt=0, description="Altura del pilar (m)")
+    kx: float = Field(1.0, ge=0.5, le=2.0, description="Factor K eje X")
+    ky: float = Field(1.0, ge=0.5, le=2.0, description="Factor K eje Y")
+
+    # Material
+    fy: float = Field(250.0, alias="fy", gt=0, description="Límite de fluencia (MPa)")
+    fu: float = Field(400.0, alias="fu", gt=0, description="Resistencia última (MPa)")
+    E: float = Field(200000.0, gt=0, description="Módulo de elasticidad (MPa)")
+
+
+class SteelColumnResponse(BaseModel):
+    """Resultados del diseño de pilar de acero."""
+    # Capacidad
+    pn: float = Field(..., description="Capacidad axial nominal (kN)")
+    mn_x: float = Field(..., alias="mnX", description="Momento nominal X (kN·m)")
+    mn_y: float = Field(..., alias="mnY", description="Momento nominal Y (kN·m)")
+
+    # Verificaciones
+    slenderness_x: float = Field(..., alias="slendernessX", description="Esbeltez X")
+    slenderness_y: float = Field(..., alias="slendernessY", description="Esbeltez Y")
+    lambda_c: float = Field(..., alias="lambdaC", description="Parámetro de esbeltez")
+
+    # Ratios de utilización
+    axial_ratio: float = Field(..., alias="axialRatio", description="Ratio axial")
+    flexure_ratio_x: float = Field(..., alias="flexureRatioX", description="Ratio flexión X")
+    flexure_ratio_y: float = Field(..., alias="flexureRatioY", description="Ratio flexión Y")
+    interaction_ratio: float = Field(..., alias="interactionRatio", description="Ratio de interacción")
+
+    passes: bool = Field(..., description="¿Cumple el diseño?")
+
+
+# ============================================================================
+# VIGAS DE ACERO (AISC360)
+# ============================================================================
+
+class SteelBeamRequest(BaseModel):
+    """Parámetros para diseño de viga de acero."""
+    # Esfuerzos
+    moment_max: float = Field(..., alias="momentMax", description="Momento máximo (kN·m)")
+    shear_max: float = Field(..., alias="shearMax", description="Cortante máximo (kN)")
+
+    # Geometría
+    section_type: str = Field(..., alias="sectionType", description="Tipo de perfil")
+    profile_name: Optional[str] = Field(None, alias="profileName", description="Nombre del perfil")
+
+    # Propiedades personalizadas
+    area: Optional[float] = Field(None, description="Área (cm²)")
+    ix: Optional[float] = Field(None, description="Inercia X (cm⁴)")
+    sx: Optional[float] = Field(None, description="Módulo elástico X (cm³)")
+    zx: Optional[float] = Field(None, description="Módulo plástico X (cm³)")
+
+    # Longitudes
+    span: float = Field(..., gt=0, description="Luz de la viga (m)")
+    lb: float = Field(..., alias="lb", gt=0, description="Longitud no arriostrada (m)")
+
+    # Material
+    fy: float = Field(250.0, alias="fy", gt=0, description="Límite de fluencia (MPa)")
+    E: float = Field(200000.0, gt=0, description="Módulo de elasticidad (MPa)")
+
+
+class SteelBeamResponse(BaseModel):
+    """Resultados del diseño de viga de acero."""
+    # Capacidad
+    mn: float = Field(..., description="Momento nominal (kN·m)")
+    vn: float = Field(..., description="Cortante nominal (kN)")
+
+    # Verificaciones
+    deflection: float = Field(..., description="Deflexión (cm)")
+    flexure_ratio: float = Field(..., alias="flexureRatio", description="Ratio flexión")
+    shear_ratio: float = Field(..., alias="shearRatio", description="Ratio cortante")
+    deflection_ratio: float = Field(..., alias="deflectionRatio", description="Ratio deflexión")
+
+    passes: bool = Field(..., description="¿Cumple el diseño?")
+
+
+# ============================================================================
+# PILARES DE MADERA (NCh1198)
+# ============================================================================
+
+class WoodColumnRequest(BaseModel):
+    """Parámetros para diseño de pilar de madera."""
+    # Esfuerzos
+    axial_load: float = Field(..., alias="axialLoad", description="Carga axial (kN)")
+    moment: float = Field(0.0, description="Momento flector (kN·m)")
+
+    # Geometría
+    width: float = Field(..., gt=0, description="Ancho (cm)")
+    depth: float = Field(..., gt=0, description="Profundidad (cm)")
+    length: float = Field(..., gt=0, description="Altura (m)")
+
+    # Material
+    wood_type: Optional[str] = Field(None, alias="woodType", description="Tipo de madera (Pino, Roble, etc.)")
+    fc: Optional[float] = Field(None, description="Resistencia a compresión paralela (MPa)")
+    fm: Optional[float] = Field(None, description="Resistencia a flexión (MPa)")
+    E: Optional[float] = Field(None, description="Módulo de elasticidad (MPa)")
+
+    # Factores de modificación
+    moisture_factor: float = Field(1.0, alias="moistureFactor", ge=0.5, le=1.0, description="Factor de humedad")
+    duration_factor: float = Field(1.0, alias="durationFactor", ge=0.5, le=1.5, description="Factor de duración")
+
+    # Parámetros de pandeo
+    k_factor: float = Field(1.0, alias="kFactor", ge=0.5, le=2.0, description="Factor de longitud efectiva")
+
+
+class WoodColumnResponse(BaseModel):
+    """Resultados del diseño de pilar de madera."""
+    # Capacidad
+    pn: float = Field(..., description="Capacidad axial (kN)")
+    mn: float = Field(..., description="Momento nominal (kN·m)")
+
+    # Verificaciones
+    slenderness_ratio: float = Field(..., alias="slendernessRatio", description="Esbeltez")
+    cp: float = Field(..., description="Factor de estabilidad de columna")
+
+    # Ratios
+    axial_ratio: float = Field(..., alias="axialRatio", description="Ratio axial")
+    flexure_ratio: float = Field(..., alias="flexureRatio", description="Ratio flexión")
+    interaction_ratio: float = Field(..., alias="interactionRatio", description="Ratio de interacción")
+
+    passes: bool = Field(..., description="¿Cumple el diseño?")
+
+
+# ============================================================================
+# VIGAS DE MADERA (NCh1198)
+# ============================================================================
+
+class WoodBeamRequest(BaseModel):
+    """Parámetros para diseño de viga de madera."""
+    # Esfuerzos
+    moment_max: float = Field(..., alias="momentMax", description="Momento máximo (kN·m)")
+    shear_max: float = Field(..., alias="shearMax", description="Cortante máximo (kN)")
+
+    # Geometría
+    width: float = Field(..., gt=0, description="Ancho (cm)")
+    depth: float = Field(..., gt=0, description="Altura (cm)")
+    span: float = Field(..., gt=0, description="Luz (m)")
+
+    # Material
+    wood_type: Optional[str] = Field(None, alias="woodType", description="Tipo de madera")
+    fm: Optional[float] = Field(None, description="Resistencia a flexión (MPa)")
+    fv: Optional[float] = Field(None, description="Resistencia al corte (MPa)")
+    E: Optional[float] = Field(None, description="Módulo de elasticidad (MPa)")
+
+    # Factores
+    moisture_factor: float = Field(1.0, alias="moistureFactor", ge=0.5, le=1.0)
+    duration_factor: float = Field(1.0, alias="durationFactor", ge=0.5, le=1.5)
+
+
+class WoodBeamResponse(BaseModel):
+    """Resultados del diseño de viga de madera."""
+    # Capacidad
+    mn: float = Field(..., description="Momento nominal (kN·m)")
+    vn: float = Field(..., description="Cortante nominal (kN)")
+
+    # Verificaciones
+    deflection: float = Field(..., description="Deflexión (cm)")
+    flexure_ratio: float = Field(..., alias="flexureRatio", description="Ratio flexión")
+    shear_ratio: float = Field(..., alias="shearRatio", description="Ratio cortante")
+    deflection_ratio: float = Field(..., alias="deflectionRatio", description="Ratio deflexión")
+
+    passes: bool = Field(..., description="¿Cumple el diseño?")
+
+
+# ============================================================================
+# ZAPATAS DE HORMIGÓN (ACI318)
+# ============================================================================
+
+class FootingRequest(BaseModel):
+    """Parámetros para diseño de zapata de hormigón."""
+    # Tipo de zapata
+    footing_type: str = Field(..., alias="footingType", description="Tipo: isolated o continuous")
+
+    # Cargas
+    axial_load: float = Field(..., alias="axialLoad", description="Carga axial (kN)")
+    moment: float = Field(0.0, description="Momento (kN·m)")
+    shear: float = Field(0.0, description="Cortante (kN)")
+
+    # Cargas dinámicas y sísmicas
+    static_pressure: float = Field(0.0, alias="staticPressure", description="Empuje estático (kPa)")
+    dynamic_pressure: float = Field(0.0, alias="dynamicPressure", description="Empuje dinámico (kPa)")
+    seismic_pressure: float = Field(0.0, alias="seismicPressure", description="Empuje sísmico (kPa)")
+
+    # Suelo
+    bearing_capacity: float = Field(..., alias="bearingCapacity", gt=0, description="Capacidad portante (kPa)")
+
+    # Geometría de columna/muro
+    column_width: float = Field(..., alias="columnWidth", gt=0, description="Ancho columna/muro (cm)")
+    column_depth: float = Field(..., alias="columnDepth", gt=0, description="Profundidad columna/muro (cm)")
+
+    # Materiales
+    fc: float = Field(..., gt=0, description="Resistencia hormigón (MPa)")
+    fy: float = Field(..., gt=0, description="Fluencia acero (MPa)")
+
+    # Parámetros adicionales
+    depth: Optional[float] = Field(None, gt=0, description="Altura zapata propuesta (cm)")
+    cover: float = Field(7.5, gt=0, description="Recubrimiento (cm)")
+
+
+class FootingResponse(BaseModel):
+    """Resultados del diseño de zapata."""
+    # Geometría resultante
+    length: float = Field(..., description="Largo de zapata (m)")
+    width: float = Field(..., description="Ancho de zapata (m)")
+    depth: float = Field(..., description="Altura de zapata (cm)")
+
+    # Verificación de capacidad portante
+    soil_pressure_max: float = Field(..., alias="soilPressureMax", description="Presión máxima (kPa)")
+    soil_pressure_min: float = Field(..., alias="soilPressureMin", description="Presión mínima (kPa)")
+
+    # Refuerzo
+    as_longitudinal: float = Field(..., alias="asLongitudinal", description="Acero longitudinal (cm²/m)")
+    as_transverse: float = Field(..., alias="asTransverse", description="Acero transversal (cm²/m)")
+    bar_diameter: float = Field(..., alias="barDiameter", description="Diámetro barras (mm)")
+    spacing: float = Field(..., description="Espaciamiento (cm)")
+
+    # Verificaciones
+    punching_shear_ratio: float = Field(..., alias="punchingShearRatio", description="Ratio punzonamiento")
+    beam_shear_ratio: float = Field(..., alias="beamShearRatio", description="Ratio cortante viga")
+
+    passes: bool = Field(..., description="¿Cumple el diseño?")

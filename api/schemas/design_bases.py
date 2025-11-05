@@ -167,7 +167,15 @@ class SeismicExport(BaseModel):
     result: SeismicResponse
 
 
+class BuildingDescription(BaseModel):
+    text: Optional[str] = None
+    location: Optional[str] = None
+    area: Optional[str] = None
+    height: Optional[str] = None
+
+
 class DesignBaseExportPayload(BaseModel):
+    building_description: Optional[BuildingDescription] = Field(None, alias="buildingDescription")
     live_load: Optional[LiveLoadExport] = Field(None, alias="liveLoad")
     reduction: Optional[LiveLoadReductionExport] = None
     wind: Optional[WindExport] = None
@@ -197,3 +205,30 @@ class DesignBaseDetail(BaseModel):
     data: dict
     created_at: str = Field(..., alias="createdAt")
     updated_at: str = Field(..., alias="updatedAt")
+
+
+class CreateDesignBaseRunRequest(BaseModel):
+    project_id: str = Field(..., alias="projectId")
+    name: str
+    data: DesignBaseExportPayload
+    design_base_id: Optional[str] = Field(None, alias="designBaseId")
+    project_name: Optional[str] = Field(None, alias="projectName")
+
+
+class DesignBaseRunSummary(BaseModel):
+    id: str
+    project_id: str = Field(..., alias="projectId")
+    design_base_id: Optional[str] = Field(None, alias="designBaseId")
+    name: str
+    document_url: Optional[str] = Field(None, alias="documentUrl")
+    created_at: str = Field(..., alias="createdAt")
+
+
+class DesignBaseRunDetail(BaseModel):
+    id: str
+    project_id: str = Field(..., alias="projectId")
+    design_base_id: Optional[str] = Field(None, alias="designBaseId")
+    name: str
+    data: dict
+    document_url: Optional[str] = Field(None, alias="documentUrl")
+    created_at: str = Field(..., alias="createdAt")

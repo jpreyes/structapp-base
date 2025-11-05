@@ -17,6 +17,7 @@ import {
   ListItemButton,
   ListItemText,
   MenuItem,
+  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -26,10 +27,15 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
+import DescriptionIcon from "@mui/icons-material/Description";
+import HistoryIcon from "@mui/icons-material/History";
+import DownloadIcon from "@mui/icons-material/Download";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useMutation } from "@tanstack/react-query";
 
 import apiClient from "../api/client";
 import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
+import { useProjects } from "../hooks/useProjects";
 
 interface LiveLoadResponse {
   buildingType: string;
@@ -135,12 +141,30 @@ const ProjectDesignBasesPage = () => {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  // Estados para descripción del edificio
+  const [buildingDescription, setBuildingDescription] = useState<string>("");
+  const [buildingLocation, setBuildingLocation] = useState<string>("");
+  const [buildingArea, setBuildingArea] = useState<string>("");
+  const [buildingHeight, setBuildingHeight] = useState<string>("");
+
   // Estado para guardar/cargar bases de cálculo
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [projectId, setProjectId] = useState(localStorage.getItem("activeProjectId") || "");
   const [savedBases, setSavedBases] = useState<Array<{ id: string; name: string; createdAt: string }>>([]);
+
+  // Cargar lista de proyectos
+  const { data: projects = [], isLoading: projectsLoading } = useProjects();
+
+  // Estado para generar documento Word y historial
+  const [generateDocDialogOpen, setGenerateDocDialogOpen] = useState(false);
+  const [docProjectName, setDocProjectName] = useState("");
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [runHistory, setRunHistory] = useState<Array<{ id: string; name: string; createdAt: string }>>([]);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
+  const [autoSaveSnackbar, setAutoSaveSnackbar] = useState(false);
 
   const liveLoadMutation = useMutation({
     mutationFn: async (payload: { buildingType: string; usage: string }) => {
@@ -226,6 +250,17 @@ const ProjectDesignBasesPage = () => {
 
   const buildExportPayload = () => {
     const payload: Record<string, unknown> = {};
+
+    // Agregar descripción del edificio si hay al menos un campo lleno
+    if (buildingDescription || buildingLocation || buildingArea || buildingHeight) {
+      payload.buildingDescription = {
+        text: buildingDescription || undefined,
+        location: buildingLocation || undefined,
+        area: buildingArea || undefined,
+        height: buildingHeight || undefined,
+      };
+    }
+
     if (liveLoadMutation.data) {
       payload.liveLoad = {
         buildingType,
@@ -383,6 +418,14 @@ const ProjectDesignBasesPage = () => {
       const { data } = await apiClient.get(`/design-bases/load/${id}`);
       const loadedData = data.data;
 
+      // Cargar descripción del edificio
+      if (loadedData.buildingDescription) {
+        setBuildingDescription(loadedData.buildingDescription.text || "");
+        setBuildingLocation(loadedData.buildingDescription.location || "");
+        setBuildingArea(loadedData.buildingDescription.area || "");
+        setBuildingHeight(loadedData.buildingDescription.height || "");
+      }
+
       // Cargar live load
       if (loadedData.liveLoad) {
         setBuildingType(loadedData.liveLoad.buildingType);
@@ -442,6 +485,133 @@ const ProjectDesignBasesPage = () => {
     }
   };
 
+  const handleGenerateDocument = async () => {
+    if (!docProjectName.trim() || !projectId) {
+      alert("Ingresa un nombre de proyecto");
+      return;
+    }
+    const payload = buildExportPayload();
+    if (!Object.keys(payload).length) {
+      alert("Genera al menos un cálculo antes de crear el documento.");
+      return;
+    }
+    try {
+      await apiClient.post("/design-bases/runs/create", {
+        projectId,
+        name: docProjectName,
+        projectName: docProjectName,
+        data: payload,
+      });
+      alert("Documento generado y guardado en el historial");
+      setGenerateDocDialogOpen(false);
+      setDocProjectName("");
+    } catch (error) {
+      alert(getErrorMessage(error) ?? "No se pudo generar el documento");
+    }
+  };
+
+  const handleViewHistory = async () => {
+    if (!projectId) {
+      alert("Selecciona un proyecto primero");
+      return;
+    }
+    try {
+      const { data } = await apiClient.get(`/design-bases/runs/list/${projectId}`);
+      setRunHistory(data);
+      setHistoryDialogOpen(true);
+    } catch (error) {
+      alert(getErrorMessage(error) ?? "No se pudo cargar el historial");
+    }
+  };
+
+  const handlePreviewDocument = async (runId: string) => {
+    try {
+      const { data } = await apiClient.get(`/design-bases/runs/get/${runId}`);
+      setPreviewData(data);
+      setPreviewDialogOpen(true);
+    } catch (error) {
+      alert(getErrorMessage(error) ?? "No se pudo cargar el preview");
+    }
+  };
+
+  const handleDownloadDocument = async (runId: string) => {
+    try {
+      const response = await apiClient.get(`/design-bases/runs/download/${runId}`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "bases_calculo.docx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert(getErrorMessage(error) ?? "No se pudo descargar el documento");
+    }
+  };
+
+  // Función para guardar automáticamente en el historial
+  const saveToHistoryAutomatically = async () => {
+    if (!projectId) return;
+
+    const payload = buildExportPayload();
+    if (!Object.keys(payload).length) return;
+
+    try {
+      const timestamp = new Date().toLocaleString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+      const autoName = `Cálculo ${timestamp}`;
+
+      await apiClient.post("/design-bases/runs/create", {
+        projectId,
+        name: autoName,
+        projectName: autoName,
+        data: payload,
+      });
+
+      console.log("Guardado automático en historial:", autoName);
+      setAutoSaveSnackbar(true);
+    } catch (error) {
+      console.error("Error al guardar automáticamente:", error);
+      // No mostramos alert para no interrumpir el flujo del usuario
+    }
+  };
+
+  // useEffect para guardar automáticamente cuando se completen cálculos importantes
+  useEffect(() => {
+    if (seismicMutation.isSuccess && seismicMutation.data && projectId) {
+      saveToHistoryAutomatically();
+    }
+  }, [seismicMutation.isSuccess, seismicMutation.data]);
+
+  useEffect(() => {
+    if (windMutation.isSuccess && windMutation.data && projectId) {
+      saveToHistoryAutomatically();
+    }
+  }, [windMutation.isSuccess, windMutation.data]);
+
+  useEffect(() => {
+    if (snowMutation.isSuccess && snowMutation.data && projectId) {
+      saveToHistoryAutomatically();
+    }
+  }, [snowMutation.isSuccess, snowMutation.data]);
+
+  useEffect(() => {
+    if (liveLoadMutation.isSuccess && liveLoadMutation.data && projectId) {
+      saveToHistoryAutomatically();
+    }
+  }, [liveLoadMutation.isSuccess, liveLoadMutation.data]);
+
   const handleAddStory = () => {
     const nextId = stories.length ? Math.max(...stories.map((s) => s.id)) + 1 : 1;
     setStories([...stories, { id: nextId, height: "3.0", weight: "300" }]);
@@ -495,7 +665,25 @@ const ProjectDesignBasesPage = () => {
         <Typography variant="h5" gutterBottom>
           Bases de cálculo y cargas de diseño
         </Typography>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <TextField
+            select
+            label="Proyecto"
+            size="small"
+            value={projectId}
+            onChange={(e) => {
+              setProjectId(e.target.value);
+              localStorage.setItem("activeProjectId", e.target.value);
+            }}
+            disabled={projectsLoading}
+            sx={{ width: 300 }}
+          >
+            {projects.map((project) => (
+              <MenuItem key={project.id} value={project.id}>
+                {project.name}
+              </MenuItem>
+            ))}
+          </TextField>
           <Button
             variant="outlined"
             startIcon={<FolderOpenIcon />}
@@ -512,8 +700,74 @@ const ProjectDesignBasesPage = () => {
           >
             Guardar
           </Button>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<DescriptionIcon />}
+            onClick={() => setGenerateDocDialogOpen(true)}
+            disabled={!hasAnyResult || !projectId}
+          >
+            Generar Word
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<HistoryIcon />}
+            onClick={handleViewHistory}
+            disabled={!projectId}
+          >
+            Historial
+          </Button>
         </Stack>
       </Box>
+
+      {/* Card de Descripción del Edificio */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Descripción del Edificio
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                label="Descripción General"
+                value={buildingDescription}
+                onChange={(e) => setBuildingDescription(e.target.value)}
+                fullWidth
+                multiline
+                rows={3}
+                placeholder="Ej: Edificio de oficinas de 5 pisos con estructura de hormigón armado..."
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Ubicación"
+                value={buildingLocation}
+                onChange={(e) => setBuildingLocation(e.target.value)}
+                fullWidth
+                placeholder="Ej: Av. Principal 123, Santiago"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Área Total (m²)"
+                value={buildingArea}
+                onChange={(e) => setBuildingArea(e.target.value)}
+                fullWidth
+                placeholder="Ej: 1250"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Altura Total (m)"
+                value={buildingHeight}
+                onChange={(e) => setBuildingHeight(e.target.value)}
+                fullWidth
+                placeholder="Ej: 18.5"
+              />
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
@@ -1143,17 +1397,7 @@ const ProjectDesignBasesPage = () => {
             value={saveName}
             onChange={(e) => setSaveName(e.target.value)}
             placeholder="Ej: Base sísmica edificio X"
-          />
-          <TextField
-            margin="dense"
-            label="Project ID"
-            fullWidth
-            value={projectId}
-            onChange={(e) => {
-              setProjectId(e.target.value);
-              localStorage.setItem("activeProjectId", e.target.value);
-            }}
-            helperText="ID del proyecto donde se guardará la base"
+            helperText={`Se guardará en el proyecto: ${projects.find(p => p.id === projectId)?.name || "No seleccionado"}`}
           />
         </DialogContent>
         <DialogActions>
@@ -1191,6 +1435,226 @@ const ProjectDesignBasesPage = () => {
           <Button onClick={() => setLoadDialogOpen(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Diálogo para generar documento Word */}
+      <Dialog open={generateDocDialogOpen} onClose={() => setGenerateDocDialogOpen(false)}>
+        <DialogTitle>Generar documento Word</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Nombre del proyecto"
+            fullWidth
+            value={docProjectName}
+            onChange={(e) => setDocProjectName(e.target.value)}
+            placeholder="Ej: Edificio Comercial Centro"
+            helperText="Este nombre aparecerá en el documento generado"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGenerateDocDialogOpen(false)}>Cancelar</Button>
+          <Button onClick={handleGenerateDocument} variant="contained" color="success">
+            Generar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo para historial de documentos */}
+      <Dialog open={historyDialogOpen} onClose={() => setHistoryDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Historial de documentos generados</DialogTitle>
+        <DialogContent>
+          {runHistory.length === 0 ? (
+            <Typography color="text.secondary" sx={{ py: 2 }}>
+              No hay documentos generados para este proyecto
+            </Typography>
+          ) : (
+            <List>
+              {runHistory.map((run) => (
+                <ListItem
+                  key={run.id}
+                  secondaryAction={
+                    <Stack direction="row" spacing={1}>
+                      <IconButton onClick={() => handlePreviewDocument(run.id)} title="Ver preview">
+                        <VisibilityIcon />
+                      </IconButton>
+                      <IconButton onClick={() => handleDownloadDocument(run.id)} title="Descargar">
+                        <DownloadIcon />
+                      </IconButton>
+                    </Stack>
+                  }
+                >
+                  <ListItemText
+                    primary={run.name}
+                    secondary={new Date(run.createdAt).toLocaleString()}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHistoryDialogOpen(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo para preview del documento */}
+      <Dialog open={previewDialogOpen} onClose={() => setPreviewDialogOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          Preview: {previewData?.name}
+          <IconButton
+            onClick={() => handleDownloadDocument(previewData?.id)}
+            sx={{ position: "absolute", right: 60, top: 8 }}
+            title="Descargar"
+          >
+            <DownloadIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {previewData && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {/* Información general */}
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Información del Documento
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Nombre:</strong> {previewData.name}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Fecha de creación:</strong> {new Date(previewData.createdAt).toLocaleString()}
+                  </Typography>
+                </CardContent>
+              </Card>
+
+              {/* Descripción del edificio */}
+              {previewData.data.buildingDescription && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Descripción del Edificio
+                    </Typography>
+                    {previewData.data.buildingDescription.text && (
+                      <Typography variant="body2" paragraph>
+                        <strong>Descripción:</strong> {previewData.data.buildingDescription.text}
+                      </Typography>
+                    )}
+                    {previewData.data.buildingDescription.location && (
+                      <Typography variant="body2">
+                        <strong>Ubicación:</strong> {previewData.data.buildingDescription.location}
+                      </Typography>
+                    )}
+                    {previewData.data.buildingDescription.area && (
+                      <Typography variant="body2">
+                        <strong>Área total:</strong> {previewData.data.buildingDescription.area} m²
+                      </Typography>
+                    )}
+                    {previewData.data.buildingDescription.height && (
+                      <Typography variant="body2">
+                        <strong>Altura:</strong> {previewData.data.buildingDescription.height} m
+                      </Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Cargas vivas */}
+              {previewData.data.liveLoad && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Cargas Vivas
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Tipo de edificio:</strong> {previewData.data.liveLoad.buildingType}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Uso:</strong> {previewData.data.liveLoad.usage}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Carga uniforme:</strong> {previewData.data.liveLoad.uniformLoadRaw}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Carga concentrada:</strong> {previewData.data.liveLoad.concentratedLoadRaw}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Viento */}
+              {previewData.data.wind && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Presión de Viento
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Entorno:</strong> {previewData.data.wind.environment}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Altura:</strong> {previewData.data.wind.height} m
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Presión:</strong> {previewData.data.wind.q?.toFixed(2)} kgf/m²
+                    </Typography>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Sismo */}
+              {previewData.data.seismic && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Análisis Sísmico
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Categoría:</strong> {previewData.data.seismic.params.category}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Zona:</strong> {previewData.data.seismic.params.zone}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Suelo:</strong> {previewData.data.seismic.params.soil}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Qbas,x:</strong> {previewData.data.seismic.result.Qbasx?.toFixed(2)} kN
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Qbas,y:</strong> {previewData.data.seismic.result.Qbasy?.toFixed(2)} kN
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Q0,min:</strong> {previewData.data.seismic.result.Q0Min?.toFixed(2)} kN
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Q0,max:</strong> {previewData.data.seismic.result.Q0Max?.toFixed(2)} kN
+                    </Typography>
+                  </CardContent>
+                </Card>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPreviewDialogOpen(false)}>Cerrar</Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={() => handleDownloadDocument(previewData?.id)}
+          >
+            Descargar Documento
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar para guardado automático */}
+      <Snackbar
+        open={autoSaveSnackbar}
+        autoHideDuration={3000}
+        onClose={() => setAutoSaveSnackbar(false)}
+        message="Guardado automáticamente en el historial"
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      />
     </Box>
   );
 };
