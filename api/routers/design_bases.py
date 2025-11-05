@@ -3,13 +3,17 @@ import io
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 
+from api.dependencies import UserIdDep
 from api.schemas.design_bases import (
+    DesignBaseDetail,
     DesignBaseExportPayload,
+    DesignBaseSummary,
     LiveLoadCatalogResponse,
     LiveLoadReductionRequest,
     LiveLoadReductionResponse,
     LiveLoadRequest,
     LiveLoadResponse,
+    SaveDesignBaseRequest,
     SeismicRequest,
     SeismicResponse,
     SnowRequest,
@@ -26,6 +30,12 @@ from services.design_bases_service import (
     get_design_base_options,
     export_design_bases,
     list_live_load_categories,
+)
+from services.design_bases_storage_service import (
+    delete_design_base,
+    get_design_base,
+    list_design_bases,
+    save_design_base,
 )
 
 router = APIRouter()
@@ -120,3 +130,67 @@ async def export_design_base(file_format: str, payload: DesignBaseExportPayload)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return StreamingResponse(io.BytesIO(content), media_type=content_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.post("/save", response_model=DesignBaseSummary)
+async def save_design_base_endpoint(payload: SaveDesignBaseRequest, user_id: UserIdDep):
+    """Guarda una base de cálculo en Supabase."""
+    try:
+        result = save_design_base(
+            project_id=payload.project_id,
+            user_id=user_id,
+            name=payload.name,
+            data=payload.data.dict(by_alias=True, exclude_none=True),
+            design_base_id=payload.design_base_id,
+        )
+        return DesignBaseSummary(
+            id=result["id"],
+            projectId=result["project_id"],
+            name=result["name"],
+            createdAt=result["created_at"],
+            updatedAt=result["updated_at"],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/list/{project_id}", response_model=list[DesignBaseSummary])
+async def list_design_bases_endpoint(project_id: str, user_id: UserIdDep):
+    """Lista todas las bases de cálculo de un proyecto."""
+    bases = list_design_bases(project_id=project_id, user_id=user_id)
+    return [
+        DesignBaseSummary(
+            id=base["id"],
+            projectId=base["project_id"],
+            name=base["name"],
+            createdAt=base["created_at"],
+            updatedAt=base["updated_at"],
+        )
+        for base in bases
+    ]
+
+
+@router.get("/load/{design_base_id}", response_model=DesignBaseDetail)
+async def load_design_base_endpoint(design_base_id: str, user_id: UserIdDep):
+    """Carga una base de cálculo específica."""
+    try:
+        base = get_design_base(design_base_id=design_base_id, user_id=user_id)
+        return DesignBaseDetail(
+            id=base["id"],
+            projectId=base["project_id"],
+            name=base["name"],
+            data=base["data"],
+            createdAt=base["created_at"],
+            updatedAt=base["updated_at"],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.delete("/delete/{design_base_id}")
+async def delete_design_base_endpoint(design_base_id: str, user_id: UserIdDep):
+    """Elimina una base de cálculo."""
+    success = delete_design_base(design_base_id=design_base_id, user_id=user_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Base de cálculo no encontrada")
+    return {"success": True}

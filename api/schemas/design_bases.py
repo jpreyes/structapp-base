@@ -105,6 +105,8 @@ class SeismicFloorForce(BaseModel):
 
 
 class SeismicResponse(BaseModel):
+    model_config = {"populate_by_name": True}
+
     intensity_factor: float = Field(..., alias="intensityFactor")
     zone_factor: float = Field(..., alias="zoneFactor")
     soil: dict
@@ -171,3 +173,27 @@ class DesignBaseExportPayload(BaseModel):
     wind: Optional[WindExport] = None
     snow: Optional[SnowExport] = None
     seismic: Optional[SeismicExport] = None
+
+
+class SaveDesignBaseRequest(BaseModel):
+    project_id: str = Field(..., alias="projectId")
+    name: str
+    data: DesignBaseExportPayload
+    design_base_id: Optional[str] = Field(None, alias="designBaseId")
+
+
+class DesignBaseSummary(BaseModel):
+    id: str
+    project_id: str = Field(..., alias="projectId")
+    name: str
+    created_at: str = Field(..., alias="createdAt")
+    updated_at: str = Field(..., alias="updatedAt")
+
+
+class DesignBaseDetail(BaseModel):
+    id: str
+    project_id: str = Field(..., alias="projectId")
+    name: str
+    data: dict
+    created_at: str = Field(..., alias="createdAt")
+    updated_at: str = Field(..., alias="updatedAt")

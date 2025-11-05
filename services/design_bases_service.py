@@ -24,15 +24,6 @@ def _safe_float(value: str) -> Optional[float]:
         return None
 
 
-def _sqrt_clamped(value: float) -> float:
-    if value < 0:
-        if value > -1e-9:
-            value = 0.0
-        else:
-            raise ValueError("Se detectó un valor negativo inesperado en la raíz cuadrada.")
-    return math.sqrt(value)
-
-
 LIVE_LOADS: Dict[str, List[Dict[str, object]]] = {
     category: [
         {
@@ -322,8 +313,10 @@ def calculate_seismic_base(
     Rasty = 1 + ty / (0.1 * T0_S + ty / r0)
 
     spectrum = []
-    for tn in (i / 100 for i in range(0, 501)):
-        alfa_S = (1 + 4.5 * (tn / T0_S) ** p_S) / (1 + (tn / T0_S) ** 3)
+    # Generar 21 puntos del espectro: de 0 a 5 segundos con paso de 0.25s
+    for i in range(21):
+        tn = i * 0.25
+        alfa_S = (1 + 4.5 * (tn / T0_S) ** p_S) / (1 + (tn / T0_S) ** 3) if tn > 0 else 1.0
         Sax = S_S * A_0 * alfa_S / (Rastx / I_s)
         SAy = S_S * A_0 * alfa_S / (Rasty / I_s)
         spectrum.append({"period": round(tn, 2), "SaX": round(Sax, 4), "SaY": round(SAy, 4)})
@@ -347,7 +340,20 @@ def calculate_seismic_base(
     for idx in range(1, len(cumulative_heights)):
         upper = cumulative_heights[idx]
         lower = cumulative_heights[idx - 1]
-        Ak_pks += (_sqrt_clamped(1 - lower / H_total) - _sqrt_clamped(1 - upper / H_total)) * weights[idx - 1]
+
+        # Calcular los términos dentro de la raíz
+        term_lower = 1.0 - (lower / H_total)
+        term_upper = 1.0 - (upper / H_total)
+
+        # Validar que los términos sean no negativos
+        if term_lower < 0 or term_upper < 0:
+            raise ValueError(
+                f"Error en cálculo sísmico: valores fuera de rango en nivel {idx}. "
+                f"lower={lower:.3f}, upper={upper:.3f}, H_total={H_total:.3f}, "
+                f"term_lower={term_lower:.6f}, term_upper={term_upper:.6f}"
+            )
+
+        Ak_pks += (math.sqrt(term_lower) - math.sqrt(term_upper)) * weights[idx - 1]
 
     if Ak_pks <= 0:
         raise ValueError("La combinación de alturas y pesos genera una base nula; revisa los datos ingresados.")
@@ -356,7 +362,20 @@ def calculate_seismic_base(
     for idx in range(1, len(cumulative_heights)):
         upper = cumulative_heights[idx]
         lower = cumulative_heights[idx - 1]
-        Ak = _sqrt_clamped(1 - lower / H_total) - _sqrt_clamped(1 - upper / H_total)
+
+        # Calcular los términos dentro de la raíz
+        term_lower = 1.0 - (lower / H_total)
+        term_upper = 1.0 - (upper / H_total)
+
+        # Validar que los términos sean no negativos
+        if term_lower < 0 or term_upper < 0:
+            raise ValueError(
+                f"Error en cálculo de fuerzas: valores fuera de rango en nivel {idx}. "
+                f"lower={lower:.3f}, upper={upper:.3f}, H_total={H_total:.3f}, "
+                f"term_lower={term_lower:.6f}, term_upper={term_upper:.6f}"
+            )
+
+        Ak = math.sqrt(term_lower) - math.sqrt(term_upper)
         Fkx = Ak * weights[idx - 1] * Qbasx / Ak_pks
         Fky = Ak * weights[idx - 1] * Qbasy / Ak_pks
         floor_forces.append({"level": idx, "Fkx": round(Fkx, 3), "Fky": round(Fky, 3)})

@@ -5,9 +5,17 @@ import {
   Button,
   Card,
   CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Grid,
   IconButton,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
   MenuItem,
   Stack,
   TextField,
@@ -16,6 +24,8 @@ import {
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
+import SaveIcon from "@mui/icons-material/Save";
+import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import { useMutation } from "@tanstack/react-query";
 
 import apiClient from "../api/client";
@@ -124,6 +134,13 @@ const ProjectDesignBasesPage = () => {
   ]);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // Estado para guardar/cargar bases de cálculo
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [projectId, setProjectId] = useState(localStorage.getItem("activeProjectId") || "");
+  const [savedBases, setSavedBases] = useState<Array<{ id: string; name: string; createdAt: string }>>([]);
 
   const liveLoadMutation = useMutation({
     mutationFn: async (payload: { buildingType: string; usage: string }) => {
@@ -323,6 +340,108 @@ const ProjectDesignBasesPage = () => {
     }
   };
 
+  const handleSaveDesignBase = async () => {
+    if (!saveName.trim() || !projectId) {
+      alert("Ingresa un nombre y asegúrate de tener un proyecto activo");
+      return;
+    }
+    const payload = buildExportPayload();
+    if (!Object.keys(payload).length) {
+      alert("Genera al menos un cálculo antes de guardar.");
+      return;
+    }
+    try {
+      await apiClient.post("/design-bases/save", {
+        projectId,
+        name: saveName,
+        data: payload,
+      });
+      alert("Base de cálculo guardada exitosamente");
+      setSaveDialogOpen(false);
+      setSaveName("");
+    } catch (error) {
+      alert(getErrorMessage(error) ?? "No se pudo guardar la base de cálculo");
+    }
+  };
+
+  const handleLoadList = async () => {
+    if (!projectId) {
+      alert("Selecciona un proyecto primero");
+      return;
+    }
+    try {
+      const { data } = await apiClient.get(`/design-bases/list/${projectId}`);
+      setSavedBases(data);
+      setLoadDialogOpen(true);
+    } catch (error) {
+      alert(getErrorMessage(error) ?? "No se pudo cargar la lista");
+    }
+  };
+
+  const handleLoadDesignBase = async (id: string) => {
+    try {
+      const { data } = await apiClient.get(`/design-bases/load/${id}`);
+      const loadedData = data.data;
+
+      // Cargar live load
+      if (loadedData.liveLoad) {
+        setBuildingType(loadedData.liveLoad.buildingType);
+        setUsage(loadedData.liveLoad.usage);
+        liveLoadMutation.mutate({ buildingType: loadedData.liveLoad.buildingType, usage: loadedData.liveLoad.usage });
+      }
+
+      // Cargar reduction
+      if (loadedData.reduction) {
+        setElementType(loadedData.reduction.elementType);
+        setTributaryArea(loadedData.reduction.tributaryArea.toString());
+        setManualBaseLoad(loadedData.reduction.baseLoad.toString());
+      }
+
+      // Cargar wind
+      if (loadedData.wind) {
+        setWindEnvironment(loadedData.wind.environment);
+        setWindHeight(loadedData.wind.height.toString());
+      }
+
+      // Cargar snow
+      if (loadedData.snow) {
+        setLatitudeBand(loadedData.snow.latitudeBand);
+        setAltitudeBand(loadedData.snow.altitudeBand);
+        setThermalCondition(loadedData.snow.thermalCondition);
+        setImportanceCategory(loadedData.snow.importanceCategory);
+        setExposureCategory(loadedData.snow.exposureCategory);
+        setExposureCondition(loadedData.snow.exposureCondition);
+        setSurfaceType(loadedData.snow.surfaceType);
+        setRoofPitch(loadedData.snow.roofPitch.toString());
+      }
+
+      // Cargar seismic
+      if (loadedData.seismic && loadedData.seismic.params) {
+        const params = loadedData.seismic.params;
+        setSeismicCategory(params.category);
+        setSeismicZone(params.zone);
+        setSeismicSoil(params.soil);
+        setRsValue(params.rs.toString());
+        setPsValue(params.ps.toString());
+        setTxValue(params.tx.toString());
+        setTyValue(params.ty.toString());
+        setR0Value(params.r0.toString());
+        if (params.stories) {
+          setStories(params.stories.map((s: any, idx: number) => ({
+            id: idx + 1,
+            height: s.height.toString(),
+            weight: s.weight.toString(),
+          })));
+        }
+      }
+
+      setLoadDialogOpen(false);
+      alert("Base de cálculo cargada exitosamente");
+    } catch (error) {
+      alert(getErrorMessage(error) ?? "No se pudo cargar la base de cálculo");
+    }
+  };
+
   const handleAddStory = () => {
     const nextId = stories.length ? Math.max(...stories.map((s) => s.id)) + 1 : 1;
     setStories([...stories, { id: nextId, height: "3.0", weight: "300" }]);
@@ -372,9 +491,29 @@ const ProjectDesignBasesPage = () => {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        Bases de cálculo y cargas de diseño
-      </Typography>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Typography variant="h5" gutterBottom>
+          Bases de cálculo y cargas de diseño
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<FolderOpenIcon />}
+            onClick={handleLoadList}
+            disabled={!projectId}
+          >
+            Cargar
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={() => setSaveDialogOpen(true)}
+            disabled={!hasAnyResult || !projectId}
+          >
+            Guardar
+          </Button>
+        </Stack>
+      </Box>
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
@@ -940,6 +1079,10 @@ const ProjectDesignBasesPage = () => {
                 <Typography>{seismicMutation.data.Qbasx.toFixed(3)} kN</Typography>
                 <Typography color="text.secondary">Q<sub>bas,y</sub></Typography>
                 <Typography>{seismicMutation.data.Qbasy.toFixed(3)} kN</Typography>
+                <Typography color="text.secondary">Q<sub>basal,mín</sub></Typography>
+                <Typography>{seismicMutation.data.Q0Min.toFixed(3)} kN</Typography>
+                <Typography color="text.secondary">Q<sub>basal,máx</sub></Typography>
+                <Typography>{seismicMutation.data.Q0Max.toFixed(3)} kN</Typography>
               </Box>
               <Typography variant="subtitle2">Distribución de fuerzas por nivel</Typography>
               <DataGrid
@@ -987,6 +1130,67 @@ const ProjectDesignBasesPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Diálogo para guardar */}
+      <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)}>
+        <DialogTitle>Guardar base de cálculo</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Nombre"
+            fullWidth
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            placeholder="Ej: Base sísmica edificio X"
+          />
+          <TextField
+            margin="dense"
+            label="Project ID"
+            fullWidth
+            value={projectId}
+            onChange={(e) => {
+              setProjectId(e.target.value);
+              localStorage.setItem("activeProjectId", e.target.value);
+            }}
+            helperText="ID del proyecto donde se guardará la base"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSaveDialogOpen(false)}>Cancelar</Button>
+          <Button onClick={handleSaveDesignBase} variant="contained">
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo para cargar */}
+      <Dialog open={loadDialogOpen} onClose={() => setLoadDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Cargar base de cálculo</DialogTitle>
+        <DialogContent>
+          {savedBases.length === 0 ? (
+            <Typography color="text.secondary" sx={{ py: 2 }}>
+              No hay bases guardadas para este proyecto
+            </Typography>
+          ) : (
+            <List>
+              {savedBases.map((base) => (
+                <ListItem key={base.id} disablePadding>
+                  <ListItemButton onClick={() => handleLoadDesignBase(base.id)}>
+                    <ListItemText
+                      primary={base.name}
+                      secondary={new Date(base.createdAt).toLocaleString()}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLoadDialogOpen(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
