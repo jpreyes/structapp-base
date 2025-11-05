@@ -11,3 +11,5 @@ fastapi==0.112.2
 uvicorn==0.30.6
 streamlit-calendar==0.3.3
 email-validator==2.2.0
+python-docx==0.8.11
+reportlab==4.1.0

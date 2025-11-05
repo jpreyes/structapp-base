@@ -1,0 +1,96 @@
+*** Update File: frontend/src/pages/ProjectDesignBasesPage.tsx
+@@
+-              <TextField
+-                label="??rea tributaria (m??)"
+-                type="number"
+-                value={tributaryArea}
+-                onChange={(event) => setTributaryArea(event.target.value)}
+-                fullWidth
+-              />
+-              <TextField
+-                label="Carga base (kN/m??)"
+-                type="number"
+-                value={manualBaseLoad}
+-                onChange={(event) => setManualBaseLoad(event.target.value)}
+-                helperText={
+-                  baseUniformLoad
+-                    ? `Valor sugerido seggn catologo: ${baseUniformLoad.toFixed(2)}`
+-                    : "Ingresa la carga uniforme que deseas reducir."
+-                }
+-                fullWidth
+-              />
+-              <Button
+-                variant="contained"
+-                onClick={() => {
+-                  const areaValue = Number(tributaryArea);
+-                  const baseLoadValue =
+-                    manualBaseLoad !== "" ? Number(manualBaseLoad) : baseUniformLoad ?? Number.NaN;
+-                  if (!Number.isFinite(areaValue) || !Number.isFinite(baseLoadValue)) {
+-                    return;
+-                  }
+-                  liveLoadReductionMutation.mutate({
+-                    elementType,
+-                    tributaryArea: areaValue,
+-                    baseLoad: baseLoadValue,
+-                  });
+-                }}
+-                disabled={
+-                  !elementType ||
+-                  !tributaryArea ||
+-                  manualBaseLoad === "" ||
+-                  liveLoadReductionMutation.isPending ||
+-                  Number(tributaryArea) <= 0 ||
+-                  Number(manualBaseLoad) <= 0
+-                }
+-              >
++              <TextField
++                label="Área tributaria (m²)"
++                type="number"
++                value={tributaryArea}
++                onChange={(event) => setTributaryArea(event.target.value)}
++                fullWidth
++              />
++              <TextField
++                label="Carga base (kN/m²)"
++                type="number"
++                value={manualBaseLoad}
++                onChange={(event) => setManualBaseLoad(event.target.value)}
++                helperText={
++                  baseUniformLoad
++                    ? `Valor sugerido según catálogo: ${baseUniformLoad.toFixed(2)}`
++                    : "Ingresa la carga uniforme que deseas reducir."
++                }
++                fullWidth
++              />
++              <Button
++                variant="contained"
++                onClick={() => {
++                  const areaValue = Number(tributaryArea);
++                  const baseLoad = baseLoadValue;
++                  if (
++                    !Number.isFinite(areaValue) ||
++                    !baseLoad ||
++                    !Number.isFinite(baseLoad)
++                  ) {
++                    return;
++                  }
++                  liveLoadReductionMutation.mutate({
++                    elementType,
++                    tributaryArea: areaValue,
++                    baseLoad,
++                  });
++                }}
++                disabled={
++                  !elementType ||
++                  !tributaryArea ||
++                  baseLoadValue === undefined ||
++                  !Number.isFinite(Number(tributaryArea)) ||
++                  !Number.isFinite(baseLoadValue ?? NaN) ||
++                  Number(tributaryArea) <= 0 ||
++                  (baseLoadValue ?? 0) <= 0 ||
++                  liveLoadReductionMutation.isPending
++                }
++              >
+                 Calcular carga reducida
+               </Button>
+*** End Patch

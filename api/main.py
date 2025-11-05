@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import auth, projects, tasks, payments, calculations
+from api.routers import auth, projects, tasks, payments, calculations, design_bases
 
 app = FastAPI(title="StructApp API", version="0.1.0")
 
@@ -19,6 +19,7 @@ app.include_router(projects.router, prefix="/projects", tags=["projects"])
 app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 app.include_router(payments.router, prefix="/payments", tags=["payments"])
 app.include_router(calculations.router, prefix="/calculations", tags=["calculations"])
+app.include_router(design_bases.router, prefix="/design-bases", tags=["design-bases"])
 
 
 @app.get("/health")

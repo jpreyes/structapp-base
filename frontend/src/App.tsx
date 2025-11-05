@@ -10,6 +10,7 @@ import RequireAuth from "./components/RequireAuth";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import ProjectCalculationsPage from "./pages/ProjectCalculationsPage";
 import ProjectDocumentationPage from "./pages/ProjectDocumentationPage";
+import ProjectDesignBasesPage from "./pages/ProjectDesignBasesPage";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/projects/calculations" element={<ProjectCalculationsPage />} />
+          <Route path="/projects/bases" element={<ProjectDesignBasesPage />} />
           <Route path="/projects/documentation" element={<ProjectDocumentationPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/payments" element={<PaymentsPage />} />

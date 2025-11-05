@@ -18,6 +18,7 @@ import PaymentIcon from "@mui/icons-material/Payments";
 import MenuIcon from "@mui/icons-material/Menu";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import DescriptionIcon from "@mui/icons-material/Description";
+import ArchitectureIcon from "@mui/icons-material/Architecture";
 import LoginIcon from "@mui/icons-material/Login";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
@@ -40,6 +41,13 @@ const Layout = () => {
         label: "Cálculos de proyecto",
         icon: <CalculateIcon />,
         path: "/projects/calculations",
+        requiresAuth: true,
+        indent: true,
+      },
+      {
+        label: "Bases de cálculo",
+        icon: <ArchitectureIcon />,
+        path: "/projects/bases",
         requiresAuth: true,
         indent: true,
       },
