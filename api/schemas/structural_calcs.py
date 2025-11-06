@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 
 class ConcreteColumnRequest(BaseModel):
     """Parámetros para diseño de pilar de hormigón armado."""
+    model_config = {"populate_by_name": True}
+
     # Esfuerzos
     axial_load: float = Field(..., alias="axialLoad", description="Carga axial (kN)")
     moment_x: float = Field(..., alias="momentX", description="Momento flector eje X (kN·m)")
@@ -33,29 +35,41 @@ class ConcreteColumnRequest(BaseModel):
 
     # Parámetros adicionales
     cover: float = Field(4.0, gt=0, description="Recubrimiento (cm)")
-    k_factor: float = Field(1.0, alias="kFactor", ge=0.5, le=2.0, description="Factor de longitud efectiva")
+    unsupported_length: Optional[float] = Field(None, alias="unsupportedLength", gt=0, description="Longitud sin apoyo lateral (m)")
+
+
+class LongitudinalSteel(BaseModel):
+    """Refuerzo longitudinal."""
+    num_bars: int = Field(..., alias="numBars", description="Número de barras")
+    bar_diameter: float = Field(..., alias="barDiameter", description="Diámetro de barras (mm)")
+    total_area: float = Field(..., alias="totalArea", description="Área total (mm²)")
+    ratio: float = Field(..., description="Cuantía de acero")
+
+
+class TransverseSteel(BaseModel):
+    """Refuerzo transversal."""
+    diameter: float = Field(..., description="Diámetro de estribos (mm)")
+    spacing: float = Field(..., description="Espaciamiento (mm)")
 
 
 class ConcreteColumnResponse(BaseModel):
     """Resultados del diseño de pilar de hormigón."""
     # Capacidad
-    pn_max: float = Field(..., alias="pnMax", description="Capacidad axial máxima (kN)")
-    mn_x: float = Field(..., alias="mnX", description="Momento nominal X (kN·m)")
-    mn_y: float = Field(..., alias="mnY", description="Momento nominal Y (kN·m)")
-    vn_x: float = Field(..., alias="vnX", description="Cortante nominal X (kN)")
-    vn_y: float = Field(..., alias="vnY", description="Cortante nominal Y (kN)")
+    axial_capacity: float = Field(..., alias="axialCapacity", description="Capacidad axial (kN)")
+    axial_capacity_ratio: float = Field(..., alias="axialCapacityRatio", description="Ratio de capacidad axial")
 
     # Diseño de refuerzo
-    as_required: float = Field(..., alias="asRequired", description="Área de acero requerida (cm²)")
-    rho: float = Field(..., description="Cuantía de acero (%)")
-    num_bars: int = Field(..., alias="numBars", description="Número de barras")
-    bar_diameter: float = Field(..., alias="barDiameter", description="Diámetro de barras (mm)")
+    longitudinal_steel: LongitudinalSteel = Field(..., alias="longitudinalSteel")
+    transverse_steel: TransverseSteel = Field(..., alias="transverseSteel")
 
-    # Verificaciones
+    # Verificaciones de corte
+    shear_capacity_ratio_x: float = Field(..., alias="shearCapacityRatioX", description="Ratio corte X")
+    shear_capacity_ratio_y: float = Field(..., alias="shearCapacityRatioY", description="Ratio corte Y")
+
+    # Esbeltez
     slenderness_ratio: float = Field(..., alias="slendernessRatio", description="Esbeltez")
-    is_short_column: bool = Field(..., alias="isShortColumn", description="¿Es columna corta?")
-    utilization_ratio: float = Field(..., alias="utilizationRatio", description="Ratio de utilización")
-    passes: bool = Field(..., description="¿Cumple el diseño?")
+    magnification_factor: float = Field(..., alias="magnificationFactor", description="Factor de magnificación")
+    is_slender: bool = Field(..., alias="isSlender", description="¿Es columna esbelta?")
 
 
 # ============================================================================

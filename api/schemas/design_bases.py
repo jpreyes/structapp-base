@@ -1,6 +1,15 @@
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, validator
+from api.schemas.structural_calcs import (
+    ConcreteBeamResponse,
+    ConcreteColumnResponse,
+    FootingResponse,
+    SteelBeamResponse,
+    SteelColumnResponse,
+    WoodBeamResponse,
+    WoodColumnResponse,
+)
 
 
 class LiveLoadUsage(BaseModel):
@@ -174,6 +183,18 @@ class BuildingDescription(BaseModel):
     height: Optional[str] = None
 
 
+class StructuralCalculations(BaseModel):
+    """Resultados de cálculos estructurales."""
+
+    concrete_column: Optional[ConcreteColumnResponse] = Field(None, alias="concreteColumn")
+    concrete_beam: Optional[ConcreteBeamResponse] = Field(None, alias="concreteBeam")
+    steel_column: Optional[SteelColumnResponse] = Field(None, alias="steelColumn")
+    steel_beam: Optional[SteelBeamResponse] = Field(None, alias="steelBeam")
+    wood_column: Optional[WoodColumnResponse] = Field(None, alias="woodColumn")
+    wood_beam: Optional[WoodBeamResponse] = Field(None, alias="woodBeam")
+    footing: Optional[FootingResponse] = None
+
+
 class DesignBaseExportPayload(BaseModel):
     building_description: Optional[BuildingDescription] = Field(None, alias="buildingDescription")
     live_load: Optional[LiveLoadExport] = Field(None, alias="liveLoad")
@@ -181,6 +202,7 @@ class DesignBaseExportPayload(BaseModel):
     wind: Optional[WindExport] = None
     snow: Optional[SnowExport] = None
     seismic: Optional[SeismicExport] = None
+    structural: Optional[StructuralCalculations] = None
 
 
 class SaveDesignBaseRequest(BaseModel):

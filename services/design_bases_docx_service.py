@@ -148,6 +148,166 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
             "seismic.result.Qbasy": _format_value(result.get("Qbasy")),
         })
 
+    # CÁLCULOS ESTRUCTURALES
+    if "structural" in data and data["structural"]:
+        struct = data["structural"]
+
+        # Pilar de Hormigón Armado
+        if "concreteColumn" in struct and struct["concreteColumn"]:
+            cc = struct["concreteColumn"]
+            context.update({
+                "concrete.column.axialCapacity": _format_value(cc.get("axialCapacity")),
+                "concrete.column.axialCapacityRatio": _format_value(cc.get("axialCapacityRatio"), 3),
+                "concrete.column.longitudinalSteel.numBars": str(cc.get("longitudinalSteel", {}).get("numBars", "")),
+                "concrete.column.longitudinalSteel.barDiameter": str(cc.get("longitudinalSteel", {}).get("barDiameter", "")),
+                "concrete.column.longitudinalSteel.totalArea": _format_value(cc.get("longitudinalSteel", {}).get("totalArea")),
+                "concrete.column.longitudinalSteel.ratio": _format_value(cc.get("longitudinalSteel", {}).get("ratio"), 4),
+                "concrete.column.transverseSteel.diameter": str(cc.get("transverseSteel", {}).get("diameter", "")),
+                "concrete.column.transverseSteel.spacing": _format_value(cc.get("transverseSteel", {}).get("spacing"), 0),
+                "concrete.column.shearCapacityRatioX": _format_value(cc.get("shearCapacityRatioX"), 3),
+                "concrete.column.shearCapacityRatioY": _format_value(cc.get("shearCapacityRatioY"), 3),
+                "concrete.column.slendernessRatio": _format_value(cc.get("slendernessRatio")),
+                "concrete.column.magnificationFactor": _format_value(cc.get("magnificationFactor"), 3),
+                "concrete.column.isSlender": str(cc.get("isSlender", "")),
+            })
+
+        # Viga de Hormigón Armado
+        if "concreteBeam" in struct and struct["concreteBeam"]:
+            cb = struct["concreteBeam"]
+            context.update({
+                "concrete.beam.positiveReinforcement.numBars": str(cb.get("positiveReinforcement", {}).get("numBars", "")),
+                "concrete.beam.positiveReinforcement.barDiameter": str(cb.get("positiveReinforcement", {}).get("barDiameter", "")),
+                "concrete.beam.positiveReinforcement.totalArea": _format_value(cb.get("positiveReinforcement", {}).get("totalArea")),
+                "concrete.beam.positiveReinforcement.ratio": _format_value(cb.get("positiveReinforcement", {}).get("ratio"), 4),
+                "concrete.beam.negativeReinforcement.numBars": str(cb.get("negativeReinforcement", {}).get("numBars", "")),
+                "concrete.beam.negativeReinforcement.barDiameter": str(cb.get("negativeReinforcement", {}).get("barDiameter", "")),
+                "concrete.beam.negativeReinforcement.totalArea": _format_value(cb.get("negativeReinforcement", {}).get("totalArea")),
+                "concrete.beam.negativeReinforcement.ratio": _format_value(cb.get("negativeReinforcement", {}).get("ratio"), 4),
+                "concrete.beam.transverseSteel.diameter": str(cb.get("transverseSteel", {}).get("diameter", "")),
+                "concrete.beam.transverseSteel.spacing": _format_value(cb.get("transverseSteel", {}).get("spacing"), 0),
+                "concrete.beam.shearCapacityRatio": _format_value(cb.get("shearCapacityRatio"), 3),
+                "concrete.beam.deflectionCheck": cb.get("deflectionCheck", ""),
+                "concrete.beam.effectiveDepth": _format_value(cb.get("effectiveDepth")),
+            })
+
+        # Pilar de Acero
+        if "steelColumn" in struct and struct["steelColumn"]:
+            sc = struct["steelColumn"]
+            context.update({
+                "steel.column.section": sc.get("section", ""),
+                "steel.column.axialCapacity": _format_value(sc.get("axialCapacity")),
+                "steel.column.axialCapacityRatio": _format_value(sc.get("axialCapacityRatio"), 3),
+                "steel.column.momentCapacityX": _format_value(sc.get("momentCapacityX")),
+                "steel.column.momentCapacityY": _format_value(sc.get("momentCapacityY")),
+                "steel.column.momentCapacityRatioX": _format_value(sc.get("momentCapacityRatioX"), 3),
+                "steel.column.momentCapacityRatioY": _format_value(sc.get("momentCapacityRatioY"), 3),
+                "steel.column.slendernessX": _format_value(sc.get("slendernessX")),
+                "steel.column.slendernessY": _format_value(sc.get("slendernessY")),
+                "steel.column.slendernessMax": _format_value(sc.get("slendernessMax")),
+                "steel.column.interactionRatio": _format_value(sc.get("interactionRatio"), 3),
+                "steel.column.checkStatus": sc.get("checkStatus", ""),
+            })
+
+        # Viga de Acero
+        if "steelBeam" in struct and struct["steelBeam"]:
+            sb = struct["steelBeam"]
+            context.update({
+                "steel.beam.section": sb.get("section", ""),
+                "steel.beam.momentCapacity": _format_value(sb.get("momentCapacity")),
+                "steel.beam.momentCapacityRatio": _format_value(sb.get("momentCapacityRatio"), 3),
+                "steel.beam.shearCapacity": _format_value(sb.get("shearCapacity")),
+                "steel.beam.shearCapacityRatio": _format_value(sb.get("shearCapacityRatio"), 3),
+                "steel.beam.deflection": _format_value(sb.get("deflection")),
+                "steel.beam.deflectionLimit": _format_value(sb.get("deflectionLimit")),
+                "steel.beam.deflectionRatio": _format_value(sb.get("deflectionRatio"), 3),
+                "steel.beam.lateralBracingLength": _format_value(sb.get("lateralBracingLength"), 0),
+                "steel.beam.checkStatus": sb.get("checkStatus", ""),
+            })
+
+        # Pilar de Madera
+        if "woodColumn" in struct and struct["woodColumn"]:
+            wc = struct["woodColumn"]
+            context.update({
+                "wood.column.woodType": wc.get("woodType", ""),
+                "wood.column.area": _format_value(wc.get("area")),
+                "wood.column.axialCapacity": _format_value(wc.get("axialCapacity")),
+                "wood.column.axialCapacityRatio": _format_value(wc.get("axialCapacityRatio"), 3),
+                "wood.column.slendernessX": _format_value(wc.get("slendernessX")),
+                "wood.column.slendernessY": _format_value(wc.get("slendernessY")),
+                "wood.column.slendernessMax": _format_value(wc.get("slendernessMax")),
+                "wood.column.stabilityFactor": _format_value(wc.get("stabilityFactor"), 3),
+                "wood.column.isSlender": str(wc.get("isSlender", "")),
+                "wood.column.allowableStress": _format_value(wc.get("allowableStress")),
+                "wood.column.checkStatus": wc.get("checkStatus", ""),
+            })
+
+        # Viga de Madera
+        if "woodBeam" in struct and struct["woodBeam"]:
+            wb = struct["woodBeam"]
+            context.update({
+                "wood.beam.woodType": wb.get("woodType", ""),
+                "wood.beam.area": _format_value(wb.get("area")),
+                "wood.beam.sectionModulus": _format_value(wb.get("sectionModulus")),
+                "wood.beam.momentOfInertia": _format_value(wb.get("momentOfInertia")),
+                "wood.beam.flexureStress": _format_value(wb.get("flexureStress")),
+                "wood.beam.allowableFlexureStress": _format_value(wb.get("allowableFlexureStress")),
+                "wood.beam.flexureRatio": _format_value(wb.get("flexureRatio"), 3),
+                "wood.beam.shearStress": _format_value(wb.get("shearStress")),
+                "wood.beam.allowableShearStress": _format_value(wb.get("allowableShearStress")),
+                "wood.beam.shearRatio": _format_value(wb.get("shearRatio"), 3),
+                "wood.beam.deflection": _format_value(wb.get("deflection")),
+                "wood.beam.deflectionLimit": _format_value(wb.get("deflectionLimit")),
+                "wood.beam.deflectionRatio": _format_value(wb.get("deflectionRatio"), 3),
+                "wood.beam.lateralStabilityFactor": _format_value(wb.get("lateralStabilityFactor"), 3),
+                "wood.beam.checkStatus": wb.get("checkStatus", ""),
+            })
+
+        # Zapata
+        if "footing" in struct and struct["footing"]:
+            ft = struct["footing"]
+            context.update({
+                "footing.footingType": ft.get("footingType", ""),
+                "footing.dimensions.length": _format_value(ft.get("dimensions", {}).get("length"), 1),
+                "footing.dimensions.width": _format_value(ft.get("dimensions", {}).get("width"), 1),
+                "footing.dimensions.depth": _format_value(ft.get("dimensions", {}).get("depth"), 1),
+                "footing.dimensions.area": _format_value(ft.get("dimensions", {}).get("area"), 3),
+                "footing.soilPressures.max": _format_value(ft.get("soilPressures", {}).get("max")),
+                "footing.soilPressures.min": _format_value(ft.get("soilPressures", {}).get("min")),
+                "footing.soilPressures.average": _format_value(ft.get("soilPressures", {}).get("average")),
+                "footing.soilPressures.ratio": _format_value(ft.get("soilPressures", {}).get("ratio"), 3),
+                "footing.lateralPressures.static": _format_value(ft.get("lateralPressures", {}).get("static")),
+                "footing.lateralPressures.dynamic": _format_value(ft.get("lateralPressures", {}).get("dynamic")),
+                "footing.lateralPressures.seismic": _format_value(ft.get("lateralPressures", {}).get("seismic")),
+                "footing.lateralPressures.total": _format_value(ft.get("lateralPressures", {}).get("total")),
+                "footing.punchingShear.appliedForce": _format_value(ft.get("punchingShear", {}).get("appliedForce")),
+                "footing.punchingShear.capacity": _format_value(ft.get("punchingShear", {}).get("capacity")),
+                "footing.punchingShear.ratio": _format_value(ft.get("punchingShear", {}).get("ratio"), 3),
+                "footing.punchingShear.criticalPerimeter": _format_value(ft.get("punchingShear", {}).get("criticalPerimeter"), 0),
+                "footing.flexuralShear.appliedForce": _format_value(ft.get("flexuralShear", {}).get("appliedForce")),
+                "footing.flexuralShear.capacity": _format_value(ft.get("flexuralShear", {}).get("capacity")),
+                "footing.flexuralShear.ratio": _format_value(ft.get("flexuralShear", {}).get("ratio"), 3),
+                "footing.checkStatus": ft.get("checkStatus", ""),
+            })
+
+            # Refuerzo (varía según el tipo)
+            reinforcement = ft.get("reinforcement", {})
+            if "xDirection" in reinforcement:  # Zapata aislada
+                context.update({
+                    "footing.reinforcement.xDirection.barDiameter": str(reinforcement.get("xDirection", {}).get("barDiameter", "")),
+                    "footing.reinforcement.xDirection.spacing": _format_value(reinforcement.get("xDirection", {}).get("spacing"), 0),
+                    "footing.reinforcement.yDirection.barDiameter": str(reinforcement.get("yDirection", {}).get("barDiameter", "")),
+                    "footing.reinforcement.yDirection.spacing": _format_value(reinforcement.get("yDirection", {}).get("spacing"), 0),
+                })
+            elif "main" in reinforcement:  # Zapata corrida
+                context.update({
+                    "footing.reinforcement.main.barDiameter": str(reinforcement.get("main", {}).get("barDiameter", "")),
+                    "footing.reinforcement.main.spacing": _format_value(reinforcement.get("main", {}).get("spacing"), 0),
+                    "footing.reinforcement.main.direction": reinforcement.get("main", {}).get("direction", ""),
+                    "footing.reinforcement.distribution.barDiameter": str(reinforcement.get("distribution", {}).get("barDiameter", "")),
+                    "footing.reinforcement.distribution.spacing": _format_value(reinforcement.get("distribution", {}).get("spacing"), 0),
+                    "footing.reinforcement.distribution.direction": reinforcement.get("distribution", {}).get("direction", ""),
+                })
+
     return context
 
 

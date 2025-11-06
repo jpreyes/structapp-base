@@ -23,6 +23,7 @@ import { useProjects } from "../hooks/useProjects";
 import { useSession } from "../store/useSession";
 import { useCalculationRuns, CalculationRun } from "../hooks/useCalculationRuns";
 import apiClient from "../api/client";
+import { useConcreteColumn, ConcreteColumnResponse } from "../hooks/useStructuralCalcs";
 
 type RCBeamForm = {
   b_mm: number;
@@ -37,6 +38,19 @@ type RCBeamResult = {
   ok: boolean;
 };
 
+type RCColumnForm = {
+  axialLoad: number;
+  momentX: number;
+  momentY: number;
+  shearX: number;
+  shearY: number;
+  width: number;
+  depth: number;
+  length: number;
+  fc: number;
+  fy: number;
+};
+
 type CalculationType = {
   value: string;
   label: string;
@@ -47,53 +61,72 @@ type CalculationType = {
 const calculationTypes: CalculationType[] = [
   {
     value: "rc_beam",
-    label: "RC Beam",
+    label: "Viga de Hormigón",
     description: "Vigas de hormigón armado: cálculo de momento flector y acero mínimo requerido.",
     implemented: true,
   },
   {
+    value: "rc_column",
+    label: "Pilar de Hormigón (ACI318)",
+    description: "Pilares de hormigón armado para carga axial y flexocompresión según ACI318.",
+    implemented: true,
+  },
+  {
     value: "rc_slab",
-    label: "RC Slab",
+    label: "Losa de Hormigón",
     description: "Losas de hormigón armado: diseño de secciones y cuantía de refuerzo.",
     implemented: false,
   },
   {
-    value: "rc_column",
-    label: "RC Column",
-    description: "Columnas de hormigón armado para carga axial y flexocompresión.",
-    implemented: false,
-  },
-  {
-    value: "foundation",
-    label: "Fundaciones",
-    description: "Zapatas aisladas, corridas y losas de fundación.",
+    value: "steel_column",
+    label: "Pilar de Acero (AISC360)",
+    description: "Pilares de acero estructural para cargas de compresión y flexión según AISC360.",
     implemented: false,
   },
   {
     value: "steel_beam",
-    label: "Steel Beam",
-    description: "Vigas de acero estructural según perfiles estándar.",
+    label: "Viga de Acero (AISC360)",
+    description: "Vigas de acero estructural según perfiles estándar y AISC360.",
     implemented: false,
   },
   {
-    value: "steel_column",
-    label: "Steel Column",
-    description: "Columnas de acero para cargas de compresión y flexión.",
+    value: "wood_column",
+    label: "Pilar de Madera (NCh1198)",
+    description: "Pilares de madera según normativa chilena NCh1198.",
     implemented: false,
   },
   {
     value: "wood_beam",
-    label: "Wood Beam",
-    description: "Vigas de madera dimensionada y laminada.",
+    label: "Viga de Madera (NCh1198)",
+    description: "Vigas de madera dimensionada y laminada según NCh1198.",
+    implemented: false,
+  },
+  {
+    value: "footing",
+    label: "Zapatas (ACI318)",
+    description: "Zapatas aisladas y corridas de hormigón armado según ACI318.",
     implemented: false,
   },
 ];
 
-const defaultForm: RCBeamForm = {
+const defaultBeamForm: RCBeamForm = {
   b_mm: 300,
   h_mm: 500,
   L_m: 5,
   wl_kN_m: 12,
+};
+
+const defaultColumnForm: RCColumnForm = {
+  axialLoad: 500,
+  momentX: 50,
+  momentY: 40,
+  shearX: 30,
+  shearY: 25,
+  width: 40,
+  depth: 40,
+  length: 3.0,
+  fc: 25,
+  fy: 420,
 };
 
 const ProjectCalculationsPage = () => {
@@ -104,8 +137,9 @@ const ProjectCalculationsPage = () => {
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(sessionProjectId);
   const [selectedType, setSelectedType] = useState<string>("rc_beam");
-  const [form, setForm] = useState<RCBeamForm>(defaultForm);
-  const [result, setResult] = useState<RCBeamResult | null>(null);
+  const [beamForm, setBeamForm] = useState<RCBeamForm>(defaultBeamForm);
+  const [columnForm, setColumnForm] = useState<RCColumnForm>(defaultColumnForm);
+  const [result, setResult] = useState<RCBeamResult | ConcreteColumnResponse | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [selectionModel, setSelectionModel] = useState<GridRowSelectionModel>([]);
 
@@ -134,6 +168,8 @@ const ProjectCalculationsPage = () => {
     setSelectionModel([]);
   }, [selectedProjectId]);
 
+  const concreteColumnMutation = useConcreteColumn();
+
   const rcBeamMutation = useMutation({
     mutationFn: async () => {
       if (!selectedProjectId) {
@@ -145,10 +181,10 @@ const ProjectCalculationsPage = () => {
       const payload = {
         project_id: selectedProjectId,
         user_id: user.id,
-        b_mm: form.b_mm,
-        h_mm: form.h_mm,
-        L_m: form.L_m,
-        wl_kN_m: form.wl_kN_m,
+        b_mm: beamForm.b_mm,
+        h_mm: beamForm.h_mm,
+        L_m: beamForm.L_m,
+        wl_kN_m: beamForm.wl_kN_m,
       };
       const { data } = await apiClient.post<{ results: RCBeamResult; run_id: string }>(
         "/calculations/rc-beam",
@@ -164,11 +200,18 @@ const ProjectCalculationsPage = () => {
     },
   });
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmitBeam = (event: React.FormEvent) => {
     event.preventDefault();
     setResult(null);
     setRunId(null);
     rcBeamMutation.mutate();
+  };
+
+  const handleSubmitColumn = (event: React.FormEvent) => {
+    event.preventDefault();
+    setResult(null);
+    setRunId(null);
+    concreteColumnMutation.mutate(columnForm);
   };
 
   const handleDownloadReport = () => {
@@ -185,11 +228,11 @@ const ProjectCalculationsPage = () => {
       setSelectionModel([run.id]);
       if (run.element_type === "rc_beam") {
         const inputs = run.input_json as Partial<RCBeamForm>;
-        setForm({
-          b_mm: Number(inputs.b_mm ?? defaultForm.b_mm),
-          h_mm: Number(inputs.h_mm ?? defaultForm.h_mm),
-          L_m: Number(inputs.L_m ?? defaultForm.L_m),
-          wl_kN_m: Number(inputs.wl_kN_m ?? defaultForm.wl_kN_m),
+        setBeamForm({
+          b_mm: Number(inputs.b_mm ?? defaultBeamForm.b_mm),
+          h_mm: Number(inputs.h_mm ?? defaultBeamForm.h_mm),
+          L_m: Number(inputs.L_m ?? defaultBeamForm.L_m),
+          wl_kN_m: Number(inputs.wl_kN_m ?? defaultBeamForm.wl_kN_m),
         });
         const res = run.result_json as Partial<RCBeamResult>;
         setResult({
@@ -332,9 +375,9 @@ const ProjectCalculationsPage = () => {
                       <TextField
                         label="Ancho b (mm)"
                         type="number"
-                        value={form.b_mm}
+                        value={beamForm.b_mm}
                         onChange={(event) =>
-                          setForm((prev) => ({ ...prev, b_mm: Number(event.target.value) || 0 }))
+                          setBeamForm((prev) => ({ ...prev, b_mm: Number(event.target.value) || 0 }))
                         }
                         required
                         inputProps={{ min: 0 }}
@@ -343,9 +386,9 @@ const ProjectCalculationsPage = () => {
                       <TextField
                         label="Altura h (mm)"
                         type="number"
-                        value={form.h_mm}
+                        value={beamForm.h_mm}
                         onChange={(event) =>
-                          setForm((prev) => ({ ...prev, h_mm: Number(event.target.value) || 0 }))
+                          setBeamForm((prev) => ({ ...prev, h_mm: Number(event.target.value) || 0 }))
                         }
                         required
                         inputProps={{ min: 0 }}
@@ -356,9 +399,9 @@ const ProjectCalculationsPage = () => {
                       <TextField
                         label="Luz L (m)"
                         type="number"
-                        value={form.L_m}
+                        value={beamForm.L_m}
                         onChange={(event) =>
-                          setForm((prev) => ({ ...prev, L_m: Number(event.target.value) || 0 }))
+                          setBeamForm((prev) => ({ ...prev, L_m: Number(event.target.value) || 0 }))
                         }
                         required
                         inputProps={{ min: 0, step: 0.1 }}
@@ -367,9 +410,9 @@ const ProjectCalculationsPage = () => {
                       <TextField
                         label="Carga distribuida w (kN/m)"
                         type="number"
-                        value={form.wl_kN_m}
+                        value={beamForm.wl_kN_m}
                         onChange={(event) =>
-                          setForm((prev) => ({ ...prev, wl_kN_m: Number(event.target.value) || 0 }))
+                          setBeamForm((prev) => ({ ...prev, wl_kN_m: Number(event.target.value) || 0 }))
                         }
                         required
                         inputProps={{ min: 0, step: 0.1 }}
@@ -422,7 +465,7 @@ const ProjectCalculationsPage = () => {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Proyecto activo: {effectiveProjectName}
               </Typography>
-              {result ? (
+              {result && "Mu_kNm" in result ? (
                 <Stack spacing={2}>
                   <Box>
                     <Typography variant="overline" color="text.secondary">
@@ -444,6 +487,29 @@ const ProjectCalculationsPage = () => {
                   >
                     Descargar reporte PDF
                   </Button>
+                </Stack>
+              ) : result && "axialCapacity" in result ? (
+                <Stack spacing={2}>
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Capacidad axial
+                    </Typography>
+                    <Typography variant="h5">{result.axialCapacity.toFixed(2)} kN</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Ratio de utilización
+                    </Typography>
+                    <Typography variant="h5">{(result.axialCapacityRatio * 100).toFixed(1)}%</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Refuerzo longitudinal
+                    </Typography>
+                    <Typography variant="body1">
+                      {result.longitudinalSteel.numBars} Ø{result.longitudinalSteel.barDiameter}mm
+                    </Typography>
+                  </Box>
                 </Stack>
               ) : (
                 <Typography variant="body2" color="text.secondary">
