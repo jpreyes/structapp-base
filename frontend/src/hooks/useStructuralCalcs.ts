@@ -4,6 +4,8 @@ import apiClient from "../api/client";
 // ==================== HORMIGÓN ARMADO ====================
 
 export interface ConcreteColumnRequest {
+  projectId: string;
+  userId: string;
   axialLoad: number;
   momentX: number;
   momentY: number;
@@ -39,6 +41,8 @@ export interface ConcreteColumnResponse {
 }
 
 export interface ConcreteBeamRequest {
+  projectId: string;
+  userId: string;
   positiveMoment: number;
   negativeMoment: number;
   maxShear: number;
@@ -51,7 +55,7 @@ export interface ConcreteBeamRequest {
 }
 
 export interface ConcreteBeamResponse {
-  positiveReinforcement: {
+  positiveReinforcemenet: {  // Note: typo in backend
     numBars: number;
     barDiameter: number;
     totalArea: number;
@@ -70,6 +74,11 @@ export interface ConcreteBeamResponse {
   shearCapacityRatio: number;
   deflectionCheck: string;
   effectiveDepth: number;
+}
+
+export interface ConcreteBeamCalculationResponse {
+  results: ConcreteBeamResponse;
+  run_id: string;
 }
 
 // ==================== ACERO ====================
@@ -192,8 +201,13 @@ export interface FootingResponse {
 
 // ==================== HOOKS ====================
 
+export interface ConcreteColumnCalculationResponse {
+  results: ConcreteColumnResponse;
+  run_id: string;
+}
+
 export function useConcreteColumn() {
-  return useMutation<ConcreteColumnResponse, Error, ConcreteColumnRequest>({
+  return useMutation<ConcreteColumnCalculationResponse, Error, ConcreteColumnRequest>({
     mutationFn: async (data) => {
       const response = await apiClient.post("/structural-calcs/concrete/column", data);
       return response.data;
@@ -202,7 +216,7 @@ export function useConcreteColumn() {
 }
 
 export function useConcreteBeam() {
-  return useMutation<ConcreteBeamResponse, Error, ConcreteBeamRequest>({
+  return useMutation<ConcreteBeamCalculationResponse, Error, ConcreteBeamRequest>({
     mutationFn: async (data) => {
       const response = await apiClient.post("/structural-calcs/concrete/beam", data);
       return response.data;

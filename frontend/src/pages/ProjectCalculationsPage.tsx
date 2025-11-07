@@ -22,20 +22,22 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useProjects } from "../hooks/useProjects";
 import { useSession } from "../store/useSession";
 import { useCalculationRuns, CalculationRun } from "../hooks/useCalculationRuns";
-import apiClient from "../api/client";
-import { useConcreteColumn, ConcreteColumnResponse } from "../hooks/useStructuralCalcs";
+import {
+  useConcreteColumn,
+  useConcreteBeam,
+  ConcreteColumnResponse,
+  ConcreteBeamResponse,
+} from "../hooks/useStructuralCalcs";
 
 type RCBeamForm = {
-  b_mm: number;
-  h_mm: number;
-  L_m: number;
-  wl_kN_m: number;
-};
-
-type RCBeamResult = {
-  Mu_kNm: number;
-  As_req_mm2: number;
-  ok: boolean;
+  positiveMoment: number;
+  negativeMoment: number;
+  maxShear: number;
+  width: number;
+  height: number;
+  span: number;
+  fc: number;
+  fy: number;
 };
 
 type RCColumnForm = {
@@ -110,10 +112,14 @@ const calculationTypes: CalculationType[] = [
 ];
 
 const defaultBeamForm: RCBeamForm = {
-  b_mm: 300,
-  h_mm: 500,
-  L_m: 5,
-  wl_kN_m: 12,
+  positiveMoment: 150,
+  negativeMoment: 180,
+  maxShear: 80,
+  width: 30,
+  height: 50,
+  span: 6.0,
+  fc: 25,
+  fy: 420,
 };
 
 const defaultColumnForm: RCColumnForm = {
@@ -139,7 +145,7 @@ const ProjectCalculationsPage = () => {
   const [selectedType, setSelectedType] = useState<string>("rc_beam");
   const [beamForm, setBeamForm] = useState<RCBeamForm>(defaultBeamForm);
   const [columnForm, setColumnForm] = useState<RCColumnForm>(defaultColumnForm);
-  const [result, setResult] = useState<RCBeamResult | ConcreteColumnResponse | null>(null);
+  const [result, setResult] = useState<ConcreteBeamResponse | ConcreteColumnResponse | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [selectionModel, setSelectionModel] = useState<GridRowSelectionModel>([]);
 
@@ -169,49 +175,58 @@ const ProjectCalculationsPage = () => {
   }, [selectedProjectId]);
 
   const concreteColumnMutation = useConcreteColumn();
+  const concreteBeamMutation = useConcreteBeam();
 
-  const rcBeamMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedProjectId) {
-        throw new Error("Selecciona un proyecto para continuar.");
-      }
-      if (!user?.id) {
-        throw new Error("No se pudo obtener el usuario. Vuelve a iniciar sesión.");
-      }
-      const payload = {
-        project_id: selectedProjectId,
-        user_id: user.id,
-        b_mm: beamForm.b_mm,
-        h_mm: beamForm.h_mm,
-        L_m: beamForm.L_m,
-        wl_kN_m: beamForm.wl_kN_m,
-      };
-      const { data } = await apiClient.post<{ results: RCBeamResult; run_id: string }>(
-        "/calculations/rc-beam",
-        payload
-      );
-      return data;
-    },
-    onSuccess: (data) => {
-      setResult(data.results);
-      setRunId(data.run_id);
-      setSelectionModel([data.run_id]);
+  useEffect(() => {
+    if (concreteColumnMutation.isSuccess && concreteColumnMutation.data) {
+      setResult(concreteColumnMutation.data.results);
+      setRunId(concreteColumnMutation.data.run_id);
+      setSelectionModel([concreteColumnMutation.data.run_id]);
       queryClient.invalidateQueries({ queryKey: ["calculation-runs", selectedProjectId] });
-    },
-  });
+    }
+  }, [concreteColumnMutation.isSuccess, concreteColumnMutation.data, selectedProjectId, queryClient]);
+
+  useEffect(() => {
+    if (concreteBeamMutation.isSuccess && concreteBeamMutation.data) {
+      setResult(concreteBeamMutation.data.results);
+      setRunId(concreteBeamMutation.data.run_id);
+      setSelectionModel([concreteBeamMutation.data.run_id]);
+      queryClient.invalidateQueries({ queryKey: ["calculation-runs", selectedProjectId] });
+    }
+  }, [concreteBeamMutation.isSuccess, concreteBeamMutation.data, selectedProjectId, queryClient]);
 
   const handleSubmitBeam = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!selectedProjectId) {
+      return;
+    }
+    if (!user?.id) {
+      return;
+    }
     setResult(null);
     setRunId(null);
-    rcBeamMutation.mutate();
+    concreteBeamMutation.mutate({
+      ...beamForm,
+      projectId: selectedProjectId,
+      userId: user.id,
+    });
   };
 
   const handleSubmitColumn = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!selectedProjectId) {
+      return;
+    }
+    if (!user?.id) {
+      return;
+    }
     setResult(null);
     setRunId(null);
-    concreteColumnMutation.mutate(columnForm);
+    concreteColumnMutation.mutate({
+      ...columnForm,
+      projectId: selectedProjectId,
+      userId: user.id,
+    });
   };
 
   const handleDownloadReport = () => {
@@ -227,19 +242,33 @@ const ProjectCalculationsPage = () => {
       setRunId(run.id);
       setSelectionModel([run.id]);
       if (run.element_type === "rc_beam") {
-        const inputs = run.input_json as Partial<RCBeamForm>;
+        const inputs = run.input_json as any;
         setBeamForm({
-          b_mm: Number(inputs.b_mm ?? defaultBeamForm.b_mm),
-          h_mm: Number(inputs.h_mm ?? defaultBeamForm.h_mm),
-          L_m: Number(inputs.L_m ?? defaultBeamForm.L_m),
-          wl_kN_m: Number(inputs.wl_kN_m ?? defaultBeamForm.wl_kN_m),
+          positiveMoment: Number(inputs.positiveMoment ?? defaultBeamForm.positiveMoment),
+          negativeMoment: Number(inputs.negativeMoment ?? defaultBeamForm.negativeMoment),
+          maxShear: Number(inputs.maxShear ?? defaultBeamForm.maxShear),
+          width: Number(inputs.width ?? defaultBeamForm.width),
+          height: Number(inputs.height ?? defaultBeamForm.height),
+          span: Number(inputs.span ?? defaultBeamForm.span),
+          fc: Number(inputs.fc ?? defaultBeamForm.fc),
+          fy: Number(inputs.fy ?? defaultBeamForm.fy),
         });
-        const res = run.result_json as Partial<RCBeamResult>;
-        setResult({
-          Mu_kNm: Number(res.Mu_kNm ?? 0),
-          As_req_mm2: Number(res.As_req_mm2 ?? 0),
-          ok: Boolean(res.ok ?? true),
+        setResult(run.result_json as ConcreteBeamResponse);
+      } else if (run.element_type === "rc_column") {
+        const inputs = run.input_json as any;
+        setColumnForm({
+          axialLoad: Number(inputs.axialLoad ?? defaultColumnForm.axialLoad),
+          momentX: Number(inputs.momentX ?? defaultColumnForm.momentX),
+          momentY: Number(inputs.momentY ?? defaultColumnForm.momentY),
+          shearX: Number(inputs.shearX ?? defaultColumnForm.shearX),
+          shearY: Number(inputs.shearY ?? defaultColumnForm.shearY),
+          width: Number(inputs.width ?? defaultColumnForm.width),
+          depth: Number(inputs.depth ?? defaultColumnForm.depth),
+          length: Number(inputs.length ?? defaultColumnForm.length),
+          fc: Number(inputs.fc ?? defaultColumnForm.fc),
+          fy: Number(inputs.fy ?? defaultColumnForm.fy),
         });
+        setResult(run.result_json as ConcreteColumnResponse);
       } else {
         setResult(null);
       }
@@ -261,12 +290,28 @@ const ProjectCalculationsPage = () => {
     () =>
       (runs ?? []).map((run) => {
         const type = typeMap[run.element_type];
-        const summary =
-          run.element_type === "rc_beam"
-            ? `Mu = ${Number((run.result_json as any)?.Mu_kNm ?? 0).toFixed(2)} kN·m | As = ${Number(
-                (run.result_json as any)?.As_req_mm2 ?? 0
-              ).toFixed(1)} mm²`
-            : "Disponible próximamente";
+        let summary = "Disponible próximamente";
+
+        // Generar resumen según tipo de cálculo
+        if (run.element_type === "rc_column") {
+          const result = run.result_json as any;
+          const longSteel = result?.longitudinalSteel;
+          const transSteel = result?.transverseSteel;
+
+          if (longSteel && transSteel) {
+            summary = `${longSteel.numBars}φ${longSteel.barDiameter} (${Math.round(longSteel.totalArea)}mm²), Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
+          }
+        } else if (run.element_type === "rc_beam") {
+          const result = run.result_json as any;
+          const posReinf = result?.positiveReinforcemenet || result?.positiveReinforcement;
+          const negReinf = result?.negativeReinforcement;
+          const transSteel = result?.transverseSteel;
+
+          if (posReinf && negReinf && transSteel) {
+            summary = `Sup: ${negReinf.numBars}φ${negReinf.barDiameter}, Inf: ${posReinf.numBars}φ${posReinf.barDiameter}, Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
+          }
+        }
+
         return {
           id: run.id,
           created_at: run.created_at ? dayjs(run.created_at).format("DD/MM/YYYY HH:mm") : "—",
@@ -369,62 +414,265 @@ const ProjectCalculationsPage = () => {
               </Typography>
 
               {currentType.value === "rc_beam" ? (
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmitBeam}>
                   <Stack spacing={2}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Momentos y cortante
+                    </Typography>
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                       <TextField
-                        label="Ancho b (mm)"
+                        label="Momento positivo (kN·m)"
                         type="number"
-                        value={beamForm.b_mm}
+                        value={beamForm.positiveMoment}
                         onChange={(event) =>
-                          setBeamForm((prev) => ({ ...prev, b_mm: Number(event.target.value) || 0 }))
+                          setBeamForm((prev) => ({ ...prev, positiveMoment: Number(event.target.value) || 0 }))
                         }
                         required
-                        inputProps={{ min: 0 }}
+                        inputProps={{ step: 0.1 }}
                         fullWidth
                       />
                       <TextField
-                        label="Altura h (mm)"
+                        label="Momento negativo (kN·m)"
                         type="number"
-                        value={beamForm.h_mm}
+                        value={beamForm.negativeMoment}
                         onChange={(event) =>
-                          setBeamForm((prev) => ({ ...prev, h_mm: Number(event.target.value) || 0 }))
+                          setBeamForm((prev) => ({ ...prev, negativeMoment: Number(event.target.value) || 0 }))
                         }
                         required
-                        inputProps={{ min: 0 }}
+                        inputProps={{ step: 0.1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Cortante máximo (kN)"
+                        type="number"
+                        value={beamForm.maxShear}
+                        onChange={(event) =>
+                          setBeamForm((prev) => ({ ...prev, maxShear: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ step: 0.1 }}
                         fullWidth
                       />
                     </Stack>
+
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
+                      Geometría
+                    </Typography>
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                       <TextField
-                        label="Luz L (m)"
+                        label="Ancho (cm)"
                         type="number"
-                        value={beamForm.L_m}
+                        value={beamForm.width}
                         onChange={(event) =>
-                          setBeamForm((prev) => ({ ...prev, L_m: Number(event.target.value) || 0 }))
+                          setBeamForm((prev) => ({ ...prev, width: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ min: 0, step: 1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Altura (cm)"
+                        type="number"
+                        value={beamForm.height}
+                        onChange={(event) =>
+                          setBeamForm((prev) => ({ ...prev, height: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ min: 0, step: 1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Luz (m)"
+                        type="number"
+                        value={beamForm.span}
+                        onChange={(event) =>
+                          setBeamForm((prev) => ({ ...prev, span: Number(event.target.value) || 0 }))
                         }
                         required
                         inputProps={{ min: 0, step: 0.1 }}
                         fullWidth
                       />
+                    </Stack>
+
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
+                      Materiales
+                    </Typography>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                       <TextField
-                        label="Carga distribuida w (kN/m)"
+                        label="f'c (MPa)"
                         type="number"
-                        value={beamForm.wl_kN_m}
+                        value={beamForm.fc}
                         onChange={(event) =>
-                          setBeamForm((prev) => ({ ...prev, wl_kN_m: Number(event.target.value) || 0 }))
+                          setBeamForm((prev) => ({ ...prev, fc: Number(event.target.value) || 0 }))
                         }
                         required
-                        inputProps={{ min: 0, step: 0.1 }}
+                        inputProps={{ min: 0, step: 1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="fy (MPa)"
+                        type="number"
+                        value={beamForm.fy}
+                        onChange={(event) =>
+                          setBeamForm((prev) => ({ ...prev, fy: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ min: 0, step: 10 }}
                         fullWidth
                       />
                     </Stack>
+
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
                       <Button
                         variant="contained"
                         type="submit"
                         startIcon={<CalculateIcon />}
-                        disabled={Boolean(typeDisabledReason) || rcBeamMutation.isPending}
+                        disabled={Boolean(typeDisabledReason) || concreteBeamMutation.isPending}
+                      >
+                        Calcular
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </form>
+              ) : currentType.value === "rc_column" ? (
+                <form onSubmit={handleSubmitColumn}>
+                  <Stack spacing={2}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Esfuerzos
+                    </Typography>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                      <TextField
+                        label="Carga axial (kN)"
+                        type="number"
+                        value={columnForm.axialLoad}
+                        onChange={(event) =>
+                          setColumnForm((prev) => ({ ...prev, axialLoad: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ step: 0.1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Momento X (kN·m)"
+                        type="number"
+                        value={columnForm.momentX}
+                        onChange={(event) =>
+                          setColumnForm((prev) => ({ ...prev, momentX: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ step: 0.1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Momento Y (kN·m)"
+                        type="number"
+                        value={columnForm.momentY}
+                        onChange={(event) =>
+                          setColumnForm((prev) => ({ ...prev, momentY: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ step: 0.1 }}
+                        fullWidth
+                      />
+                    </Stack>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                      <TextField
+                        label="Cortante X (kN)"
+                        type="number"
+                        value={columnForm.shearX}
+                        onChange={(event) =>
+                          setColumnForm((prev) => ({ ...prev, shearX: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ step: 0.1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Cortante Y (kN)"
+                        type="number"
+                        value={columnForm.shearY}
+                        onChange={(event) =>
+                          setColumnForm((prev) => ({ ...prev, shearY: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ step: 0.1 }}
+                        fullWidth
+                      />
+                    </Stack>
+
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
+                      Geometría
+                    </Typography>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                      <TextField
+                        label="Ancho (cm)"
+                        type="number"
+                        value={columnForm.width}
+                        onChange={(event) =>
+                          setColumnForm((prev) => ({ ...prev, width: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ min: 0, step: 1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Profundidad (cm)"
+                        type="number"
+                        value={columnForm.depth}
+                        onChange={(event) =>
+                          setColumnForm((prev) => ({ ...prev, depth: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ min: 0, step: 1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Altura (m)"
+                        type="number"
+                        value={columnForm.length}
+                        onChange={(event) =>
+                          setColumnForm((prev) => ({ ...prev, length: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ min: 0, step: 0.1 }}
+                        fullWidth
+                      />
+                    </Stack>
+
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
+                      Materiales
+                    </Typography>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                      <TextField
+                        label="f'c (MPa)"
+                        type="number"
+                        value={columnForm.fc}
+                        onChange={(event) =>
+                          setColumnForm((prev) => ({ ...prev, fc: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ min: 0, step: 1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label="fy (MPa)"
+                        type="number"
+                        value={columnForm.fy}
+                        onChange={(event) =>
+                          setColumnForm((prev) => ({ ...prev, fy: Number(event.target.value) || 0 }))
+                        }
+                        required
+                        inputProps={{ min: 0, step: 10 }}
+                        fullWidth
+                      />
+                    </Stack>
+
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
+                      <Button
+                        variant="contained"
+                        type="submit"
+                        startIcon={<CalculateIcon />}
+                        disabled={Boolean(typeDisabledReason) || concreteColumnMutation.isPending}
                       >
                         Calcular
                       </Button>
@@ -437,16 +685,24 @@ const ProjectCalculationsPage = () => {
                 </Alert>
               )}
 
-              {typeDisabledReason && currentType.value === "rc_beam" && (
+              {typeDisabledReason && (currentType.value === "rc_beam" || currentType.value === "rc_column") && (
                 <Alert severity="warning" sx={{ mt: 2 }}>
                   {typeDisabledReason}
                 </Alert>
               )}
 
-              {rcBeamMutation.isError && (
+              {concreteBeamMutation.isError && (
                 <Alert severity="error" sx={{ mt: 2 }}>
-                  {(rcBeamMutation.error as any)?.response?.data?.detail ??
-                    (rcBeamMutation.error as Error)?.message ??
+                  {(concreteBeamMutation.error as any)?.response?.data?.detail ??
+                    (concreteBeamMutation.error as Error)?.message ??
+                    "Ocurrió un error al ejecutar el cálculo."}
+                </Alert>
+              )}
+
+              {concreteColumnMutation.isError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {(concreteColumnMutation.error as any)?.response?.data?.detail ??
+                    (concreteColumnMutation.error as Error)?.message ??
                     "Ocurrió un error al ejecutar el cálculo."}
                 </Alert>
               )}
@@ -465,49 +721,112 @@ const ProjectCalculationsPage = () => {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Proyecto activo: {effectiveProjectName}
               </Typography>
-              {result && "Mu_kNm" in result ? (
+              {result && "positiveReinforcemenet" in result ? (
                 <Stack spacing={2}>
+                  <Typography variant="subtitle2" fontWeight={600} color="primary.main">
+                    Resultados del Diseño
+                  </Typography>
+
                   <Box>
                     <Typography variant="overline" color="text.secondary">
-                      Momento máximo
+                      Refuerzo Longitudinal Superior (Momento -)
                     </Typography>
-                    <Typography variant="h5">{result.Mu_kNm.toFixed(2)} kN·m</Typography>
+                    <Typography variant="body1" fontWeight={500}>
+                      {result.negativeReinforcement.numBars} φ{result.negativeReinforcement.barDiameter} (
+                      {result.negativeReinforcement.totalArea.toFixed(0)} mm²)
+                    </Typography>
                   </Box>
+
                   <Box>
                     <Typography variant="overline" color="text.secondary">
-                      Acero mínimo requerido
+                      Refuerzo Longitudinal Inferior (Momento +)
                     </Typography>
-                    <Typography variant="h5">{result.As_req_mm2.toFixed(1)} mm²</Typography>
+                    <Typography variant="body1" fontWeight={500}>
+                      {result.positiveReinforcemenet.numBars} φ{result.positiveReinforcemenet.barDiameter} (
+                      {result.positiveReinforcemenet.totalArea.toFixed(0)} mm²)
+                    </Typography>
                   </Box>
-                  <Button
-                    variant="outlined"
-                    startIcon={<DownloadIcon />}
-                    onClick={handleDownloadReport}
-                    disabled={!runId}
-                  >
-                    Descargar reporte PDF
-                  </Button>
+
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Estribos
+                    </Typography>
+                    <Typography variant="body1" fontWeight={500}>
+                      φ{result.transverseSteel.diameter} @ {result.transverseSteel.spacing.toFixed(0)} mm
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Ratio de Corte
+                    </Typography>
+                    <Typography variant="body1" fontWeight={500}>
+                      {(result.shearCapacityRatio * 100).toFixed(1)}%
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Verificación de Deflexión
+                    </Typography>
+                    <Typography variant="body1" fontWeight={500}>
+                      {result.deflectionCheck}
+                    </Typography>
+                  </Box>
                 </Stack>
               ) : result && "axialCapacity" in result ? (
                 <Stack spacing={2}>
+                  <Typography variant="subtitle2" fontWeight={600} color="primary.main">
+                    Resultados del Diseño
+                  </Typography>
+
                   <Box>
                     <Typography variant="overline" color="text.secondary">
-                      Capacidad axial
+                      Capacidad Axial
                     </Typography>
                     <Typography variant="h5">{result.axialCapacity.toFixed(2)} kN</Typography>
                   </Box>
+
                   <Box>
                     <Typography variant="overline" color="text.secondary">
-                      Ratio de utilización
+                      Ratio de Utilización
                     </Typography>
                     <Typography variant="h5">{(result.axialCapacityRatio * 100).toFixed(1)}%</Typography>
                   </Box>
+
                   <Box>
                     <Typography variant="overline" color="text.secondary">
-                      Refuerzo longitudinal
+                      Refuerzo Longitudinal
                     </Typography>
-                    <Typography variant="body1">
-                      {result.longitudinalSteel.numBars} Ø{result.longitudinalSteel.barDiameter}mm
+                    <Typography variant="body1" fontWeight={500}>
+                      {result.longitudinalSteel.numBars} φ{result.longitudinalSteel.barDiameter} ({result.longitudinalSteel.totalArea.toFixed(0)} mm²)
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Estribos
+                    </Typography>
+                    <Typography variant="body1" fontWeight={500}>
+                      φ{result.transverseSteel.diameter} @ {result.transverseSteel.spacing.toFixed(0)} mm
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Esbeltez
+                    </Typography>
+                    <Typography variant="body1" fontWeight={500}>
+                      {result.slendernessRatio.toFixed(2)} {result.isSlender ? "(Esbelto)" : "(No Esbelto)"}
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Factor de Magnificación
+                    </Typography>
+                    <Typography variant="body1" fontWeight={500}>
+                      {result.magnificationFactor.toFixed(3)}
                     </Typography>
                   </Box>
                 </Stack>

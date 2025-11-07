@@ -1,205 +1,357 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
+  Checkbox,
   Divider,
+  FormControlLabel,
   Grid,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
+  MenuItem,
   Stack,
+  TextField,
   Typography,
-  Button,
 } from "@mui/material";
+import { DataGrid, GridColDef } from "@mui/x-data-grid";
+import DownloadIcon from "@mui/icons-material/Download";
 import DescriptionIcon from "@mui/icons-material/Description";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
-import ArchitectureIcon from "@mui/icons-material/Architecture";
-import DomainIcon from "@mui/icons-material/Domain";
-import LayersIcon from "@mui/icons-material/Layers";
-import ThunderstormIcon from "@mui/icons-material/Thunderstorm";
-import TerrainIcon from "@mui/icons-material/Terrain";
-import WavesIcon from "@mui/icons-material/Waves";
+import dayjs from "dayjs";
+
+import { useProjects } from "../hooks/useProjects";
+import { useCalculationRuns } from "../hooks/useCalculationRuns";
+import { useSession } from "../store/useSession";
+import apiClient from "../api/client";
+
+type CalculationType = {
+  id: string;
+  label: string;
+  description: string;
+};
+
+const calculationTypes: CalculationType[] = [
+  { id: "building_description", label: "Descripción del Edificio", description: "Información general del proyecto" },
+  { id: "live_load", label: "Cargas de Uso", description: "Sobrecargas según tipo de edificio y uso" },
+  { id: "wind_load", label: "Cargas de Viento", description: "Presión de viento según ambiente y altura" },
+  { id: "snow_load", label: "Cargas de Nieve", description: "Carga de nieve en techo según ubicación" },
+  { id: "seismic", label: "Análisis Sísmico", description: "Espectro y fuerzas sísmicas según NCh433" },
+  { id: "rc_beam", label: "Vigas de Hormigón", description: "Diseño de vigas de hormigón armado (ACI318)" },
+  { id: "rc_column", label: "Pilares de Hormigón", description: "Diseño de pilares de hormigón armado (ACI318)" },
+  { id: "steel_beam", label: "Vigas de Acero", description: "Diseño de vigas de acero estructural (AISC360)" },
+  { id: "steel_column", label: "Pilares de Acero", description: "Diseño de pilares de acero estructural (AISC360)" },
+  { id: "wood_beam", label: "Vigas de Madera", description: "Diseño de vigas de madera (NCh1198)" },
+  { id: "wood_column", label: "Pilares de Madera", description: "Diseño de pilares de madera (NCh1198)" },
+  { id: "footing", label: "Zapatas", description: "Diseño de zapatas de fundación (ACI318)" },
+];
 
 const ProjectDocumentationPage = () => {
+  const { data: projects } = useProjects();
+  const sessionProjectId = useSession((state) => state.projectId);
+  const setProjectInSession = useSession((state) => state.setProject);
+
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(sessionProjectId);
+  const [selectedCalculations, setSelectedCalculations] = useState<Record<string, string[]>>({});
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const projectOptions = useMemo(() => projects ?? [], [projects]);
+  const { data: runs = [], isLoading: runsLoading } = useCalculationRuns(selectedProjectId);
+
+  useEffect(() => {
+    if (!selectedProjectId && projectOptions.length) {
+      const initial = sessionProjectId ?? projectOptions[0].id;
+      setSelectedProjectId(initial);
+      setProjectInSession(initial);
+    }
+  }, [projectOptions, selectedProjectId, sessionProjectId, setProjectInSession]);
+
+  // Agrupar cálculos por tipo
+  const groupedCalculations = useMemo(() => {
+    const grouped: Record<string, any[]> = {};
+    calculationTypes.forEach((type) => {
+      grouped[type.id] = runs.filter((run) => run.element_type === type.id);
+    });
+    return grouped;
+  }, [runs]);
+
+  const handleToggleCalculation = (typeId: string, runId: string) => {
+    setSelectedCalculations((prev) => {
+      const current = prev[typeId] || [];
+      const isSelected = current.includes(runId);
+
+      return {
+        ...prev,
+        [typeId]: isSelected ? current.filter((id) => id !== runId) : [...current, runId],
+      };
+    });
+  };
+
+  const handleToggleAllType = (typeId: string, checked: boolean) => {
+    setSelectedCalculations((prev) => ({
+      ...prev,
+      [typeId]: checked ? groupedCalculations[typeId].map((run) => run.id) : [],
+    }));
+  };
+
+  const totalSelected = useMemo(() => {
+    return Object.values(selectedCalculations).reduce((sum, arr) => sum + arr.length, 0);
+  }, [selectedCalculations]);
+
+  const handleGenerateDocument = async () => {
+    if (!selectedProjectId || totalSelected === 0) {
+      setError("Selecciona al menos un cálculo para generar el documento");
+      return;
+    }
+
+    setGenerating(true);
+    setError(null);
+
+    try {
+      // Recopilar los IDs seleccionados
+      const selectedRunIds = Object.values(selectedCalculations).flat();
+
+      const response = await apiClient.post(
+        "/design-base-runs/generate-from-calculations",
+        {
+          projectId: selectedProjectId,
+          calculationIds: selectedRunIds,
+          name: `Memoria de Cálculo - ${dayjs().format("YYYY-MM-DD HH:mm")}`,
+        },
+        { responseType: "blob" }
+      );
+
+      // Descargar el archivo
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Memoria_Calculo_${dayjs().format("YYYY-MM-DD")}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("Error generando documento:", err);
+      setError(err?.response?.data?.detail || "Error al generar el documento");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const effectiveProjectName =
+    projectOptions.find((project) => project.id === selectedProjectId)?.name ?? "Sin proyecto";
+
+  const getColumns = (typeId: string): GridColDef[] => [
+    {
+      field: "selected",
+      headerName: "",
+      width: 50,
+      renderCell: (params) => (
+        <Checkbox
+          checked={selectedCalculations[typeId]?.includes(params.row.id) || false}
+          onChange={() => handleToggleCalculation(typeId, params.row.id)}
+        />
+      ),
+    },
+    {
+      field: "created_at",
+      headerName: "Fecha",
+      width: 170,
+      valueFormatter: (value) => (value ? dayjs(value).format("DD/MM/YYYY HH:mm") : "—"),
+    },
+    { field: "summary", headerName: "Resumen", flex: 1, minWidth: 300 },
+  ];
+
+  const getSummary = (run: any): string => {
+    const result = run.result_json;
+    const inputs = run.input_json;
+
+    switch (run.element_type) {
+      case "building_description": {
+        const parts = [];
+        if (result?.text) parts.push(result.text.substring(0, 50) + (result.text.length > 50 ? "..." : ""));
+        if (result?.location) parts.push(`📍 ${result.location}`);
+        if (result?.area) parts.push(`📐 ${result.area} m²`);
+        if (result?.height) parts.push(`📏 ${result.height} m`);
+        return parts.length > 0 ? parts.join(" | ") : "—";
+      }
+
+      case "live_load":
+        return `${inputs?.buildingType || "—"} | ${inputs?.usage || "—"} | ${result?.uniformLoad || result?.uniformLoadRaw || "—"} kN/m²`;
+
+      case "wind_load":
+        return `Ambiente: ${inputs?.environment || "—"} | Altura: ${inputs?.height || "—"}m | q = ${result?.q?.toFixed(2) || "—"} kN/m²`;
+
+      case "snow_load":
+        return `Banda ${inputs?.latitudeBand || "—"} | pf = ${result?.pf?.toFixed(2) || "—"} kN/m²`;
+
+      case "seismic":
+        return `Zona ${inputs?.zone || "—"} | Qbas,x = ${result?.Qbasx?.toFixed(2) || "—"} kN | Qbas,y = ${result?.Qbasy?.toFixed(2) || "—"} kN`;
+
+      case "rc_column": {
+        const longSteel = result?.longitudinalSteel;
+        const transSteel = result?.transverseSteel;
+        if (longSteel && transSteel) {
+          return `${longSteel.numBars}φ${longSteel.barDiameter} (${Math.round(longSteel.totalArea)}mm²), Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
+        }
+        return "—";
+      }
+
+      case "rc_beam": {
+        const posReinf = result?.positiveReinforcemenet || result?.positiveReinforcement;
+        const negReinf = result?.negativeReinforcement;
+        const transSteel = result?.transverseSteel;
+        if (posReinf && negReinf && transSteel) {
+          return `Sup: ${negReinf.numBars}φ${negReinf.barDiameter}, Inf: ${posReinf.numBars}φ${posReinf.barDiameter}, Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
+        }
+        return "—";
+      }
+
+      case "steel_column":
+        return `Perfil: ${inputs?.profileName || "Personalizado"} | Pn = ${result?.pn?.toFixed(1) || "—"} kN | Ratio: ${((result?.interactionRatio || 0) * 100).toFixed(1)}%`;
+
+      case "steel_beam":
+        return `Perfil: ${inputs?.profileName || "Personalizado"} | Mn = ${result?.mn?.toFixed(1) || "—"} kN·m | Ratio: ${((result?.flexureRatio || 0) * 100).toFixed(1)}%`;
+
+      case "wood_column":
+        return `Sección: ${inputs?.width || "—"}x${inputs?.depth || "—"} cm | Pn = ${result?.pn?.toFixed(1) || "—"} kN | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
+
+      case "wood_beam":
+        return `Sección: ${inputs?.width || "—"}x${inputs?.height || "—"} cm | Mn = ${result?.mn?.toFixed(1) || "—"} kN·m | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
+
+      case "footing":
+        return `Tipo: ${inputs?.footingType || "—"} | Dimensión: ${inputs?.length || "—"}x${inputs?.width || "—"} m | H = ${inputs?.footingDepth || "—"} cm`;
+
+      default:
+        return "—";
+    }
+  };
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <Typography variant="h5">Documentación del proyecto</Typography>
-      <Alert severity="info">
-        Centraliza en un solo lugar las memorias de cálculo, anexos y bases de diseño. Esta versión muestra la
-        estructura propuesta y enlaces de ejemplo que se conectarán con archivos reales en iteraciones futuras.
-      </Alert>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
+        <Typography variant="h5">Documentación del proyecto</Typography>
+        <TextField
+          select
+          label="Proyecto"
+          size="small"
+          value={selectedProjectId ?? ""}
+          onChange={(event) => {
+            setSelectedProjectId(event.target.value);
+            setProjectInSession(event.target.value);
+            setSelectedCalculations({});
+          }}
+          sx={{ minWidth: 220 }}
+        >
+          {projectOptions.map((project) => (
+            <MenuItem key={project.id} value={project.id}>
+              {project.name}
+            </MenuItem>
+          ))}
+        </TextField>
+      </Box>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+      {!selectedProjectId && (
+        <Alert severity="info">
+          Selecciona un proyecto para ver los cálculos disponibles y generar la memoria de cálculo.
+        </Alert>
+      )}
+
+      {selectedProjectId && (
+        <>
           <Card>
             <CardContent>
-              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-                <DescriptionIcon color="primary" />
+              <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography variant="h6">Reportes y memorias</Typography>
+                  <Typography variant="h6" gutterBottom>
+                    Generar Memoria de Cálculo
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Descarga los documentos generados por los módulos de cálculo y las memorias finales aprobadas.
+                    Selecciona los cálculos que deseas incluir en el documento Word. Puedes elegir múltiples cálculos de
+                    cada tipo.
                   </Typography>
                 </Box>
-              </Stack>
-              <Stack spacing={1}>
-                <Button variant="outlined" startIcon={<PictureAsPdfIcon />} disabled>
-                  Reporte RC Beam más reciente (próximamente)
+                <Button
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleGenerateDocument}
+                  disabled={generating || totalSelected === 0}
+                >
+                  {generating ? "Generando..." : `Generar Word (${totalSelected})`}
                 </Button>
-                <Button variant="outlined" startIcon={<PictureAsPdfIcon />} disabled>
-                  Memorándum de revisión sísmica (próximamente)
-                </Button>
               </Stack>
+
+              {error && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {error}
+                </Alert>
+              )}
             </CardContent>
           </Card>
-        </Grid>
 
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-                <CloudDownloadIcon color="primary" />
-                <Box>
-                  <Typography variant="h6">Especificaciones y anexos</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Gestiona especificaciones técnicas, memorias justificativas y anexos complementarios del proyecto.
-                  </Typography>
-                </Box>
-              </Stack>
-              <Stack spacing={1}>
-                <Button variant="outlined" disabled>
-                  Memoria de cálculo estructural (pendiente)
-                </Button>
-                <Button variant="outlined" disabled>
-                  Especificaciones técnicas (pendiente)
-                </Button>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+          {calculationTypes.map((type) => {
+            const calculations = groupedCalculations[type.id] || [];
+            const selectedCount = selectedCalculations[type.id]?.length || 0;
+            const allSelected = calculations.length > 0 && selectedCount === calculations.length;
+            const someSelected = selectedCount > 0 && selectedCount < calculations.length;
 
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Bases de cálculo
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Define los supuestos de diseño que aplican al proyecto para garantizar coherencia entre las distintas
-            disciplinas.
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <List dense>
-                <ListItem>
-                  <ListItemIcon>
-                    <ArchitectureIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Tipo de edificio"
-                    secondary="Habitacional | Comercial | Industrial | Infraestructura"
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <DomainIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Materialidad principal"
-                    secondary="Hormigón armado, acero estructural, madera laminada, mixto"
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <LayersIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText primary="Normativa" secondary="NCh430, ACI 318, AISC 360, NCh432, ASCE 7, Eurocódigos" />
-                </ListItem>
-              </List>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <List dense>
-                <ListItem>
-                  <ListItemIcon>
-                    <TerrainIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Cargas muertas"
-                    secondary="Peso propio estructural, tabiques, terminaciones, instalaciones permanentes"
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <ArchitectureIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Sobrecargas de uso"
-                    secondary="De acuerdo al programa: oficinas, vivienda, estacionamientos, cubiertas transitables"
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <WavesIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Cargas de viento"
-                    secondary="Presiones positivas/negativas según zona geográfica y categoría de exposición"
-                  />
-                </ListItem>
-              </List>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <List dense>
-                <ListItem>
-                  <ListItemIcon>
-                    <ThunderstormIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Cargas sísmicas"
-                    secondary="Espectro de diseño, aceleraciones zonales, factores de comportamiento y sobre-resistencia"
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <CloudDownloadIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Cargas de nieve"
-                    secondary="Altura de acumulación, coeficientes térmicos y de exposición, según reglamentación local"
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <LayersIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Sobrecarga de cubierta"
-                    secondary="Mantenimientos, equipos sobre techumbre, paneles solares, acumulación de agua"
-                  />
-                </ListItem>
-              </List>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+            return (
+              <Card key={type.id}>
+                <CardContent>
+                  <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+                    <DescriptionIcon color="primary" />
+                    <Box flex={1}>
+                      <Typography variant="h6">{type.label}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {type.description}
+                      </Typography>
+                    </Box>
+                    {calculations.length > 0 && (
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={allSelected}
+                            indeterminate={someSelected}
+                            onChange={(e) => handleToggleAllType(type.id, e.target.checked)}
+                          />
+                        }
+                        label={`Seleccionar todos (${calculations.length})`}
+                      />
+                    )}
+                  </Stack>
 
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Próximas integraciones
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <Typography variant="body2" color="text.secondary">
-            A futuro podrás adjuntar y versionar memorias de cálculo firmadas, fichas técnicas de materiales, resultados
-            de softwares externos (ETABS, SAP2000, Tekla) y documentación complementaria como planos de detalle y
-            ensayos de laboratorio. También se habilitará la subida de plantillas personalizadas de bases de cálculo por
-            tipología de proyecto.
-          </Typography>
-        </CardContent>
-      </Card>
+                  {calculations.length === 0 ? (
+                    <Alert severity="info">
+                      No hay cálculos de este tipo en el proyecto actual. Ve a las páginas correspondientes para crear
+                      cálculos.
+                    </Alert>
+                  ) : (
+                    <DataGrid
+                      autoHeight
+                      rows={calculations.map((run) => ({
+                        ...run,
+                        summary: getSummary(run),
+                      }))}
+                      columns={getColumns(type.id)}
+                      loading={runsLoading}
+                      hideFooter
+                      disableRowSelectionOnClick
+                      sx={{
+                        "& .MuiDataGrid-columnHeaders": {
+                          fontWeight: 600,
+                        },
+                      }}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </>
+      )}
     </Box>
   );
 };

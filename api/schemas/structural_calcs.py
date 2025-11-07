@@ -17,6 +17,10 @@ class ConcreteColumnRequest(BaseModel):
     """Parámetros para diseño de pilar de hormigón armado."""
     model_config = {"populate_by_name": True}
 
+    # Metadata para historial
+    project_id: str = Field(..., alias="projectId", description="ID del proyecto")
+    user_id: str = Field(..., alias="userId", description="ID del usuario")
+
     # Esfuerzos
     axial_load: float = Field(..., alias="axialLoad", description="Carga axial (kN)")
     moment_x: float = Field(..., alias="momentX", description="Momento flector eje X (kN·m)")
@@ -78,14 +82,20 @@ class ConcreteColumnResponse(BaseModel):
 
 class ConcreteBeamRequest(BaseModel):
     """Parámetros para diseño de viga de hormigón armado."""
+    model_config = {"populate_by_name": True}
+
+    # Metadata para historial
+    project_id: str = Field(..., alias="projectId", description="ID del proyecto")
+    user_id: str = Field(..., alias="userId", description="ID del usuario")
+
     # Esfuerzos
-    moment_positive: float = Field(..., alias="momentPositive", description="Momento positivo máximo (kN·m)")
-    moment_negative: float = Field(..., alias="momentNegative", description="Momento negativo máximo (kN·m)")
-    shear_max: float = Field(..., alias="shearMax", description="Cortante máximo (kN)")
+    positive_moment: float = Field(..., alias="positiveMoment", description="Momento positivo máximo (kN·m)")
+    negative_moment: float = Field(..., alias="negativeMoment", description="Momento negativo máximo (kN·m)")
+    max_shear: float = Field(..., alias="maxShear", description="Cortante máximo (kN)")
 
     # Geometría
     width: float = Field(..., gt=0, description="Ancho de la viga (cm)")
-    depth: float = Field(..., gt=0, description="Altura de la viga (cm)")
+    height: float = Field(..., gt=0, description="Altura de la viga (cm)")
     span: float = Field(..., gt=0, description="Luz de la viga (m)")
 
     # Materiales
@@ -96,28 +106,35 @@ class ConcreteBeamRequest(BaseModel):
     cover: float = Field(4.0, gt=0, description="Recubrimiento (cm)")
 
 
+class PositiveReinforcement(BaseModel):
+    """Refuerzo longitudinal positivo (inferior)."""
+    num_bars: int = Field(..., alias="numBars", description="Número de barras")
+    bar_diameter: float = Field(..., alias="barDiameter", description="Diámetro de barras (mm)")
+    total_area: float = Field(..., alias="totalArea", description="Área total (mm²)")
+    ratio: float = Field(..., description="Cuantía de acero")
+
+
+class NegativeReinforcement(BaseModel):
+    """Refuerzo longitudinal negativo (superior)."""
+    num_bars: int = Field(..., alias="numBars", description="Número de barras")
+    bar_diameter: float = Field(..., alias="barDiameter", description="Diámetro de barras (mm)")
+    total_area: float = Field(..., alias="totalArea", description="Área total (mm²)")
+    ratio: float = Field(..., description="Cuantía de acero")
+
+
 class ConcreteBeamResponse(BaseModel):
     """Resultados del diseño de viga de hormigón."""
-    # Capacidad
-    mn_positive: float = Field(..., alias="mnPositive", description="Momento nominal positivo (kN·m)")
-    mn_negative: float = Field(..., alias="mnNegative", description="Momento nominal negativo (kN·m)")
-    vn: float = Field(..., alias="vn", description="Cortante nominal (kN)")
-
-    # Refuerzo longitudinal
-    as_positive: float = Field(..., alias="asPositive", description="Acero positivo (cm²)")
-    as_negative: float = Field(..., alias="asNegative", description="Acero negativo (cm²)")
-    num_bars_positive: int = Field(..., alias="numBarsPositive", description="Barras inferiores")
-    num_bars_negative: int = Field(..., alias="numBarsNegative", description="Barras superiores")
-    bar_diameter: float = Field(..., alias="barDiameter", description="Diámetro barras (mm)")
+    # Refuerzo longitudinal (note: typo in service 'positiveReinforcemenet')
+    positive_reinforcement: PositiveReinforcement = Field(..., alias="positiveReinforcemenet")
+    negative_reinforcement: NegativeReinforcement = Field(..., alias="negativeReinforcement")
 
     # Refuerzo transversal
-    stirrup_diameter: float = Field(..., alias="stirrupDiameter", description="Diámetro estribos (mm)")
-    stirrup_spacing: float = Field(..., alias="stirrupSpacing", description="Espaciamiento (cm)")
+    transverse_steel: TransverseSteel = Field(..., alias="transverseSteel")
 
     # Verificaciones
-    deflection: float = Field(..., description="Deflexión estimada (cm)")
-    utilization_ratio: float = Field(..., alias="utilizationRatio", description="Ratio de utilización")
-    passes: bool = Field(..., description="¿Cumple el diseño?")
+    shear_capacity_ratio: float = Field(..., alias="shearCapacityRatio", description="Ratio corte")
+    deflection_check: str = Field(..., alias="deflectionCheck", description="Estado deflexión")
+    effective_depth: float = Field(..., alias="effectiveDepth", description="Peralte efectivo (mm)")
 
 
 # ============================================================================
@@ -126,6 +143,12 @@ class ConcreteBeamResponse(BaseModel):
 
 class SteelColumnRequest(BaseModel):
     """Parámetros para diseño de pilar de acero."""
+    model_config = {"populate_by_name": True}
+
+    # Metadata para historial
+    project_id: str = Field(..., alias="projectId", description="ID del proyecto")
+    user_id: str = Field(..., alias="userId", description="ID del usuario")
+
     # Esfuerzos
     axial_load: float = Field(..., alias="axialLoad", description="Carga axial (kN)")
     moment_x: float = Field(..., alias="momentX", description="Momento flector X (kN·m)")
@@ -184,6 +207,12 @@ class SteelColumnResponse(BaseModel):
 
 class SteelBeamRequest(BaseModel):
     """Parámetros para diseño de viga de acero."""
+    model_config = {"populate_by_name": True}
+
+    # Metadata para historial
+    project_id: str = Field(..., alias="projectId", description="ID del proyecto")
+    user_id: str = Field(..., alias="userId", description="ID del usuario")
+
     # Esfuerzos
     moment_max: float = Field(..., alias="momentMax", description="Momento máximo (kN·m)")
     shear_max: float = Field(..., alias="shearMax", description="Cortante máximo (kN)")
@@ -228,6 +257,12 @@ class SteelBeamResponse(BaseModel):
 
 class WoodColumnRequest(BaseModel):
     """Parámetros para diseño de pilar de madera."""
+    model_config = {"populate_by_name": True}
+
+    # Metadata para historial
+    project_id: str = Field(..., alias="projectId", description="ID del proyecto")
+    user_id: str = Field(..., alias="userId", description="ID del usuario")
+
     # Esfuerzos
     axial_load: float = Field(..., alias="axialLoad", description="Carga axial (kN)")
     moment: float = Field(0.0, description="Momento flector (kN·m)")
@@ -275,6 +310,12 @@ class WoodColumnResponse(BaseModel):
 
 class WoodBeamRequest(BaseModel):
     """Parámetros para diseño de viga de madera."""
+    model_config = {"populate_by_name": True}
+
+    # Metadata para historial
+    project_id: str = Field(..., alias="projectId", description="ID del proyecto")
+    user_id: str = Field(..., alias="userId", description="ID del usuario")
+
     # Esfuerzos
     moment_max: float = Field(..., alias="momentMax", description="Momento máximo (kN·m)")
     shear_max: float = Field(..., alias="shearMax", description="Cortante máximo (kN)")
@@ -316,6 +357,12 @@ class WoodBeamResponse(BaseModel):
 
 class FootingRequest(BaseModel):
     """Parámetros para diseño de zapata de hormigón."""
+    model_config = {"populate_by_name": True}
+
+    # Metadata para historial
+    project_id: str = Field(..., alias="projectId", description="ID del proyecto")
+    user_id: str = Field(..., alias="userId", description="ID del usuario")
+
     # Tipo de zapata
     footing_type: str = Field(..., alias="footingType", description="Tipo: isolated o continuous")
 

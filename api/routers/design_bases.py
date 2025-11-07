@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 
 from api.dependencies import UserIdDep
 from api.schemas.design_bases import (
+    BuildingDescriptionRequest,
     CreateDesignBaseRunRequest,
     DesignBaseDetail,
     DesignBaseExportPayload,
@@ -34,6 +35,7 @@ from services.design_bases_service import (
     export_design_bases,
     list_live_load_categories,
 )
+from services.runs_service import save_run
 from services.design_bases_docx_service import generate_design_base_document
 from services.design_bases_storage_service import (
     delete_design_base,
@@ -47,6 +49,7 @@ from services.design_base_runs_service import (
     get_design_base_run,
     list_design_base_runs,
 )
+from services.runs_service import fetch_run
 
 router = APIRouter()
 
@@ -61,13 +64,14 @@ async def design_base_options():
     return get_design_base_options()
 
 
-@router.post("/live-load", response_model=LiveLoadResponse)
+@router.post("/live-load")
 async def live_load_lookup(payload: LiveLoadRequest):
     try:
         data = get_live_load(payload.building_type, payload.usage)
     except KeyError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    return {
+
+    result = {
         "buildingType": payload.building_type,
         "usage": payload.usage,
         "uniformLoad": data["uniform_load"],
@@ -75,6 +79,17 @@ async def live_load_lookup(payload: LiveLoadRequest):
         "concentratedLoad": data["concentrated_load"],
         "concentratedLoadRaw": data["concentrated_load_raw"],
     }
+
+    # Guardar en historial si se proporcionaron project_id y user_id
+    if payload.project_id and payload.user_id:
+        inputs = {
+            "buildingType": payload.building_type,
+            "usage": payload.usage,
+        }
+        record = save_run(payload.project_id, payload.user_id, "live_load", inputs, result)
+        return {"results": result, "run_id": record["id"]}
+
+    return {"results": result}
 
 
 @router.post("/live-load/reduction", response_model=LiveLoadReductionResponse)
@@ -86,19 +101,29 @@ async def live_load_reduction(payload: LiveLoadReductionRequest):
     return {"reducedLoad": reduced}
 
 
-@router.post("/wind", response_model=WindResponse)
+@router.post("/wind")
 async def wind_pressure(payload: WindRequest):
     try:
-        data = calculate_wind_pressure(payload.environment, payload.height)
+        result = calculate_wind_pressure(payload.environment, payload.height)
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return data
+
+    # Guardar en historial si se proporcionaron project_id y user_id
+    if payload.project_id and payload.user_id:
+        inputs = {
+            "environment": payload.environment,
+            "height": payload.height,
+        }
+        record = save_run(payload.project_id, payload.user_id, "wind_load", inputs, result)
+        return {"results": result, "run_id": record["id"]}
+
+    return {"results": result}
 
 
-@router.post("/snow", response_model=SnowResponse)
+@router.post("/snow")
 async def snow_load(payload: SnowRequest):
     try:
-        data = calculate_roof_snow_load(
+        result = calculate_roof_snow_load(
             latitude_band=payload.latitude_band,
             altitude_band=payload.altitude_band,
             thermal_condition=payload.thermal_condition,
@@ -110,10 +135,26 @@ async def snow_load(payload: SnowRequest):
         )
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return data
+
+    # Guardar en historial si se proporcionaron project_id y user_id
+    if payload.project_id and payload.user_id:
+        inputs = {
+            "latitudeBand": payload.latitude_band,
+            "altitudeBand": payload.altitude_band,
+            "thermalCondition": payload.thermal_condition,
+            "importanceCategory": payload.importance_category,
+            "exposureCategory": payload.exposure_category,
+            "exposureCondition": payload.exposure_condition,
+            "surfaceType": payload.surface_type,
+            "roofPitch": payload.roof_pitch,
+        }
+        record = save_run(payload.project_id, payload.user_id, "snow_load", inputs, result)
+        return {"results": result, "run_id": record["id"]}
+
+    return {"results": result}
 
 
-@router.post("/seismic", response_model=SeismicResponse)
+@router.post("/seismic")
 async def seismic_base(payload: SeismicRequest):
     try:
         result = calculate_seismic_base(
@@ -130,7 +171,42 @@ async def seismic_base(payload: SeismicRequest):
         )
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return result
+
+    # Guardar en historial si se proporcionaron project_id y user_id
+    if payload.project_id and payload.user_id:
+        inputs = {
+            "category": payload.category,
+            "zone": payload.zone,
+            "soil": payload.soil,
+            "rs": payload.rs,
+            "ps": payload.ps,
+            "tx": payload.tx,
+            "ty": payload.ty,
+            "r0": payload.r0,
+            "stories": [{"height": s.height, "weight": s.weight} for s in payload.stories],
+        }
+        record = save_run(payload.project_id, payload.user_id, "seismic", inputs, result)
+        return {"results": result, "run_id": record["id"]}
+
+    return {"results": result}
+
+
+@router.post("/building-description")
+async def save_building_description(payload: BuildingDescriptionRequest):
+    """Guarda una descripción de edificio en el historial."""
+    inputs = {
+        "text": payload.text,
+        "location": payload.location,
+        "area": payload.area,
+        "height": payload.height,
+    }
+
+    # Usar los mismos datos como resultado (es solo información descriptiva)
+    result = inputs.copy()
+
+    # Guardar en historial
+    record = save_run(payload.project_id, payload.user_id, "building_description", inputs, result)
+    return {"results": result, "run_id": record["id"]}
 
 
 @router.post("/export/{file_format}")
@@ -304,6 +380,137 @@ async def download_design_base_run_document(run_id: str, user_id: UserIdDep):
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/runs/generate-from-calculations")
+async def generate_document_from_calculations(
+    payload: dict,
+    user_id: UserIdDep,
+):
+    """
+    Genera un documento Word con los cálculos seleccionados.
+    Recibe una lista de IDs de cálculos y los agrupa en un documento.
+    """
+    try:
+        project_id = payload.get("projectId")
+        calculation_ids = payload.get("calculationIds", [])
+        name = payload.get("name", "Memoria de Cálculo")
+
+        if not project_id or not calculation_ids:
+            raise ValueError("Faltan project_id o calculation_ids")
+
+        # Obtener todos los cálculos seleccionados
+        calculations = []
+        for calc_id in calculation_ids:
+            run = fetch_run(calc_id)
+            if run:
+                calculations.append(run)
+
+        # Construir el payload para el generador de documentos
+        # Agrupar por tipo
+        document_data: dict = {}
+
+        for calc in calculations:
+            element_type = calc["element_type"]
+            result_json = calc["result_json"]
+            input_json = calc["input_json"]
+
+            # Mapear element_type a estructura esperada por el generador
+            if element_type == "building_description":
+                if "buildingDescription" not in document_data:
+                    document_data["buildingDescription"] = {
+                        "text": result_json.get("text"),
+                        "location": result_json.get("location"),
+                        "area": result_json.get("area"),
+                        "height": result_json.get("height"),
+                    }
+
+            elif element_type == "live_load":
+                if "liveLoad" not in document_data:
+                    document_data["liveLoad"] = {
+                        "buildingType": input_json.get("buildingType", ""),
+                        "usage": input_json.get("usage", ""),
+                        **result_json,
+                    }
+
+            elif element_type == "wind_load":
+                if "wind" not in document_data:
+                    document_data["wind"] = {
+                        "environment": input_json.get("environment", ""),
+                        "height": input_json.get("height", 0),
+                        **result_json,
+                    }
+
+            elif element_type == "snow_load":
+                if "snow" not in document_data:
+                    document_data["snow"] = {
+                        **input_json,
+                        **result_json,
+                    }
+
+            elif element_type == "seismic":
+                if "seismic" not in document_data:
+                    document_data["seismic"] = {
+                        "params": input_json,
+                        "result": result_json,
+                    }
+
+            elif element_type == "rc_column":
+                if "structural" not in document_data:
+                    document_data["structural"] = {}
+                if "concreteColumn" not in document_data["structural"]:
+                    document_data["structural"]["concreteColumn"] = result_json
+
+            elif element_type == "rc_beam":
+                if "structural" not in document_data:
+                    document_data["structural"] = {}
+                if "concreteBeam" not in document_data["structural"]:
+                    document_data["structural"]["concreteBeam"] = result_json
+
+            elif element_type == "steel_column":
+                if "structural" not in document_data:
+                    document_data["structural"] = {}
+                if "steelColumn" not in document_data["structural"]:
+                    document_data["structural"]["steelColumn"] = result_json
+
+            elif element_type == "steel_beam":
+                if "structural" not in document_data:
+                    document_data["structural"] = {}
+                if "steelBeam" not in document_data["structural"]:
+                    document_data["structural"]["steelBeam"] = result_json
+
+            elif element_type == "wood_column":
+                if "structural" not in document_data:
+                    document_data["structural"] = {}
+                if "woodColumn" not in document_data["structural"]:
+                    document_data["structural"]["woodColumn"] = result_json
+
+            elif element_type == "wood_beam":
+                if "structural" not in document_data:
+                    document_data["structural"] = {}
+                if "woodBeam" not in document_data["structural"]:
+                    document_data["structural"]["woodBeam"] = result_json
+
+            elif element_type == "footing":
+                if "structural" not in document_data:
+                    document_data["structural"] = {}
+                if "footing" not in document_data["structural"]:
+                    document_data["structural"]["footing"] = result_json
+
+        # Generar documento Word
+        project_name = name
+        docx_bytes = generate_design_base_document(document_data, project_name)
+
+        # Retornar como descarga
+        filename = f"{name.replace(' ', '_')}.docx"
+        return StreamingResponse(
+            io.BytesIO(docx_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

@@ -25,6 +25,8 @@ class LiveLoadCatalogResponse(BaseModel):
 
 
 class LiveLoadRequest(BaseModel):
+    project_id: Optional[str] = Field(None, alias="projectId", description="ID del proyecto (opcional para historial)")
+    user_id: Optional[str] = Field(None, alias="userId", description="ID del usuario (opcional para historial)")
     building_type: str = Field(..., alias="buildingType")
     usage: str
 
@@ -49,6 +51,8 @@ class LiveLoadReductionResponse(BaseModel):
 
 
 class WindRequest(BaseModel):
+    project_id: Optional[str] = Field(None, alias="projectId", description="ID del proyecto (opcional para historial)")
+    user_id: Optional[str] = Field(None, alias="userId", description="ID del usuario (opcional para historial)")
     environment: str
     height: float = Field(..., gt=0)
 
@@ -59,6 +63,8 @@ class WindResponse(BaseModel):
 
 
 class SnowRequest(BaseModel):
+    project_id: Optional[str] = Field(None, alias="projectId", description="ID del proyecto (opcional para historial)")
+    user_id: Optional[str] = Field(None, alias="userId", description="ID del usuario (opcional para historial)")
     latitude_band: str = Field(..., alias="latitudeBand")
     altitude_band: str = Field(..., alias="altitudeBand")
     thermal_condition: str = Field(..., alias="thermalCondition")
@@ -84,6 +90,8 @@ class SeismicStory(BaseModel):
 
 
 class SeismicRequest(BaseModel):
+    project_id: Optional[str] = Field(None, alias="projectId", description="ID del proyecto (opcional para historial)")
+    user_id: Optional[str] = Field(None, alias="userId", description="ID del usuario (opcional para historial)")
     category: str
     zone: str
     soil: str
@@ -177,6 +185,16 @@ class SeismicExport(BaseModel):
 
 
 class BuildingDescription(BaseModel):
+    text: Optional[str] = None
+    location: Optional[str] = None
+    area: Optional[str] = None
+    height: Optional[str] = None
+
+
+class BuildingDescriptionRequest(BaseModel):
+    """Request para guardar descripción de edificio en historial."""
+    project_id: str = Field(..., alias="projectId", description="ID del proyecto")
+    user_id: str = Field(..., alias="userId", description="ID del usuario")
     text: Optional[str] = None
     location: Optional[str] = None
     area: Optional[str] = None

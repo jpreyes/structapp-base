@@ -36,6 +36,7 @@ import { useMutation } from "@tanstack/react-query";
 import apiClient from "../api/client";
 import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
 import { useProjects } from "../hooks/useProjects";
+import { useSession } from "../store/useSession";
 import { useConcreteColumn, ConcreteColumnResponse } from "../hooks/useStructuralCalcs";
 
 interface LiveLoadResponse {
@@ -108,6 +109,7 @@ const getErrorMessage = (error: unknown): string | null => {
 
 const ProjectDesignBasesPage = () => {
   const { data: options, isLoading: optionsLoading, isError } = useDesignBaseOptions();
+  const user = useSession((state) => state.user);
 
   const [buildingType, setBuildingType] = useState<string>("");
   const [usage, setUsage] = useState<string>("");
@@ -181,8 +183,14 @@ const ProjectDesignBasesPage = () => {
 
   const liveLoadMutation = useMutation({
     mutationFn: async (payload: { buildingType: string; usage: string }) => {
-      const { data } = await apiClient.post<LiveLoadResponse>("/design-bases/live-load", payload);
-      return data;
+      const fullPayload = {
+        ...payload,
+        projectId: projectId || undefined,
+        userId: user?.id || undefined,
+      };
+      const { data } = await apiClient.post("/design-bases/live-load", fullPayload);
+      // Normalizar respuesta: puede ser {results, run_id} o {results}
+      return data.results || data;
     },
   });
 
@@ -195,8 +203,14 @@ const ProjectDesignBasesPage = () => {
 
   const windMutation = useMutation({
     mutationFn: async (payload: { environment: string; height: number }) => {
-      const { data } = await apiClient.post<WindResponse>("/design-bases/wind", payload);
-      return data;
+      const fullPayload = {
+        ...payload,
+        projectId: projectId || undefined,
+        userId: user?.id || undefined,
+      };
+      const { data } = await apiClient.post("/design-bases/wind", fullPayload);
+      // Normalizar respuesta
+      return data.results || data;
     },
   });
 
@@ -211,8 +225,14 @@ const ProjectDesignBasesPage = () => {
       surfaceType: string;
       roofPitch: number;
     }) => {
-      const { data } = await apiClient.post<SnowResponse>("/design-bases/snow", payload);
-      return data;
+      const fullPayload = {
+        ...payload,
+        projectId: projectId || undefined,
+        userId: user?.id || undefined,
+      };
+      const { data } = await apiClient.post("/design-bases/snow", fullPayload);
+      // Normalizar respuesta
+      return data.results || data;
     },
   });
 
@@ -228,13 +248,38 @@ const ProjectDesignBasesPage = () => {
       r0: number;
       stories: { height: number; weight: number }[];
     }) => {
-      const { data } = await apiClient.post<SeismicResponse>("/design-bases/seismic", payload);
-      return data;
+      const fullPayload = {
+        ...payload,
+        projectId: projectId || undefined,
+        userId: user?.id || undefined,
+      };
+      const { data } = await apiClient.post("/design-bases/seismic", fullPayload);
+      // Normalizar respuesta
+      return data.results || data;
     },
   });
 
   // Mutation para pilar de hormigón armado
   const concreteColumnMutation = useConcreteColumn();
+
+  // Mutation para descripción del edificio
+  const buildingDescriptionMutation = useMutation({
+    mutationFn: async () => {
+      if (!projectId || !user?.id) {
+        throw new Error("Faltan project_id o user_id");
+      }
+      const payload = {
+        projectId,
+        userId: user.id,
+        text: buildingDescription || undefined,
+        location: buildingLocation || undefined,
+        area: buildingArea || undefined,
+        height: buildingHeight || undefined,
+      };
+      const { data } = await apiClient.post("/design-bases/building-description", payload);
+      return data;
+    },
+  });
 
   const usageOptions = useMemo(() => {
     if (!options || !buildingType) return [];
@@ -796,6 +841,32 @@ const ProjectDesignBasesPage = () => {
                 fullWidth
                 placeholder="Ej: 18.5"
               />
+            </Grid>
+            <Grid item xs={12}>
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                onClick={() => buildingDescriptionMutation.mutate()}
+                disabled={
+                  !projectId ||
+                  buildingDescriptionMutation.isPending ||
+                  (!buildingDescription && !buildingLocation && !buildingArea && !buildingHeight)
+                }
+              >
+                Guardar Descripción
+              </Button>
+              {buildingDescriptionMutation.isSuccess && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  Descripción guardada en el historial
+                </Alert>
+              )}
+              {buildingDescriptionMutation.isError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {(buildingDescriptionMutation.error as any)?.response?.data?.detail ||
+                    (buildingDescriptionMutation.error as Error)?.message ||
+                    "Error al guardar la descripción"}
+                </Alert>
+              )}
             </Grid>
           </Grid>
         </CardContent>
