@@ -160,16 +160,17 @@ def calculate_steel_column(
 
     return {
         "section": section_name,
-        "axialCapacity": round(Pc / 1000, 2),  # kN
-        "axialCapacityRatio": round(axial_capacity_ratio, 3),
-        "momentCapacityX": round(Mcx / 1e6, 2),  # kN·m
-        "momentCapacityY": round(Mcy / 1e6, 2),  # kN·m
-        "momentCapacityRatioX": round(moment_capacity_ratio_x, 3),
-        "momentCapacityRatioY": round(moment_capacity_ratio_y, 3),
+        "pn": round(Pc / 1000, 2),  # kN
+        "mnX": round(Mcx / 1e6, 2),  # kN·m
+        "mnY": round(Mcy / 1e6, 2),  # kN·m
+        "axialRatio": round(axial_capacity_ratio, 3),
+        "flexureRatioX": round(moment_capacity_ratio_x, 3),
+        "flexureRatioY": round(moment_capacity_ratio_y, 3),
         "slendernessX": round(lambda_x, 2),
         "slendernessY": round(lambda_y, 2),
-        "slendernessMax": round(lambda_max, 2),
+        "lambdaC": round(lambda_max, 2),
         "interactionRatio": round(interaction_ratio, 3),
+        "passes": interaction_ratio <= 1.0,
         "checkStatus": "OK" if interaction_ratio <= 1.0 else "No cumple",
     }
 
@@ -309,13 +310,12 @@ def calculate_steel_beam(
 
     return {
         "section": section_name,
-        "momentCapacity": round(Mr / 1e6, 2),  # kN·m
-        "momentCapacityRatio": round(flexure_ratio, 3),
-        "shearCapacity": round(Vr / 1000, 2),  # kN
-        "shearCapacityRatio": round(shear_ratio, 3),
-        "deflection": round(delta_max, 2),  # mm
-        "deflectionLimit": round(delta_limit, 2),  # mm
+        "mn": round(Mr / 1e6, 2),  # kN·m
+        "vn": round(Vr / 1000, 2),  # kN
+        "flexureRatio": round(flexure_ratio, 3),
+        "shearRatio": round(shear_ratio, 3),
+        "deflection": round(delta_max / 10, 2),  # cm
         "deflectionRatio": round(deflection_ratio, 3),
-        "lateralBracingLength": round(Lb_mm if Lb else L, 0),  # mm
+        "passes": flexure_ratio <= 1.0 and shear_ratio <= 1.0,
         "checkStatus": "OK" if (flexure_ratio <= 1.0 and shear_ratio <= 1.0) else "No cumple",
     }

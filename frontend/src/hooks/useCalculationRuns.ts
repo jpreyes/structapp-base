@@ -8,6 +8,7 @@ export interface CalculationRun {
   created_at?: string;
   input_json: Record<string, unknown>;
   result_json: Record<string, unknown>;
+  is_critical?: boolean;
 }
 
 export const useCalculationRuns = (projectId?: string) =>

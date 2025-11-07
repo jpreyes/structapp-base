@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:clean": "npm run clean:cache && vite --force",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "clean:cache": "rm -rf node_modules/.vite || del /s /q node_modules\\.vite 2>nul || echo Caché limpiada"
   },
   "dependencies": {
     "@mui/icons-material": "^5.15.16",

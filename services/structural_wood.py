@@ -15,6 +15,20 @@ WOOD_TYPES = {
         "E": 9000,  # MPa - Módulo de elasticidad
         "density": 450,  # kg/m³
     },
+    "Pino radiata C24": {
+        "fc": 11.0,  # MPa - Compresión paralela (grado C24)
+        "fm": 15.0,  # MPa - Flexión (grado C24)
+        "fv": 1.4,  # MPa - Corte paralelo (grado C24)
+        "E": 11000,  # MPa - Módulo de elasticidad (grado C24)
+        "density": 450,  # kg/m³
+    },
+    "Pino radiata C16": {
+        "fc": 7.5,  # MPa - Compresión paralela (grado C16)
+        "fm": 10.0,  # MPa - Flexión (grado C16)
+        "fv": 1.0,  # MPa - Corte paralelo (grado C16)
+        "E": 8000,  # MPa - Módulo de elasticidad (grado C16)
+        "density": 450,  # kg/m³
+    },
     "Coigüe": {
         "fc": 13.0,
         "fm": 18.0,
@@ -168,11 +182,10 @@ def calculate_wood_column(
     return {
         "woodType": wood_name,
         "area": round(A, 2),  # mm²
-        "axialCapacity": round(Pc / 1000, 2),  # kN
-        "axialCapacityRatio": round(capacity_ratio, 3),
+        "pn": round(Pc / 1000, 2),  # kN
+        "utilizationRatio": round(capacity_ratio, 3),
         "slendernessX": round(lambda_x, 2),
         "slendernessY": round(lambda_y, 2),
-        "slendernessMax": round(lambda_max, 2),
         "stabilityFactor": round(Cp, 3),
         "isSlender": is_slender,
         "allowableStress": round(fc_adm, 2),  # MPa
@@ -303,20 +316,20 @@ def calculate_wood_beam(
 
     deflection_ratio = delta / delta_limit
 
+    # Capacidades nominales
+    Mn = fm_adm_final * W / 1e6  # kN·m
+    Vn = fv_adm * A / 1000  # kN
+
     return {
         "woodType": wood_name,
-        "area": round(A, 2),  # mm²
-        "sectionModulus": round(W, 2),  # mm³
-        "momentOfInertia": round(I, 2),  # mm⁴
-        "flexureStress": round(fb, 2),  # MPa
-        "allowableFlexureStress": round(fm_adm_final, 2),  # MPa
+        "section": f"{width}x{height} cm",
+        "mn": round(Mn, 2),  # kN·m
+        "vn": round(Vn, 2),  # kN
+        "utilizationRatio": round(max(flexure_ratio, shear_ratio), 3),
         "flexureRatio": round(flexure_ratio, 3),
-        "shearStress": round(fv_act, 2),  # MPa
-        "allowableShearStress": round(fv_adm, 2),  # MPa
         "shearRatio": round(shear_ratio, 3),
-        "deflection": round(delta, 2),  # mm
-        "deflectionLimit": round(delta_limit, 2),  # mm
+        "deflection": round(delta / 10, 2),  # cm
         "deflectionRatio": round(deflection_ratio, 3),
-        "lateralStabilityFactor": round(CL, 3),
+        "passes": flexure_ratio <= 1.0 and shear_ratio <= 1.0 and deflection_ratio <= 1.0,
         "checkStatus": "OK" if (flexure_ratio <= 1.0 and shear_ratio <= 1.0 and deflection_ratio <= 1.0) else "No cumple",
     }

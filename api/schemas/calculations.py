@@ -25,3 +25,4 @@ class CalculationRun(BaseModel):
     created_at: Optional[datetime] = None
     input_json: Dict[str, Any]
     result_json: Dict[str, Any]
+    is_critical: Optional[bool] = False  # Flag para elemento crítico en reportes

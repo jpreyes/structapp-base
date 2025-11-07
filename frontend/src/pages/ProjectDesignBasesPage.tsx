@@ -1231,17 +1231,17 @@ const ProjectDesignBasesPage = () => {
               {snowMutation.data && (
                 <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 1 }}>
                   <Typography color="text.secondary">Pg (kN/m²)</Typography>
-                  <Typography>{snowMutation.data.pg.toFixed(2)}</Typography>
+                  <Typography>{snowMutation.data.pg?.toFixed(2) ?? 'N/A'}</Typography>
                   <Typography color="text.secondary">ct</Typography>
-                  <Typography>{snowMutation.data.ct.toFixed(2)}</Typography>
+                  <Typography>{snowMutation.data.ct?.toFixed(2) ?? 'N/A'}</Typography>
                   <Typography color="text.secondary">ce</Typography>
-                  <Typography>{snowMutation.data.ce.toFixed(2)}</Typography>
+                  <Typography>{snowMutation.data.ce?.toFixed(2) ?? 'N/A'}</Typography>
                   <Typography color="text.secondary">I</Typography>
-                  <Typography>{snowMutation.data.I.toFixed(2)}</Typography>
+                  <Typography>{snowMutation.data.I?.toFixed(2) ?? 'N/A'}</Typography>
                   <Typography color="text.secondary">cs</Typography>
-                  <Typography>{snowMutation.data.cs.toFixed(3)}</Typography>
+                  <Typography>{snowMutation.data.cs?.toFixed(3) ?? 'N/A'}</Typography>
                   <Typography color="text.secondary">pf (kN/m²)</Typography>
-                  <Typography>{snowMutation.data.pf.toFixed(3)}</Typography>
+                  <Typography>{snowMutation.data.pf?.toFixed(3) ?? 'N/A'}</Typography>
                 </Box>
               )}
             </CardContent>
@@ -1626,15 +1626,15 @@ const ProjectDesignBasesPage = () => {
                     Capacidad Axial
                   </Typography>
                   <Typography variant="body1">
-                    {concreteColumnMutation.data.axialCapacity.toFixed(2)} kN
+                    {concreteColumnMutation.data.axialCapacity?.toFixed(2) ?? 'N/A'} kN
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" color="text.secondary">
                     Ratio de Utilización
                   </Typography>
-                  <Typography variant="body1" color={concreteColumnMutation.data.axialCapacityRatio > 1 ? "error" : "success.main"}>
-                    {(concreteColumnMutation.data.axialCapacityRatio * 100).toFixed(1)}%
+                  <Typography variant="body1" color={(concreteColumnMutation.data.axialCapacityRatio ?? 0) > 1 ? "error" : "success.main"}>
+                    {((concreteColumnMutation.data.axialCapacityRatio ?? 0) * 100).toFixed(1)}%
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1642,7 +1642,7 @@ const ProjectDesignBasesPage = () => {
                     Refuerzo Longitudinal
                   </Typography>
                   <Typography variant="body1">
-                    {concreteColumnMutation.data.longitudinalSteel.numBars} φ{concreteColumnMutation.data.longitudinalSteel.barDiameter} ({concreteColumnMutation.data.longitudinalSteel.totalArea.toFixed(0)} mm²)
+                    {concreteColumnMutation.data.longitudinalSteel?.numBars ?? 'N/A'} φ{concreteColumnMutation.data.longitudinalSteel?.barDiameter ?? 'N/A'} ({concreteColumnMutation.data.longitudinalSteel?.totalArea?.toFixed(0) ?? 'N/A'} mm²)
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1650,7 +1650,7 @@ const ProjectDesignBasesPage = () => {
                     Estribos
                   </Typography>
                   <Typography variant="body1">
-                    φ{concreteColumnMutation.data.transverseSteel.diameter} @ {concreteColumnMutation.data.transverseSteel.spacing} mm
+                    φ{concreteColumnMutation.data.transverseSteel?.diameter ?? 'N/A'} @ {concreteColumnMutation.data.transverseSteel?.spacing ?? 'N/A'} mm
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1658,7 +1658,7 @@ const ProjectDesignBasesPage = () => {
                     Esbeltez
                   </Typography>
                   <Typography variant="body1">
-                    {concreteColumnMutation.data.slendernessRatio.toFixed(2)} {concreteColumnMutation.data.isSlender && "(Esbelto)"}
+                    {concreteColumnMutation.data.slendernessRatio?.toFixed(2) ?? 'N/A'} {concreteColumnMutation.data.isSlender && "(Esbelto)"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1666,7 +1666,7 @@ const ProjectDesignBasesPage = () => {
                     Factor de Magnificación
                   </Typography>
                   <Typography variant="body1">
-                    {concreteColumnMutation.data.magnificationFactor.toFixed(3)}
+                    {concreteColumnMutation.data.magnificationFactor?.toFixed(3) ?? 'N/A'}
                   </Typography>
                 </Grid>
               </Grid>

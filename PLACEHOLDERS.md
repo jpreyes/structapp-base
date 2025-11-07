@@ -155,16 +155,17 @@ Este documento lista todos los placeholders que puedes usar en tu plantilla Word
 | Placeholder | Descripción | Ejemplo |
 |------------|-------------|---------|
 | `{{steel.column.section}}` | Perfil utilizado | "W310x97" |
-| `{{steel.column.axialCapacity}}` | Capacidad axial | "1250.00" kN |
-| `{{steel.column.axialCapacityRatio}}` | Ratio utilización axial | "0.680" |
-| `{{steel.column.momentCapacityX}}` | Capacidad momento X | "180.50" kN·m |
-| `{{steel.column.momentCapacityY}}` | Capacidad momento Y | "95.30" kN·m |
-| `{{steel.column.momentCapacityRatioX}}` | Ratio momento X | "0.550" |
-| `{{steel.column.momentCapacityRatioY}}` | Ratio momento Y | "0.480" |
+| `{{steel.column.pn}}` | Capacidad axial de diseño | "1250.00" kN |
+| `{{steel.column.axialRatio}}` | Ratio utilización axial | "0.680" |
+| `{{steel.column.mnX}}` | Capacidad momento X | "180.50" kN·m |
+| `{{steel.column.mnY}}` | Capacidad momento Y | "95.30" kN·m |
+| `{{steel.column.flexureRatioX}}` | Ratio momento X | "0.550" |
+| `{{steel.column.flexureRatioY}}` | Ratio momento Y | "0.480" |
 | `{{steel.column.slendernessX}}` | Esbeltez en X | "65.50" |
 | `{{steel.column.slendernessY}}` | Esbeltez en Y | "85.20" |
-| `{{steel.column.slendernessMax}}` | Esbeltez máxima | "85.20" |
+| `{{steel.column.lambdaC}}` | Parámetro de esbeltez | "85.20" |
 | `{{steel.column.interactionRatio}}` | Ratio de interacción | "0.850" |
+| `{{steel.column.passes}}` | ¿Cumple el diseño? | "true" o "false" |
 | `{{steel.column.checkStatus}}` | Estado verificación | "OK" |
 
 ### Vigas de Acero (AISC360)
@@ -172,14 +173,13 @@ Este documento lista todos los placeholders que puedes usar en tu plantilla Word
 | Placeholder | Descripción | Ejemplo |
 |------------|-------------|---------|
 | `{{steel.beam.section}}` | Perfil utilizado | "W410x149" |
-| `{{steel.beam.momentCapacity}}` | Capacidad a momento | "350.80" kN·m |
-| `{{steel.beam.momentCapacityRatio}}` | Ratio utilización momento | "0.720" |
-| `{{steel.beam.shearCapacity}}` | Capacidad a corte | "450.00" kN |
-| `{{steel.beam.shearCapacityRatio}}` | Ratio utilización corte | "0.580" |
-| `{{steel.beam.deflection}}` | Deflexión calculada | "25.50" mm |
-| `{{steel.beam.deflectionLimit}}` | Deflexión límite | "33.33" mm |
+| `{{steel.beam.mn}}` | Capacidad a momento | "350.80" kN·m |
+| `{{steel.beam.vn}}` | Capacidad a corte | "450.00" kN |
+| `{{steel.beam.flexureRatio}}` | Ratio utilización momento | "0.720" |
+| `{{steel.beam.shearRatio}}` | Ratio utilización corte | "0.580" |
+| `{{steel.beam.deflection}}` | Deflexión calculada | "25.50" cm |
 | `{{steel.beam.deflectionRatio}}` | Ratio deflexión | "0.765" |
-| `{{steel.beam.lateralBracingLength}}` | Longitud arriostramiento | "6000" mm |
+| `{{steel.beam.passes}}` | ¿Cumple el diseño? | "true" o "false" |
 | `{{steel.beam.checkStatus}}` | Estado verificación | "OK" |
 
 ### Pilares de Madera (NCh1198)
@@ -188,11 +188,10 @@ Este documento lista todos los placeholders que puedes usar en tu plantilla Word
 |------------|-------------|---------|
 | `{{wood.column.woodType}}` | Tipo de madera | "Pino radiata" |
 | `{{wood.column.area}}` | Área de la sección | "14400.00" mm² |
-| `{{wood.column.axialCapacity}}` | Capacidad axial | "95.50" kN |
-| `{{wood.column.axialCapacityRatio}}` | Ratio utilización | "0.780" |
+| `{{wood.column.pn}}` | Capacidad axial | "95.50" kN |
+| `{{wood.column.utilizationRatio}}` | Ratio utilización | "0.780" |
 | `{{wood.column.slendernessX}}` | Esbeltez en X | "42.50" |
 | `{{wood.column.slendernessY}}` | Esbeltez en Y | "42.50" |
-| `{{wood.column.slendernessMax}}` | Esbeltez máxima | "42.50" |
 | `{{wood.column.stabilityFactor}}` | Factor de estabilidad Cp | "0.850" |
 | `{{wood.column.isSlender}}` | ¿Es esbelto? | "true" o "false" |
 | `{{wood.column.allowableStress}}` | Esfuerzo admisible | "3.25" MPa |
@@ -203,54 +202,33 @@ Este documento lista todos los placeholders que puedes usar en tu plantilla Word
 | Placeholder | Descripción | Ejemplo |
 |------------|-------------|---------|
 | `{{wood.beam.woodType}}` | Tipo de madera | "Coigüe" |
-| `{{wood.beam.area}}` | Área de la sección | "19200.00" mm² |
-| `{{wood.beam.sectionModulus}}` | Módulo de sección | "768000.00" mm³ |
-| `{{wood.beam.momentOfInertia}}` | Momento de inercia | "138240000.00" mm⁴ |
-| `{{wood.beam.flexureStress}}` | Esfuerzo de flexión | "6.50" MPa |
-| `{{wood.beam.allowableFlexureStress}}` | Esfuerzo admisible flexión | "8.00" MPa |
+| `{{wood.beam.section}}` | Sección de la viga | "16x24 cm" |
+| `{{wood.beam.mn}}` | Momento nominal | "28.50" kN·m |
+| `{{wood.beam.vn}}` | Cortante nominal | "45.30" kN |
+| `{{wood.beam.utilizationRatio}}` | Ratio de utilización global | "0.895" |
 | `{{wood.beam.flexureRatio}}` | Ratio utilización flexión | "0.813" |
-| `{{wood.beam.shearStress}}` | Esfuerzo cortante | "0.85" MPa |
-| `{{wood.beam.allowableShearStress}}` | Esfuerzo admisible corte | "0.95" MPa |
 | `{{wood.beam.shearRatio}}` | Ratio utilización corte | "0.895" |
-| `{{wood.beam.deflection}}` | Deflexión calculada | "18.50" mm |
-| `{{wood.beam.deflectionLimit}}` | Deflexión límite | "20.00" mm |
+| `{{wood.beam.deflection}}` | Deflexión calculada | "18.50" cm |
 | `{{wood.beam.deflectionRatio}}` | Ratio deflexión | "0.925" |
-| `{{wood.beam.lateralStabilityFactor}}` | Factor estabilidad lateral | "1.000" |
+| `{{wood.beam.passes}}` | ¿Cumple el diseño? | "true" o "false" |
 | `{{wood.beam.checkStatus}}` | Estado verificación | "OK" |
 
 ### Zapatas (ACI318)
 
 | Placeholder | Descripción | Ejemplo |
 |------------|-------------|---------|
-| `{{footing.footingType}}` | Tipo de zapata | "Aislada" o "Corrida" |
-| `{{footing.dimensions.length}}` | Longitud | "250.0" cm |
-| `{{footing.dimensions.width}}` | Ancho | "250.0" cm |
-| `{{footing.dimensions.depth}}` | Altura | "60.0" cm |
-| `{{footing.dimensions.area}}` | Área en planta | "6.250" m² |
-| `{{footing.soilPressures.max}}` | Presión máxima del suelo | "185.50" kPa |
-| `{{footing.soilPressures.min}}` | Presión mínima del suelo | "115.30" kPa |
-| `{{footing.soilPressures.average}}` | Presión promedio | "150.40" kPa |
-| `{{footing.soilPressures.ratio}}` | Ratio presión/capacidad | "0.775" |
-| `{{footing.lateralPressures.static}}` | Empuje estático | "25.00" kPa |
-| `{{footing.lateralPressures.dynamic}}` | Empuje dinámico | "15.00" kPa |
-| `{{footing.lateralPressures.seismic}}` | Empuje sísmico | "35.00" kPa |
-| `{{footing.lateralPressures.total}}` | Empuje total | "75.00" kPa |
-| `{{footing.punchingShear.appliedForce}}` | Fuerza punzonamiento | "380.00" kN |
-| `{{footing.punchingShear.capacity}}` | Capacidad punzonamiento | "520.00" kN |
-| `{{footing.punchingShear.ratio}}` | Ratio punzonamiento | "0.731" |
-| `{{footing.punchingShear.criticalPerimeter}}` | Perímetro crítico | "2400" mm |
-| `{{footing.flexuralShear.appliedForce}}` | Fuerza corte flexión | "95.00" kN |
-| `{{footing.flexuralShear.capacity}}` | Capacidad corte flexión | "150.00" kN |
-| `{{footing.flexuralShear.ratio}}` | Ratio corte flexión | "0.633" |
-| `{{footing.reinforcement.xDirection.barDiameter}}` | Diámetro barras X | "16" mm |
-| `{{footing.reinforcement.xDirection.spacing}}` | Espaciamiento barras X | "200" mm |
-| `{{footing.reinforcement.yDirection.barDiameter}}` | Diámetro barras Y | "16" mm |
-| `{{footing.reinforcement.yDirection.spacing}}` | Espaciamiento barras Y | "200" mm |
-| `{{footing.checkStatus}}` | Estado verificación | "OK" |
-
-**Nota para zapatas corridas:** Los placeholders de refuerzo cambian a:
-- `{{footing.reinforcement.main.barDiameter}}`, `{{footing.reinforcement.main.spacing}}`, `{{footing.reinforcement.main.direction}}`
-- `{{footing.reinforcement.distribution.barDiameter}}`, `{{footing.reinforcement.distribution.spacing}}`, `{{footing.reinforcement.distribution.direction}}`
+| `{{footing.length}}` | Longitud de la zapata | "2.50" m |
+| `{{footing.width}}` | Ancho de la zapata | "2.50" m |
+| `{{footing.depth}}` | Altura de la zapata | "60.0" cm |
+| `{{footing.soilPressureMax}}` | Presión máxima del suelo | "185.50" kPa |
+| `{{footing.soilPressureMin}}` | Presión mínima del suelo | "115.30" kPa |
+| `{{footing.asLongitudinal}}` | Acero longitudinal | "12.50" cm²/m |
+| `{{footing.asTransverse}}` | Acero transversal | "12.50" cm²/m |
+| `{{footing.barDiameter}}` | Diámetro de barras | "16" mm |
+| `{{footing.spacing}}` | Espaciamiento de barras | "20.0" cm |
+| `{{footing.punchingShearRatio}}` | Ratio punzonamiento | "0.731" |
+| `{{footing.beamShearRatio}}` | Ratio corte por flexión | "0.633" |
+| `{{footing.passes}}` | ¿Cumple el diseño? | "true" o "false" |
 
 ## Ejemplo de Uso en Word
 
@@ -292,6 +270,86 @@ Cortante basal Y: {{seismic.result.Qbasy}} kN
 {{spectrumChart}}
 ```
 
+## Manejo de Múltiples Elementos del Mismo Tipo
+
+Si calculas varios elementos del mismo tipo (por ejemplo, 3 vigas de acero, 5 columnas de hormigón, etc.), usa esta estrategia:
+
+### Estrategia Híbrida Recomendada
+
+1. **En el cuerpo del documento**: Usa los placeholders individuales para el elemento **más crítico o representativo**:
+   ```
+   3.1 Vigas de Acero
+
+   La viga crítica es la ubicada en el eje A entre columnas 1-2:
+   Perfil: {{steel.beam.section}}
+   Ratio de utilización: {{steel.beam.flexureRatio}}
+   Estado: {{steel.beam.checkStatus}}
+   ```
+
+2. **En los anexos (al final)**: Usa placeholders de tabla para mostrar **todos los cálculos**:
+   ```
+   ANEXO A: RESUMEN DE CÁLCULOS
+
+   A.1 Todas las Vigas de Acero Calculadas
+
+   {{steelBeamsTable}}
+
+   A.2 Todas las Columnas de Hormigón Calculadas
+
+   {{concreteColumnsTable}}
+   ```
+
+### Placeholders de Tablas Disponibles
+
+| Placeholder | Descripción |
+|------------|-------------|
+| `{{concreteColumnsTable}}` | Tabla con todas las columnas de hormigón calculadas |
+| `{{concreteBeamsTable}}` | Tabla con todas las vigas de hormigón calculadas |
+| `{{steelColumnsTable}}` | Tabla con todas las columnas de acero calculadas |
+| `{{steelBeamsTable}}` | Tabla con todas las vigas de acero calculadas |
+| `{{woodColumnsTable}}` | Tabla con todas las columnas de madera calculadas |
+| `{{woodBeamsTable}}` | Tabla con todas las vigas de madera calculadas |
+| `{{footingsTable}}` | Tabla con todas las zapatas calculadas |
+
+### Ejemplo de Estructura Completa
+
+```
+MEMORIA DE CÁLCULO ESTRUCTURAL
+
+1. INTRODUCCIÓN
+Proyecto: {{projectName}}
+Fecha: {{currentDate}}
+
+2. DESCRIPCIÓN
+{{buildingDescription}}
+
+3. ANÁLISIS SÍSMICO
+Cortante basal X: {{seismic.result.Qbasx}} kN
+Cortante basal Y: {{seismic.result.Qbasy}} kN
+
+4. DISEÑO DE ELEMENTOS
+
+4.1 Vigas de Acero
+Se diseñaron 5 vigas de acero. La viga crítica presenta:
+- Perfil: {{steel.beam.section}}
+- Ratio: {{steel.beam.flexureRatio}}
+- Estado: {{steel.beam.checkStatus}}
+
+Ver Anexo A.1 para resumen completo.
+
+---
+
+ANEXO A: TABLAS DE RESUMEN
+
+A.1 VIGAS DE ACERO
+
+{{steelBeamsTable}}
+
+A.2 COLUMNAS DE HORMIGÓN
+
+{{concreteColumnsTable}}
+```
+
 ## Notas Importantes
 
 1. **Formato de números**: Los números se formatean automáticamente con 2 decimales por defecto (excepto valores específicos como períodos sísmicos que usan 3 decimales)
@@ -303,3 +361,5 @@ Cortante basal Y: {{seismic.result.Qbasy}} kN
 4. **Case sensitive**: Los placeholders distinguen entre mayúsculas y minúsculas: `{{projectName}}` ≠ `{{projectname}}`
 
 5. **Espacios**: Se ignoran los espacios dentro de los placeholders: `{{ projectName }}` = `{{projectName}}`
+
+6. **Elemento crítico**: Los placeholders individuales (ej: `{{steel.beam.section}}`) se llenan con el elemento que tenga el **mayor ratio de utilización** de ese tipo

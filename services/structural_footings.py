@@ -254,51 +254,27 @@ def calculate_footing(
 
     shear_ratio = Vu_shear_N / Vn_shear if Vn_shear > 0 else 999
 
-    # Resultados
-    result = {
-        "footingType": "Aislada" if footing_type == "isolated" else "Corrida",
-        "dimensions": {
-            "length": round(L * 100, 1),  # cm
-            "width": round(B * 100, 1),  # cm
-            "depth": round(h / 10, 1),  # cm
-            "area": round(A_footing, 3),  # m²
-        },
-        "soilPressures": {
-            "max": round(q_max, 2),  # kPa
-            "min": round(q_min, 2),  # kPa
-            "average": round(q_service, 2),  # kPa
-            "ratio": round(soil_pressure_ratio, 3),
-        },
-        "lateralPressures": {
-            "static": static_pressure,  # kPa
-            "dynamic": dynamic_pressure,  # kPa
-            "seismic": seismic_pressure,  # kPa
-            "total": round(static_pressure + dynamic_pressure + seismic_pressure, 2),  # kPa
-        },
-        "punchingShear": {
-            "appliedForce": round(Vu_punch, 2),  # kN
-            "capacity": round(Vn_punch / 1000, 2),  # kN
-            "ratio": round(punching_ratio, 3),
-            "criticalPerimeter": round(bo, 0),  # mm
-        },
-        "flexuralShear": {
-            "appliedForce": round(Vu_shear, 2),  # kN
-            "capacity": round(Vn_shear / 1000, 2),  # kN
-            "ratio": round(shear_ratio, 3),
-        },
-        "checkStatus": "OK" if (soil_pressure_ratio <= 1.0 and punching_ratio <= 1.0 and shear_ratio <= 1.0) else "No cumple",
-    }
+    # Determinar si cumple todos los criterios
+    passes = (soil_pressure_ratio <= 1.0 and punching_ratio <= 1.0 and shear_ratio <= 1.0)
 
-    # Agregar refuerzo según tipo
-    if footing_type == "isolated":
-        result["reinforcement"] = {
-            "xDirection": reinforcement_x,
-            "yDirection": reinforcement_y,
-        }
-    else:
-        result["reinforcement"] = {
-            "main": reinforcement_main,
-            "distribution": reinforcement_distribution,
-        }
+    # Calcular acero en cm²/m para el schema
+    as_longitudinal = (As_required / 10000)  # mm²/m -> cm²/m
+    as_transverse = as_longitudinal  # Para zapata aislada, igual en ambas direcciones
+
+    # Resultados según FootingResponse schema
+    result = {
+        "length": round(L, 3),  # m
+        "width": round(B, 3),  # m
+        "depth": round(h / 10, 1),  # cm
+        "soilPressureMax": round(q_max, 2),  # kPa
+        "soilPressureMin": round(q_min, 2),  # kPa
+        "asLongitudinal": round(as_longitudinal, 2),  # cm²/m
+        "asTransverse": round(as_transverse, 2),  # cm²/m
+        "barDiameter": float(bar_diameter),  # mm
+        "spacing": float(spacing / 10),  # mm -> cm
+        "punchingShearRatio": round(punching_ratio, 3),
+        "beamShearRatio": round(shear_ratio, 3),
+        "passes": passes,
+    }
 
     return result

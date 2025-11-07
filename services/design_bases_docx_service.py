@@ -193,34 +193,65 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
         # Pilar de Acero
         if "steelColumn" in struct and struct["steelColumn"]:
             sc = struct["steelColumn"]
+            axial_capacity = _format_value(sc.get("axialCapacity"))
+            axial_ratio = _format_value(sc.get("axialCapacityRatio"), 3)
+            moment_capacity_x = _format_value(sc.get("momentCapacityX"))
+            moment_capacity_y = _format_value(sc.get("momentCapacityY"))
+            moment_ratio_x = _format_value(sc.get("momentCapacityRatioX"), 3)
+            moment_ratio_y = _format_value(sc.get("momentCapacityRatioY"), 3)
+            slender_parameter = _format_value(sc.get("slendernessParameter", sc.get("slendernessMax")))
+            passes_str = str(sc.get("checkPasses", sc.get("passes", "")))
+
             context.update({
                 "steel.column.section": sc.get("section", ""),
-                "steel.column.axialCapacity": _format_value(sc.get("axialCapacity")),
-                "steel.column.axialCapacityRatio": _format_value(sc.get("axialCapacityRatio"), 3),
-                "steel.column.momentCapacityX": _format_value(sc.get("momentCapacityX")),
-                "steel.column.momentCapacityY": _format_value(sc.get("momentCapacityY")),
-                "steel.column.momentCapacityRatioX": _format_value(sc.get("momentCapacityRatioX"), 3),
-                "steel.column.momentCapacityRatioY": _format_value(sc.get("momentCapacityRatioY"), 3),
+                "steel.column.axialCapacity": axial_capacity,
+                "steel.column.pn": axial_capacity,
+                "steel.column.axialCapacityRatio": axial_ratio,
+                "steel.column.axialRatio": axial_ratio,
+                "steel.column.momentCapacityX": moment_capacity_x,
+                "steel.column.mnX": moment_capacity_x,
+                "steel.column.momentCapacityY": moment_capacity_y,
+                "steel.column.mnY": moment_capacity_y,
+                "steel.column.momentCapacityRatioX": moment_ratio_x,
+                "steel.column.flexureRatioX": moment_ratio_x,
+                "steel.column.momentCapacityRatioY": moment_ratio_y,
+                "steel.column.flexureRatioY": moment_ratio_y,
                 "steel.column.slendernessX": _format_value(sc.get("slendernessX")),
                 "steel.column.slendernessY": _format_value(sc.get("slendernessY")),
                 "steel.column.slendernessMax": _format_value(sc.get("slendernessMax")),
+                "steel.column.slendernessParameter": slender_parameter,
+                "steel.column.lambdaC": slender_parameter,
                 "steel.column.interactionRatio": _format_value(sc.get("interactionRatio"), 3),
+                "steel.column.checkPasses": passes_str,
+                "steel.column.passes": passes_str,
                 "steel.column.checkStatus": sc.get("checkStatus", ""),
             })
 
         # Viga de Acero
         if "steelBeam" in struct and struct["steelBeam"]:
             sb = struct["steelBeam"]
+            moment_capacity = _format_value(sb.get("momentCapacity"))
+            moment_ratio = _format_value(sb.get("momentCapacityRatio"), 3)
+            shear_capacity = _format_value(sb.get("shearCapacity"))
+            shear_ratio = _format_value(sb.get("shearCapacityRatio"), 3)
+            passes_str = str(sb.get("checkPasses", sb.get("passes", "")))
+
             context.update({
                 "steel.beam.section": sb.get("section", ""),
-                "steel.beam.momentCapacity": _format_value(sb.get("momentCapacity")),
-                "steel.beam.momentCapacityRatio": _format_value(sb.get("momentCapacityRatio"), 3),
-                "steel.beam.shearCapacity": _format_value(sb.get("shearCapacity")),
-                "steel.beam.shearCapacityRatio": _format_value(sb.get("shearCapacityRatio"), 3),
+                "steel.beam.momentCapacity": moment_capacity,
+                "steel.beam.mn": moment_capacity,
+                "steel.beam.momentCapacityRatio": moment_ratio,
+                "steel.beam.flexureRatio": moment_ratio,
+                "steel.beam.shearCapacity": shear_capacity,
+                "steel.beam.vn": shear_capacity,
+                "steel.beam.shearCapacityRatio": shear_ratio,
+                "steel.beam.shearRatio": shear_ratio,
                 "steel.beam.deflection": _format_value(sb.get("deflection")),
                 "steel.beam.deflectionLimit": _format_value(sb.get("deflectionLimit")),
                 "steel.beam.deflectionRatio": _format_value(sb.get("deflectionRatio"), 3),
                 "steel.beam.lateralBracingLength": _format_value(sb.get("lateralBracingLength"), 0),
+                "steel.beam.checkPasses": passes_str,
+                "steel.beam.passes": passes_str,
                 "steel.beam.checkStatus": sb.get("checkStatus", ""),
             })
 
@@ -241,14 +272,29 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
                 "wood.column.checkStatus": wc.get("checkStatus", ""),
             })
 
+
+            # Aliases para compatibilidad con plantilla
+            axial_capacity = _format_value(wc.get("axialCapacity"))
+            axial_ratio = _format_value(wc.get("axialCapacityRatio"), 3)
+            passes_str = str(wc.get("checkPasses", wc.get("passes", "")))
+            context.update({
+                "wood.column.pn": axial_capacity,
+                "wood.column.utilizationRatio": axial_ratio,
+                "wood.column.checkPasses": passes_str,
+                "wood.column.passes": passes_str,
+            })
         # Viga de Madera
         if "woodBeam" in struct and struct["woodBeam"]:
             wb = struct["woodBeam"]
             context.update({
                 "wood.beam.woodType": wb.get("woodType", ""),
+                "wood.beam.section": wb.get("section", ""),
                 "wood.beam.area": _format_value(wb.get("area")),
                 "wood.beam.sectionModulus": _format_value(wb.get("sectionModulus")),
                 "wood.beam.momentOfInertia": _format_value(wb.get("momentOfInertia")),
+                "wood.beam.nominalMomentCapacity": _format_value(wb.get("nominalMomentCapacity", wb.get("momentCapacity"))),
+                "wood.beam.nominalShearCapacity": _format_value(wb.get("nominalShearCapacity", wb.get("shearCapacity"))),
+                "wood.beam.utilization": _format_value(wb.get("utilization", wb.get("overallUtilization")), 3),
                 "wood.beam.flexureStress": _format_value(wb.get("flexureStress")),
                 "wood.beam.allowableFlexureStress": _format_value(wb.get("allowableFlexureStress")),
                 "wood.beam.flexureRatio": _format_value(wb.get("flexureRatio"), 3),
@@ -259,21 +305,35 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
                 "wood.beam.deflectionLimit": _format_value(wb.get("deflectionLimit")),
                 "wood.beam.deflectionRatio": _format_value(wb.get("deflectionRatio"), 3),
                 "wood.beam.lateralStabilityFactor": _format_value(wb.get("lateralStabilityFactor"), 3),
+                "wood.beam.checkPasses": str(wb.get("checkPasses", wb.get("passes", ""))),
                 "wood.beam.checkStatus": wb.get("checkStatus", ""),
             })
 
+
+            # Aliases para compatibilidad con plantilla
+            nominal_moment = _format_value(wb.get("nominalMomentCapacity", wb.get("momentCapacity")))
+            nominal_shear = _format_value(wb.get("nominalShearCapacity", wb.get("shearCapacity")))
+            utilization = _format_value(wb.get("utilization", wb.get("overallUtilization")), 3)
+            passes_str = str(wb.get("checkPasses", wb.get("passes", "")))
+            context.update({
+                "wood.beam.mn": nominal_moment,
+                "wood.beam.vn": nominal_shear,
+                "wood.beam.utilizationRatio": utilization,
+                "wood.beam.passes": passes_str,
+                "wood.beam.checkPasses": passes_str,
+            })
         # Zapata
         if "footing" in struct and struct["footing"]:
             ft = struct["footing"]
             context.update({
                 "footing.footingType": ft.get("footingType", ""),
-                "footing.dimensions.length": _format_value(ft.get("dimensions", {}).get("length"), 1),
-                "footing.dimensions.width": _format_value(ft.get("dimensions", {}).get("width"), 1),
+                "footing.dimensions.length": _format_value(ft.get("dimensions", {}).get("length"), 2),
+                "footing.dimensions.width": _format_value(ft.get("dimensions", {}).get("width"), 2),
                 "footing.dimensions.depth": _format_value(ft.get("dimensions", {}).get("depth"), 1),
-                "footing.dimensions.area": _format_value(ft.get("dimensions", {}).get("area"), 3),
-                "footing.soilPressures.max": _format_value(ft.get("soilPressures", {}).get("max")),
-                "footing.soilPressures.min": _format_value(ft.get("soilPressures", {}).get("min")),
-                "footing.soilPressures.average": _format_value(ft.get("soilPressures", {}).get("average")),
+                "footing.dimensions.area": _format_value(ft.get("dimensions", {}).get("area"), 2),
+                "footing.soilPressures.max": _format_value(ft.get("soilPressures", {}).get("max"), 2),
+                "footing.soilPressures.min": _format_value(ft.get("soilPressures", {}).get("min"), 2),
+                "footing.soilPressures.average": _format_value(ft.get("soilPressures", {}).get("average"), 2),
                 "footing.soilPressures.ratio": _format_value(ft.get("soilPressures", {}).get("ratio"), 3),
                 "footing.lateralPressures.static": _format_value(ft.get("lateralPressures", {}).get("static")),
                 "footing.lateralPressures.dynamic": _format_value(ft.get("lateralPressures", {}).get("dynamic")),
@@ -282,31 +342,86 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
                 "footing.punchingShear.appliedForce": _format_value(ft.get("punchingShear", {}).get("appliedForce")),
                 "footing.punchingShear.capacity": _format_value(ft.get("punchingShear", {}).get("capacity")),
                 "footing.punchingShear.ratio": _format_value(ft.get("punchingShear", {}).get("ratio"), 3),
-                "footing.punchingShear.criticalPerimeter": _format_value(ft.get("punchingShear", {}).get("criticalPerimeter"), 0),
+                "footing.punchingShear.criticalPerimeter": _format_value(ft.get("punchingShear", {}).get("criticalPerimeter"), 1),
                 "footing.flexuralShear.appliedForce": _format_value(ft.get("flexuralShear", {}).get("appliedForce")),
                 "footing.flexuralShear.capacity": _format_value(ft.get("flexuralShear", {}).get("capacity")),
                 "footing.flexuralShear.ratio": _format_value(ft.get("flexuralShear", {}).get("ratio"), 3),
+                "footing.checkPasses": str(ft.get("checkPasses", ft.get("passes", ""))),
                 "footing.checkStatus": ft.get("checkStatus", ""),
             })
 
             # Refuerzo (varía según el tipo)
             reinforcement = ft.get("reinforcement", {})
             if "xDirection" in reinforcement:  # Zapata aislada
+                xdir = reinforcement.get("xDirection", {})
+                ydir = reinforcement.get("yDirection", {})
                 context.update({
-                    "footing.reinforcement.xDirection.barDiameter": str(reinforcement.get("xDirection", {}).get("barDiameter", "")),
-                    "footing.reinforcement.xDirection.spacing": _format_value(reinforcement.get("xDirection", {}).get("spacing"), 0),
-                    "footing.reinforcement.yDirection.barDiameter": str(reinforcement.get("yDirection", {}).get("barDiameter", "")),
-                    "footing.reinforcement.yDirection.spacing": _format_value(reinforcement.get("yDirection", {}).get("spacing"), 0),
+                    "footing.reinforcement.longitudinalSteel": _format_value(xdir.get("totalArea", xdir.get("area"))),
+                    "footing.reinforcement.transverseSteel": _format_value(ydir.get("totalArea", ydir.get("area"))),
+                    "footing.reinforcement.xDirection.barDiameter": str(xdir.get("barDiameter", "")),
+                    "footing.reinforcement.xDirection.spacing": _format_value(xdir.get("spacing"), 1),
+                    "footing.reinforcement.yDirection.barDiameter": str(ydir.get("barDiameter", "")),
+                    "footing.reinforcement.yDirection.spacing": _format_value(ydir.get("spacing"), 1),
                 })
             elif "main" in reinforcement:  # Zapata corrida
+                main = reinforcement.get("main", {})
+                dist = reinforcement.get("distribution", {})
                 context.update({
-                    "footing.reinforcement.main.barDiameter": str(reinforcement.get("main", {}).get("barDiameter", "")),
-                    "footing.reinforcement.main.spacing": _format_value(reinforcement.get("main", {}).get("spacing"), 0),
-                    "footing.reinforcement.main.direction": reinforcement.get("main", {}).get("direction", ""),
-                    "footing.reinforcement.distribution.barDiameter": str(reinforcement.get("distribution", {}).get("barDiameter", "")),
-                    "footing.reinforcement.distribution.spacing": _format_value(reinforcement.get("distribution", {}).get("spacing"), 0),
-                    "footing.reinforcement.distribution.direction": reinforcement.get("distribution", {}).get("direction", ""),
+                    "footing.reinforcement.longitudinalSteel": _format_value(main.get("totalArea", main.get("area"))),
+                    "footing.reinforcement.transverseSteel": _format_value(dist.get("totalArea", dist.get("area"))),
+                    "footing.reinforcement.main.barDiameter": str(main.get("barDiameter", "")),
+                    "footing.reinforcement.main.spacing": _format_value(main.get("spacing"), 1),
+                    "footing.reinforcement.main.direction": main.get("direction", ""),
+                    "footing.reinforcement.distribution.barDiameter": str(dist.get("barDiameter", "")),
+                    "footing.reinforcement.distribution.spacing": _format_value(dist.get("spacing"), 1),
+                    "footing.reinforcement.distribution.direction": dist.get("direction", ""),
                 })
+
+            # Aliases para compatibilidad con la plantilla existente
+            dims = ft.get("dimensions", {})
+            soil = ft.get("soilPressures", {})
+            punching = ft.get("punchingShear", {})
+            flex = ft.get("flexuralShear", {})
+            length = _format_value(dims.get("length"), 2)
+            width = _format_value(dims.get("width"), 2)
+            depth = _format_value(dims.get("depth"), 1)
+            as_long = context.get("footing.reinforcement.longitudinalSteel", "")
+            as_trans = context.get("footing.reinforcement.transverseSteel", "")
+            bar_diam = (
+                str(ft.get("reinforcement", {}).get("xDirection", {}).get("barDiameter"))
+                or str(ft.get("reinforcement", {}).get("main", {}).get("barDiameter", ""))
+            )
+            spacing = (
+                _format_value(ft.get("reinforcement", {}).get("xDirection", {}).get("spacing"), 1)
+                or _format_value(ft.get("reinforcement", {}).get("main", {}).get("spacing"), 1)
+            )
+            context.update({
+                "footing.length": length,
+                "footing.width": width,
+                "footing.depth": depth,
+                "footing.soilPressureMax": _format_value(soil.get("max"), 2),
+                "footing.soilPressureMin": _format_value(soil.get("min"), 2),
+                "footing.punchingShearRatio": _format_value(punching.get("ratio"), 3),
+                "footing.beamShearRatio": _format_value(flex.get("ratio"), 3),
+                "footing.asLongitudinal": as_long,
+                "footing.asTransverse": as_trans,
+                "footing.barDiameter": bar_diam,
+                "footing.spacing": spacing,
+                "footing.passes": str(ft.get("checkPasses", ft.get("passes", ""))),
+            })
+
+    # Permitir inyección de placeholders de tablas y extras
+    tables = data.get("tables")
+    if isinstance(tables, dict):
+        context.update(tables)
+
+    extra_placeholders = (
+        data.get("placeholders")
+        or data.get("extraPlaceholders")
+        or data.get("additionalPlaceholders")
+    )
+    if isinstance(extra_placeholders, dict):
+        context.update(extra_placeholders)
 
     return context
 
@@ -325,21 +440,76 @@ def _replace_placeholders_in_text(text: str, context: Dict[str, Any]) -> str:
     return re.sub(pattern, replacer, text)
 
 
+def _replace_placeholders_in_runs(paragraph, context: Dict[str, Any]):
+    """
+    Reemplaza placeholders en los runs de un párrafo.
+
+    Esta función maneja el caso donde un placeholder puede estar dividido
+    entre múltiples runs de texto en Word, lo que sucede frecuentemente cuando
+    se edita el documento manualmente.
+    """
+    # Obtener el texto completo del párrafo
+    full_text = paragraph.text
+
+    # Si no hay placeholders, no hacemos nada
+    if '{{' not in full_text or '}}' not in full_text:
+        return
+
+    # Patrón para encontrar placeholders
+    pattern = r'\{\{([^}]+)\}\}'
+
+    # Encontrar todos los placeholders y sus posiciones en el texto completo
+    matches = list(re.finditer(pattern, full_text))
+
+    if not matches:
+        return
+
+    # Construir el nuevo texto reemplazando los placeholders de atrás hacia adelante
+    new_text = full_text
+    for match in reversed(matches):
+        placeholder = match.group(1).strip()
+        # Buscar el valor en el contexto
+        value = context.get(placeholder, "")
+
+        # Si no se encuentra el valor, mantener el placeholder para debug
+        if not value and placeholder not in context:
+            value = f"{{{{placeholder}}}}"
+
+        # Reemplazar el placeholder con su valor
+        new_text = new_text[:match.start()] + str(value) + new_text[match.end():]
+
+    # Método más robusto: mantener el formato del primer run
+    # y poner todo el texto allí
+    if paragraph.runs:
+        # Guardar el formato del primer run
+        first_run = paragraph.runs[0]
+
+        # Limpiar todos los runs
+        for run in paragraph.runs:
+            run.text = ""
+
+        # Poner el nuevo texto en el primer run
+        first_run.text = new_text
+    else:
+        # Si no hay runs, crear uno nuevo
+        paragraph.add_run(new_text)
+
+
 def _replace_placeholders_in_paragraphs(doc: Document, context: Dict[str, Any]):
-    """Reemplaza placeholders en todos los párrafos del documento."""
+    """Reemplaza placeholders en todos los párrafos del documento preservando el formato."""
     for para in doc.paragraphs:
         if '{{' in para.text and '}}' in para.text:
-            para.text = _replace_placeholders_in_text(para.text, context)
+            _replace_placeholders_in_runs(para, context)
 
 
 def _replace_placeholders_in_tables(doc: Document, context: Dict[str, Any]):
-    """Reemplaza placeholders en todas las tablas del documento."""
+    """Reemplaza placeholders en todas las tablas del documento preservando el formato."""
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for para in cell.paragraphs:
                     if '{{' in para.text and '}}' in para.text:
-                        para.text = _replace_placeholders_in_text(para.text, context)
+                        _replace_placeholders_in_runs(para, context)
 
 
 def _generate_seismic_spectrum_chart(data: Dict[str, Any]) -> Optional[io.BytesIO]:

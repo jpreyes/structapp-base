@@ -12,5 +12,17 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
+    watch: {
+      // Configuración para Windows/Dropbox
+      usePolling: false,
+      interval: 100,
+    },
   },
+  // Optimización de dependencias para Windows
+  optimizeDeps: {
+    include: ["react", "react-dom", "@mui/material", "@mui/x-data-grid"],
+    force: false,
+  },
+  // Caché más estable
+  cacheDir: "node_modules/.vite",
 });

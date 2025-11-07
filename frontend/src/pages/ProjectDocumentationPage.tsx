@@ -15,13 +15,17 @@ import {
   Typography,
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
+import { useQueryClient } from "@tanstack/react-query";
 import DownloadIcon from "@mui/icons-material/Download";
 import DescriptionIcon from "@mui/icons-material/Description";
+import StarIcon from "@mui/icons-material/Star";
+import StarBorderIcon from "@mui/icons-material/StarBorder";
 import dayjs from "dayjs";
 
 import { useProjects } from "../hooks/useProjects";
-import { useCalculationRuns } from "../hooks/useCalculationRuns";
+import { useCalculationRuns, CalculationRun } from "../hooks/useCalculationRuns";
 import { useSession } from "../store/useSession";
+import { useSetCriticalElement, useUnsetCriticalElement } from "../hooks/useStructuralCalcs";
 import apiClient from "../api/client";
 
 type CalculationType = {
@@ -57,6 +61,9 @@ const ProjectDocumentationPage = () => {
 
   const projectOptions = useMemo(() => projects ?? [], [projects]);
   const { data: runs = [], isLoading: runsLoading } = useCalculationRuns(selectedProjectId);
+  const queryClient = useQueryClient();
+  const setCriticalMutation = useSetCriticalElement();
+  const unsetCriticalMutation = useUnsetCriticalElement();
 
   useEffect(() => {
     if (!selectedProjectId && projectOptions.length) {
@@ -112,7 +119,7 @@ const ProjectDocumentationPage = () => {
       const selectedRunIds = Object.values(selectedCalculations).flat();
 
       const response = await apiClient.post(
-        "/design-base-runs/generate-from-calculations",
+        "/design-bases/runs/generate-from-calculations",
         {
           projectId: selectedProjectId,
           calculationIds: selectedRunIds,
@@ -141,6 +148,65 @@ const ProjectDocumentationPage = () => {
     }
   };
 
+  const handleToggleCritical = async (runId: string, elementType: string, currentIsCritical: boolean) => {
+    try {
+      console.log("Toggling critical element:", { runId, elementType, currentIsCritical });
+
+      let result;
+      if (currentIsCritical) {
+        result = await unsetCriticalMutation.mutateAsync(runId);
+        console.log("Unset critical result:", result);
+      } else {
+        result = await setCriticalMutation.mutateAsync(runId);
+        console.log("Set critical result:", result);
+      }
+
+      // Verificar que el backend devolvió datos
+      if (!result?.run) {
+        console.error("Backend returned null run data:", result);
+        throw new Error("El backend no devolvió datos actualizados");
+      }
+
+      console.log("Updated run data:", result.run);
+
+      // Actualizar el caché de React Query manualmente
+      queryClient.setQueryData<CalculationRun[]>(
+        ["calculation-runs", selectedProjectId],
+        (oldData) => {
+          if (!oldData) return oldData;
+
+          console.log("Updating cache, old data:", oldData);
+
+          // Si se está marcando como crítico, desmarcar otros del mismo tipo
+          const updatedData = oldData.map((run) => {
+            if (run.id === runId) {
+              // Este es el elemento que se modificó
+              return { ...run, is_critical: result.run.is_critical };
+            } else if (run.element_type === elementType && !currentIsCritical) {
+              // Si estamos marcando uno como crítico, desmarcar los demás del mismo tipo
+              return { ...run, is_critical: false };
+            }
+            return run;
+          });
+
+          console.log("Cache updated, new data:", updatedData);
+          return updatedData;
+        }
+      );
+
+      console.log("Cache manually updated");
+    } catch (error) {
+      console.error("Error toggling critical element:", error);
+      setError("Error al marcar elemento crítico. Verifica que la base de datos tenga la columna 'is_critical'.");
+
+      // Refrescar desde el servidor en caso de error
+      await queryClient.refetchQueries({
+        queryKey: ["calculation-runs", selectedProjectId],
+        exact: true
+      });
+    }
+  };
+
   const effectiveProjectName =
     projectOptions.find((project) => project.id === selectedProjectId)?.name ?? "Sin proyecto";
 
@@ -157,12 +223,42 @@ const ProjectDocumentationPage = () => {
       ),
     },
     {
+      field: "is_critical",
+      headerName: "",
+      width: 60,
+      sortable: false,
+      renderCell: (params) => (
+        <Box
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleCritical(params.row.id, typeId, params.row.is_critical || false);
+          }}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            "&:hover": {
+              transform: "scale(1.1)",
+            },
+            transition: "transform 0.2s",
+          }}
+        >
+          {params.row.is_critical ? (
+            <StarIcon color="warning" titleAccess="Elemento crítico para reportes" />
+          ) : (
+            <StarBorderIcon color="action" titleAccess="Marcar como crítico" />
+          )}
+        </Box>
+      ),
+    },
+    {
       field: "created_at",
       headerName: "Fecha",
-      width: 170,
+      width: 150,
       valueFormatter: (value) => (value ? dayjs(value).format("DD/MM/YYYY HH:mm") : "—"),
     },
-    { field: "summary", headerName: "Resumen", flex: 1, minWidth: 300 },
+    { field: "summary", headerName: "Resumen", flex: 1, minWidth: 250 },
   ];
 
   const getSummary = (run: any): string => {
@@ -334,6 +430,7 @@ const ProjectDocumentationPage = () => {
                       rows={calculations.map((run) => ({
                         ...run,
                         summary: getSummary(run),
+                        is_critical: run.is_critical ?? false,
                       }))}
                       columns={getColumns(type.id)}
                       loading={runsLoading}

@@ -182,6 +182,8 @@ class SteelColumnRequest(BaseModel):
 
 class SteelColumnResponse(BaseModel):
     """Resultados del diseño de pilar de acero."""
+    section: str = Field(..., description="Nombre de la sección")
+
     # Capacidad
     pn: float = Field(..., description="Capacidad axial nominal (kN)")
     mn_x: float = Field(..., alias="mnX", description="Momento nominal X (kN·m)")
@@ -199,6 +201,7 @@ class SteelColumnResponse(BaseModel):
     interaction_ratio: float = Field(..., alias="interactionRatio", description="Ratio de interacción")
 
     passes: bool = Field(..., description="¿Cumple el diseño?")
+    check_status: str = Field(..., alias="checkStatus", description="Estado de verificación")
 
 
 # ============================================================================
@@ -214,12 +217,13 @@ class SteelBeamRequest(BaseModel):
     user_id: str = Field(..., alias="userId", description="ID del usuario")
 
     # Esfuerzos
-    moment_max: float = Field(..., alias="momentMax", description="Momento máximo (kN·m)")
-    shear_max: float = Field(..., alias="shearMax", description="Cortante máximo (kN)")
+    moment: float = Field(..., description="Momento máximo (kN·m)")
+    shear: float = Field(..., description="Cortante máximo (kN)")
 
     # Geometría
     section_type: str = Field(..., alias="sectionType", description="Tipo de perfil")
     profile_name: Optional[str] = Field(None, alias="profileName", description="Nombre del perfil")
+    lateral_support: Optional[str] = Field(None, alias="lateralSupport", description="Soporte lateral")
 
     # Propiedades personalizadas
     area: Optional[float] = Field(None, description="Área (cm²)")
@@ -229,7 +233,7 @@ class SteelBeamRequest(BaseModel):
 
     # Longitudes
     span: float = Field(..., gt=0, description="Luz de la viga (m)")
-    lb: float = Field(..., alias="lb", gt=0, description="Longitud no arriostrada (m)")
+    lb: Optional[float] = Field(None, alias="Lb", description="Longitud no arriostrada (m)")
 
     # Material
     fy: float = Field(250.0, alias="fy", gt=0, description="Límite de fluencia (MPa)")
@@ -238,17 +242,20 @@ class SteelBeamRequest(BaseModel):
 
 class SteelBeamResponse(BaseModel):
     """Resultados del diseño de viga de acero."""
+    section: str = Field(..., description="Nombre de la sección")
+
     # Capacidad
     mn: float = Field(..., description="Momento nominal (kN·m)")
     vn: float = Field(..., description="Cortante nominal (kN)")
 
     # Verificaciones
-    deflection: float = Field(..., description="Deflexión (cm)")
     flexure_ratio: float = Field(..., alias="flexureRatio", description="Ratio flexión")
     shear_ratio: float = Field(..., alias="shearRatio", description="Ratio cortante")
+    deflection: float = Field(..., description="Deflexión (cm)")
     deflection_ratio: float = Field(..., alias="deflectionRatio", description="Ratio deflexión")
 
     passes: bool = Field(..., description="¿Cumple el diseño?")
+    check_status: str = Field(..., alias="checkStatus", description="Estado de verificación")
 
 
 # ============================================================================
@@ -288,20 +295,21 @@ class WoodColumnRequest(BaseModel):
 
 class WoodColumnResponse(BaseModel):
     """Resultados del diseño de pilar de madera."""
+    wood_type: str = Field(..., alias="woodType", description="Tipo de madera")
+    area: float = Field(..., description="Área de la sección (mm²)")
+
     # Capacidad
     pn: float = Field(..., description="Capacidad axial (kN)")
-    mn: float = Field(..., description="Momento nominal (kN·m)")
 
     # Verificaciones
-    slenderness_ratio: float = Field(..., alias="slendernessRatio", description="Esbeltez")
-    cp: float = Field(..., description="Factor de estabilidad de columna")
+    utilization_ratio: float = Field(..., alias="utilizationRatio", description="Ratio de utilización")
+    slenderness_x: float = Field(..., alias="slendernessX", description="Esbeltez eje X")
+    slenderness_y: float = Field(..., alias="slendernessY", description="Esbeltez eje Y")
+    stability_factor: float = Field(..., alias="stabilityFactor", description="Factor de estabilidad Cp")
+    is_slender: bool = Field(..., alias="isSlender", description="¿Es columna esbelta?")
+    allowable_stress: float = Field(..., alias="allowableStress", description="Esfuerzo admisible (MPa)")
 
-    # Ratios
-    axial_ratio: float = Field(..., alias="axialRatio", description="Ratio axial")
-    flexure_ratio: float = Field(..., alias="flexureRatio", description="Ratio flexión")
-    interaction_ratio: float = Field(..., alias="interactionRatio", description="Ratio de interacción")
-
-    passes: bool = Field(..., description="¿Cumple el diseño?")
+    check_status: str = Field(..., alias="checkStatus", description="Estado de verificación")
 
 
 # ============================================================================
@@ -317,16 +325,17 @@ class WoodBeamRequest(BaseModel):
     user_id: str = Field(..., alias="userId", description="ID del usuario")
 
     # Esfuerzos
-    moment_max: float = Field(..., alias="momentMax", description="Momento máximo (kN·m)")
-    shear_max: float = Field(..., alias="shearMax", description="Cortante máximo (kN)")
+    moment: float = Field(..., description="Momento máximo (kN·m)")
+    shear: float = Field(..., description="Cortante máximo (kN)")
 
     # Geometría
     width: float = Field(..., gt=0, description="Ancho (cm)")
-    depth: float = Field(..., gt=0, description="Altura (cm)")
+    height: float = Field(..., gt=0, description="Altura (cm)")
     span: float = Field(..., gt=0, description="Luz (m)")
 
     # Material
     wood_type: Optional[str] = Field(None, alias="woodType", description="Tipo de madera")
+    lateral_support: Optional[str] = Field(None, alias="lateralSupport", description="Soporte lateral")
     fm: Optional[float] = Field(None, description="Resistencia a flexión (MPa)")
     fv: Optional[float] = Field(None, description="Resistencia al corte (MPa)")
     E: Optional[float] = Field(None, description="Módulo de elasticidad (MPa)")
@@ -338,17 +347,22 @@ class WoodBeamRequest(BaseModel):
 
 class WoodBeamResponse(BaseModel):
     """Resultados del diseño de viga de madera."""
+    wood_type: str = Field(..., alias="woodType", description="Tipo de madera")
+    section: str = Field(..., description="Sección de la viga")
+
     # Capacidad
     mn: float = Field(..., description="Momento nominal (kN·m)")
     vn: float = Field(..., description="Cortante nominal (kN)")
 
     # Verificaciones
-    deflection: float = Field(..., description="Deflexión (cm)")
+    utilization_ratio: float = Field(..., alias="utilizationRatio", description="Ratio de utilización")
     flexure_ratio: float = Field(..., alias="flexureRatio", description="Ratio flexión")
     shear_ratio: float = Field(..., alias="shearRatio", description="Ratio cortante")
+    deflection: float = Field(..., description="Deflexión (cm)")
     deflection_ratio: float = Field(..., alias="deflectionRatio", description="Ratio deflexión")
 
     passes: bool = Field(..., description="¿Cumple el diseño?")
+    check_status: str = Field(..., alias="checkStatus", description="Estado de verificación")
 
 
 # ============================================================================
@@ -371,13 +385,18 @@ class FootingRequest(BaseModel):
     moment: float = Field(0.0, description="Momento (kN·m)")
     shear: float = Field(0.0, description="Cortante (kN)")
 
+    # Dimensiones propuestas (optional para cálculo automático)
+    length: Optional[float] = Field(None, gt=0, description="Largo propuesto (m)")
+    width: Optional[float] = Field(None, gt=0, description="Ancho propuesto (m)")
+    footing_depth: Optional[float] = Field(None, alias="footingDepth", gt=0, description="Altura zapata propuesta (cm)")
+
     # Cargas dinámicas y sísmicas
     static_pressure: float = Field(0.0, alias="staticPressure", description="Empuje estático (kPa)")
     dynamic_pressure: float = Field(0.0, alias="dynamicPressure", description="Empuje dinámico (kPa)")
     seismic_pressure: float = Field(0.0, alias="seismicPressure", description="Empuje sísmico (kPa)")
 
     # Suelo
-    bearing_capacity: float = Field(..., alias="bearingCapacity", gt=0, description="Capacidad portante (kPa)")
+    soil_bearing_capacity: float = Field(..., alias="soilBearingCapacity", gt=0, description="Capacidad portante (kPa)")
 
     # Geometría de columna/muro
     column_width: float = Field(..., alias="columnWidth", gt=0, description="Ancho columna/muro (cm)")
@@ -388,7 +407,6 @@ class FootingRequest(BaseModel):
     fy: float = Field(..., gt=0, description="Fluencia acero (MPa)")
 
     # Parámetros adicionales
-    depth: Optional[float] = Field(None, gt=0, description="Altura zapata propuesta (cm)")
     cover: float = Field(7.5, gt=0, description="Recubrimiento (cm)")
 
 

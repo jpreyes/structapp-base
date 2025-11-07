@@ -84,40 +84,88 @@ export interface ConcreteBeamCalculationResponse {
 // ==================== ACERO ====================
 
 export interface SteelColumnRequest {
+  projectId: string;
+  userId: string;
   axialLoad: number;
   momentX: number;
   momentY: number;
   length: number;
   fy: number;
   E?: number;
-  profile?: string;
+  sectionType: string;
+  profileName?: string;
   customArea?: number;
   customIx?: number;
   customIy?: number;
   customZx?: number;
   customZy?: number;
+  customRx?: number;
+  customRy?: number;
   Kx?: number;
   Ky?: number;
 }
 
 export interface SteelColumnResponse {
   section: string;
-  axialCapacity: number;
-  axialCapacityRatio: number;
-  momentCapacityX: number;
-  momentCapacityY: number;
-  momentCapacityRatioX: number;
-  momentCapacityRatioY: number;
+  pn: number;
+  mnX: number;
+  mnY: number;
+  axialRatio: number;
+  flexureRatioX: number;
+  flexureRatioY: number;
   slendernessX: number;
   slendernessY: number;
-  slendernessMax: number;
+  lambdaC: number;
   interactionRatio: number;
+  passes: boolean;
   checkStatus: string;
+}
+
+export interface SteelColumnCalculationResponse {
+  results: SteelColumnResponse;
+  run_id: string;
+}
+
+export interface SteelBeamRequest {
+  projectId: string;
+  userId: string;
+  moment: number;
+  shear: number;
+  span: number;
+  fy: number;
+  E?: number;
+  sectionType: string;
+  profileName?: string;
+  customArea?: number;
+  customIx?: number;
+  customZx?: number;
+  customSx?: number;
+  lateralSupport?: string;
+  Lb?: number;
+}
+
+export interface SteelBeamResponse {
+  section: string;
+  mn: number;
+  vn: number;
+  flexureRatio: number;
+  shearRatio: number;
+  deflection: number;
+  deflectionRatio: number;
+  passes: boolean;
+  checkStatus: string;
+}
+
+export interface SteelBeamCalculationResponse {
+  results: SteelBeamResponse;
+  run_id: string;
 }
 
 // ==================== MADERA ====================
 
 export interface WoodColumnRequest {
+  projectId: string;
+  userId: string;
   axialLoad: number;
   width: number;
   depth: number;
@@ -134,20 +182,62 @@ export interface WoodColumnRequest {
 export interface WoodColumnResponse {
   woodType: string;
   area: number;
-  axialCapacity: number;
-  axialCapacityRatio: number;
+  pn: number;
+  utilizationRatio: number;
   slendernessX: number;
   slendernessY: number;
-  slendernessMax: number;
   stabilityFactor: number;
   isSlender: boolean;
   allowableStress: number;
   checkStatus: string;
 }
 
+export interface WoodColumnCalculationResponse {
+  results: WoodColumnResponse;
+  run_id: string;
+}
+
+export interface WoodBeamRequest {
+  projectId: string;
+  userId: string;
+  moment: number;
+  shear: number;
+  span: number;
+  width: number;
+  height: number;
+  woodType?: string;
+  customFb?: number;
+  customFv?: number;
+  customE?: number;
+  moistureFactor?: number;
+  durationFactor?: number;
+  lateralSupport?: string;
+}
+
+export interface WoodBeamResponse {
+  woodType: string;
+  section: string;
+  mn: number;
+  vn: number;
+  utilizationRatio: number;
+  flexureRatio: number;
+  shearRatio: number;
+  deflection: number;
+  deflectionRatio: number;
+  passes: boolean;
+  checkStatus: string;
+}
+
+export interface WoodBeamCalculationResponse {
+  results: WoodBeamResponse;
+  run_id: string;
+}
+
 // ==================== ZAPATAS ====================
 
 export interface FootingRequest {
+  projectId: string;
+  userId: string;
   axialLoad: number;
   moment: number;
   shear: number;
@@ -157,6 +247,8 @@ export interface FootingRequest {
   fc: number;
   fy: number;
   footingType?: "isolated" | "continuous";
+  length?: number;
+  width?: number;
   staticPressure?: number;
   dynamicPressure?: number;
   seismicPressure?: number;
@@ -165,38 +257,23 @@ export interface FootingRequest {
 }
 
 export interface FootingResponse {
-  footingType: string;
-  dimensions: {
-    length: number;
-    width: number;
-    depth: number;
-    area: number;
-  };
-  soilPressures: {
-    max: number;
-    min: number;
-    average: number;
-    ratio: number;
-  };
-  lateralPressures: {
-    static: number;
-    dynamic: number;
-    seismic: number;
-    total: number;
-  };
-  punchingShear: {
-    appliedForce: number;
-    capacity: number;
-    ratio: number;
-    criticalPerimeter: number;
-  };
-  flexuralShear: {
-    appliedForce: number;
-    capacity: number;
-    ratio: number;
-  };
-  reinforcement: any; // Varía según el tipo
-  checkStatus: string;
+  length: number;
+  width: number;
+  depth: number;
+  soilPressureMax: number;
+  soilPressureMin: number;
+  asLongitudinal: number;
+  asTransverse: number;
+  barDiameter: number;
+  spacing: number;
+  punchingShearRatio: number;
+  beamShearRatio: number;
+  passes: boolean;
+}
+
+export interface FootingCalculationResponse {
+  results: FootingResponse;
+  run_id: string;
 }
 
 // ==================== HOOKS ====================
@@ -225,7 +302,7 @@ export function useConcreteBeam() {
 }
 
 export function useSteelColumn() {
-  return useMutation<SteelColumnResponse, Error, SteelColumnRequest>({
+  return useMutation<SteelColumnCalculationResponse, Error, SteelColumnRequest>({
     mutationFn: async (data) => {
       const response = await apiClient.post("/structural-calcs/steel/column", data);
       return response.data;
@@ -233,8 +310,17 @@ export function useSteelColumn() {
   });
 }
 
+export function useSteelBeam() {
+  return useMutation<SteelBeamCalculationResponse, Error, SteelBeamRequest>({
+    mutationFn: async (data) => {
+      const response = await apiClient.post("/structural-calcs/steel/beam", data);
+      return response.data;
+    },
+  });
+}
+
 export function useWoodColumn() {
-  return useMutation<WoodColumnResponse, Error, WoodColumnRequest>({
+  return useMutation<WoodColumnCalculationResponse, Error, WoodColumnRequest>({
     mutationFn: async (data) => {
       const response = await apiClient.post("/structural-calcs/wood/column", data);
       return response.data;
@@ -242,10 +328,39 @@ export function useWoodColumn() {
   });
 }
 
+export function useWoodBeam() {
+  return useMutation<WoodBeamCalculationResponse, Error, WoodBeamRequest>({
+    mutationFn: async (data) => {
+      const response = await apiClient.post("/structural-calcs/wood/beam", data);
+      return response.data;
+    },
+  });
+}
+
 export function useFooting() {
-  return useMutation<FootingResponse, Error, FootingRequest>({
+  return useMutation<FootingCalculationResponse, Error, FootingRequest>({
     mutationFn: async (data) => {
       const response = await apiClient.post("/structural-calcs/footing", data);
+      return response.data;
+    },
+  });
+}
+
+// ==================== GESTIÓN DE ELEMENTOS CRÍTICOS ====================
+
+export function useSetCriticalElement() {
+  return useMutation<{ success: boolean; run: any }, Error, string>({
+    mutationFn: async (runId: string) => {
+      const response = await apiClient.post(`/calculations/runs/${runId}/set-critical`);
+      return response.data;
+    },
+  });
+}
+
+export function useUnsetCriticalElement() {
+  return useMutation<{ success: boolean; run: any }, Error, string>({
+    mutationFn: async (runId: string) => {
+      const response = await apiClient.post(`/calculations/runs/${runId}/unset-critical`);
       return response.data;
     },
   });

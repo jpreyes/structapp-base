@@ -381,19 +381,19 @@ def calculate_seismic_base(
         floor_forces.append({"level": idx, "Fkx": round(Fkx, 3), "Fky": round(Fky, 3)})
 
     return {
-        "intensity_factor": I_s,
-        "zone_factor": A_0,
+        "intensityFactor": I_s,
+        "zoneFactor": A_0,
         "soil": soil_params,
-        "C_max": round(C_max, 4),
-        "C_min": round(C_min, 4),
+        "CMax": round(C_max, 4),
+        "CMin": round(C_min, 4),
         "Q0x": round(Q0x, 4),
         "Q0y": round(Q0y, 4),
-        "Q0_min": round(Q0_min, 4),
-        "Q0_max": round(Q0_max, 4),
+        "Q0Min": round(Q0_min, 4),
+        "Q0Max": round(Q0_max, 4),
         "Qbasx": round(Qbasx, 4),
         "Qbasy": round(Qbasy, 4),
         "spectrum": spectrum,
-        "floor_forces": floor_forces,
+        "floorForces": floor_forces,
     }
 
 
@@ -497,8 +497,8 @@ def _export_csv(payload: DesignBaseExportPayload) -> Tuple[bytes, str, str]:
         writer.writerow(["Tx (s)", payload.seismic.params.tx])
         writer.writerow(["Ty (s)", payload.seismic.params.ty])
         writer.writerow(["R0", payload.seismic.params.r0])
-        writer.writerow(["I_s", payload.seismic.result.intensity_factor])
-        writer.writerow(["A0", payload.seismic.result.zone_factor])
+        writer.writerow(["I_s", payload.seismic.result.intensity_factor or payload.seismic.result.intensityFactor])
+        writer.writerow(["A0", payload.seismic.result.zone_factor or payload.seismic.result.zoneFactor])
         writer.writerow(["Qbas,x (kN)", payload.seismic.result.Qbasx])
         writer.writerow(["Qbas,y (kN)", payload.seismic.result.Qbasy])
         writer.writerow([])
@@ -737,8 +737,8 @@ def _export_pdf(payload: DesignBaseExportPayload) -> Tuple[bytes, str, str]:
             ("Tx (s)", payload.seismic.params.tx),
             ("Ty (s)", payload.seismic.params.ty),
             ("R0", payload.seismic.params.r0),
-            ("I_s", payload.seismic.result.intensity_factor),
-            ("A0", payload.seismic.result.zone_factor),
+            ("I_s", payload.seismic.result.intensity_factor or payload.seismic.result.intensityFactor),
+            ("A0", payload.seismic.result.zone_factor or payload.seismic.result.zoneFactor),
             ("Qbas,x (kN)", payload.seismic.result.Qbasx),
             ("Qbas,y (kN)", payload.seismic.result.Qbasy),
         ]
