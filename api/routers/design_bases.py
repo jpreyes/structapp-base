@@ -462,7 +462,7 @@ async def generate_document_from_calculations(
                         "elementType": input_json.get("elementType", ""),
                         "tributaryArea": input_json.get("tributaryArea", 0),
                         "baseLoad": input_json.get("baseLoad", 0),
-                        "reducedLoad": result_json.get("reducedLoad", 0),
+                        **result_json,
                     }
 
             elif element_type == "wind_load":

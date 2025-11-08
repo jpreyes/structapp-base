@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -49,7 +49,11 @@ interface LiveLoadResponse {
 }
 
 interface LiveLoadReductionResponse {
-  reducedLoad: number;
+  reducedLoad?: number;
+  run_id?: string;
+  results?: {
+    reducedLoad: number;
+  };
 }
 
 interface WindResponse {
@@ -215,8 +219,18 @@ const ProjectDesignBasesPage = () => {
 
   const liveLoadReductionMutation = useMutation({
     mutationFn: async (payload: { elementType: string; tributaryArea: number; baseLoad: number }) => {
-      const { data } = await apiClient.post<LiveLoadReductionResponse>("/design-bases/live-load/reduction", payload);
-      return data;
+      const fullPayload = {
+        ...payload,
+        projectId: projectId || undefined,
+        userId: user?.id || undefined,
+      };
+      const { data } = await apiClient.post<LiveLoadReductionResponse>("/design-bases/live-load/reduction", fullPayload);
+      const normalized = data.results ?? data;
+      const reducedLoad = normalized?.reducedLoad;
+      if (typeof reducedLoad !== "number") {
+        throw new Error("Respuesta inválida del servidor: reducedLoad ausente");
+      }
+      return { reducedLoad, run_id: data.run_id };
     },
   });
 
@@ -364,6 +378,27 @@ const ProjectDesignBasesPage = () => {
         reducedLoad: liveLoadReductionMutation.data.reducedLoad,
       };
     }
+
+    const reductionEntry = (payload as {
+      reduction?: {
+        elementType?: string;
+        tributaryArea?: number;
+        baseLoad?: number;
+        reducedLoad?: number;
+      };
+    }).reduction;
+    if (reductionEntry) {
+      const reductionIsValid =
+        typeof reductionEntry.elementType === "string" &&
+        Number.isFinite(reductionEntry.tributaryArea) &&
+        Number.isFinite(reductionEntry.baseLoad) &&
+        Number.isFinite(reductionEntry.reducedLoad);
+
+      if (!reductionIsValid) {
+        console.warn("Reduction inválida; se excluye del guardado:", reductionEntry);
+        delete (payload as { reduction?: unknown }).reduction;
+      }
+    }
     if (windMutation.data && windEnvironment && windHeight) {
       payload.wind = {
         environment: windEnvironment,
@@ -471,6 +506,7 @@ const ProjectDesignBasesPage = () => {
       return;
     }
     const payload = buildExportPayload();
+    console.log("SAVE payload:", payload);
     if (!Object.keys(payload).length) {
       alert("Genera al menos un cÃ¡lculo antes de guardar.");
       return;
@@ -484,7 +520,8 @@ const ProjectDesignBasesPage = () => {
       alert("Base de cÃ¡lculo guardada exitosamente");
       setSaveDialogOpen(false);
       setSaveName("");
-    } catch (error) {
+    } catch (error: any) {
+      console.error("SAVE error:", error?.response?.data ?? error);
       alert(getErrorMessage(error) ?? "No se pudo guardar la base de cÃ¡lculo");
     }
   };
@@ -570,7 +607,8 @@ const ProjectDesignBasesPage = () => {
 
       setLoadDialogOpen(false);
       alert("Base de cÃ¡lculo cargada exitosamente");
-    } catch (error) {
+    } catch (error: any) {
+      console.error("SAVE error:", error?.response?.data ?? error);
       alert(getErrorMessage(error) ?? "No se pudo cargar la base de cÃ¡lculo");
     }
   };
@@ -595,7 +633,8 @@ const ProjectDesignBasesPage = () => {
       alert("Documento generado y guardado en el historial");
       setGenerateDocDialogOpen(false);
       setDocProjectName("");
-    } catch (error) {
+    } catch (error: any) {
+      console.error("SAVE error:", error?.response?.data ?? error);
       alert(getErrorMessage(error) ?? "No se pudo generar el documento");
     }
   };
@@ -609,7 +648,8 @@ const ProjectDesignBasesPage = () => {
       const { data } = await apiClient.get(`/design-bases/runs/list/${projectId}`);
       setRunHistory(data);
       setHistoryDialogOpen(true);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("SAVE error:", error?.response?.data ?? error);
       alert(getErrorMessage(error) ?? "No se pudo cargar el historial");
     }
   };
@@ -619,7 +659,8 @@ const ProjectDesignBasesPage = () => {
       const { data } = await apiClient.get(`/design-bases/runs/get/${runId}`);
       setPreviewData(data);
       setPreviewDialogOpen(true);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("SAVE error:", error?.response?.data ?? error);
       alert(getErrorMessage(error) ?? "No se pudo cargar el preview");
     }
   };
@@ -640,7 +681,8 @@ const ProjectDesignBasesPage = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("SAVE error:", error?.response?.data ?? error);
       alert(getErrorMessage(error) ?? "No se pudo descargar el documento");
     }
   };
@@ -919,7 +961,7 @@ const ProjectDesignBasesPage = () => {
                 ))}
               </TextField>
               <TextField
-                label="Ãrea tributaria (mÂ²)"
+                label="Área tributaria (m²)"
                 type="number"
                 value={tributaryArea}
                 onChange={(event) => setTributaryArea(event.target.value)}
@@ -941,13 +983,11 @@ const ProjectDesignBasesPage = () => {
                   if (!Number.isFinite(areaValue) || !Number.isFinite(baseLoadValue)) {
                     return;
                   }
-                  liveLoadReductionMutation.mutate({
-                    elementType,
-                    tributaryArea: areaValue,
-                    baseLoad: baseLoadValue,
-                  });
+                  liveLoadReductionMutation.mutate({ elementType, tributaryArea: areaValue, baseLoad: baseLoadValue }, { onSuccess: async () => { if (projectId) { try { await saveToHistoryAutomatically(); await handleViewHistory(); } catch (e) { console.error("Auto-guardado/Historial falló:", e); } } } });
                 }}
                 disabled={
+                  !projectId ||
+                  !user?.id ||
                   !elementType ||
                   !tributaryArea ||
                   manualBaseLoad === "" ||
@@ -960,11 +1000,11 @@ const ProjectDesignBasesPage = () => {
               </Button>
               {liveLoadReductionMutation.isSuccess && (
                 <Alert severity="success">
-                  Carga reducida: {typeof liveLoadReductionMutation.data?.reducedLoad === "number" ? `${liveLoadReductionMutation.data.reducedLoad.toFixed(3)} kN/m2` : "N/A"}
+                  Carga reducida: {typeof liveLoadReductionMutation.data?.reducedLoad === "number" ? `${liveLoadReductionMutation.data.reducedLoad.toFixed(3)} kN/m²` : "N/A"}
                 </Alert>
               )}
               {liveLoadReductionMutation.isError && (
-                <Alert severity="error">No fue posible calcular la reducciÃ³n.</Alert>
+                <Alert severity="error">No fue posible calcular la reducción.</Alert>
               )}
             </CardContent>
           </Card>
@@ -1959,6 +1999,12 @@ const ProjectDesignBasesPage = () => {
 };
 
 export default ProjectDesignBasesPage;
+
+
+
+
+
+
 
 
 
