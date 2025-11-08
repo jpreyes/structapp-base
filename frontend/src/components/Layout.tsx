@@ -10,6 +10,8 @@ import {
   ListItemText,
   Toolbar,
   Typography,
+  FormControlLabel,
+  Switch
 } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/SpaceDashboardRounded";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -21,6 +23,7 @@ import DescriptionIcon from "@mui/icons-material/Description";
 import ArchitectureIcon from "@mui/icons-material/Architecture";
 import LoginIcon from "@mui/icons-material/Login";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useThemeStore } from "../store/useTheme";
 import { useMemo, useState } from "react";
 
 import { useSession } from "../store/useSession";
@@ -59,7 +62,7 @@ const Layout = () => {
         indent: true,
       },
       { label: "Tareas", icon: <AssignmentIcon />, path: "/tasks", requiresAuth: true },
-      { label: "Pagos", icon: <PaymentIcon />, path: "/payments", requiresAuth: true },
+      { label: "Finanzas", icon: <PaymentIcon />, path: "/payments", requiresAuth: true },
       { label: "Login", icon: <LoginIcon />, path: "/login", showWhenLoggedOut: true },
     ],
     []
@@ -77,6 +80,14 @@ const Layout = () => {
       </Box>
       <Divider />
       <List>
+        <ListItemButton
+          selected={location.pathname === "/subscribe"}
+          onClick={() => navigate("/subscribe")}
+          sx={{ mt: 1 }}
+        >
+          <ListItemIcon><PaymentIcon /></ListItemIcon>
+          <ListItemText primary="Suscripción" />
+        </ListItemButton>
         {navItems
           .filter((item) => (item.showWhenLoggedOut ? !token : true))
           .map((item) => {
@@ -122,6 +133,16 @@ const Layout = () => {
           <Typography variant="h6" noWrap component="div">
             StructApp
           </Typography>
+          <Box sx={{ flexGrow: 1 }} />
+          <FormControlLabel
+            control={
+              <Switch
+                color="default"
+                onChange={() => useThemeStore.getState().toggle()}
+              />
+            }
+            label="Tema"
+          />
         </Toolbar>
       </AppBar>
       <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>

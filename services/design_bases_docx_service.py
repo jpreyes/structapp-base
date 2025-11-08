@@ -1,6 +1,6 @@
-"""
+﻿"""
 Servicio para generar documentos Word (DOCX) a partir de plantillas con sistema de placeholders.
-Soporta placeholders en formato {{variable}} que se reemplazan automáticamente con los datos.
+Soporta placeholders en formato {{variable}} que se reemplazan automÃ¡ticamente con los datos.
 """
 import io
 import re
@@ -12,7 +12,7 @@ from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import matplotlib
-matplotlib.use('Agg')  # Backend sin interfaz gráfica
+matplotlib.use('Agg')  # Backend sin interfaz grÃ¡fica
 import matplotlib.pyplot as plt
 
 TEMPLATE_PATH = Path(__file__).parent.parent / "mc-tipo.docx"
@@ -20,7 +20,7 @@ TEMPLATE_PATH = Path(__file__).parent.parent / "mc-tipo.docx"
 
 def _get_nested_value(data: Dict[str, Any], path: str) -> Optional[Any]:
     """
-    Obtiene un valor anidado de un diccionario usando notación de puntos.
+    Obtiene un valor anidado de un diccionario usando notaciÃ³n de puntos.
 
     Ejemplo: _get_nested_value(data, "seismic.result.Qbasx")
     retorna data["seismic"]["result"]["Qbasx"]
@@ -56,11 +56,11 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
     Este es el diccionario completo de placeholders disponibles.
     """
     context = {
-        # Información del proyecto
+        # InformaciÃ³n del proyecto
         "projectName": project_name,
         "currentDate": datetime.now().strftime("%d de %B de %Y"),
 
-        # Descripción del edificio (si existe)
+        # DescripciÃ³n del edificio (si existe)
         "buildingDescription": data.get("buildingDescription", {}).get("text", ""),
         "buildingLocation": data.get("buildingDescription", {}).get("location", ""),
         "buildingArea": data.get("buildingDescription", {}).get("area", ""),
@@ -79,7 +79,7 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
             "liveLoad.concentratedLoadRaw": ll.get("concentratedLoadRaw", ""),
         })
 
-    # REDUCCIÓN DE CARGAS VIVAS
+    # REDUCCIÃ“N DE CARGAS VIVAS
     if "reduction" in data and data["reduction"]:
         red = data["reduction"]
         context.update({
@@ -125,7 +125,7 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
         result = data["seismic"].get("result", {})
 
         context.update({
-            # Parámetros de entrada
+            # ParÃ¡metros de entrada
             "seismic.params.category": params.get("category", ""),
             "seismic.params.zone": params.get("zone", ""),
             "seismic.params.soil": params.get("soil", ""),
@@ -148,11 +148,11 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
             "seismic.result.Qbasy": _format_value(result.get("Qbasy")),
         })
 
-    # CÁLCULOS ESTRUCTURALES
+    # CÃLCULOS ESTRUCTURALES
     if "structural" in data and data["structural"]:
         struct = data["structural"]
 
-        # Pilar de Hormigón Armado
+        # Pilar de HormigÃ³n Armado
         if "concreteColumn" in struct and struct["concreteColumn"]:
             cc = struct["concreteColumn"]
             context.update({
@@ -171,7 +171,7 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
                 "concrete.column.isSlender": str(cc.get("isSlender", "")),
             })
 
-        # Viga de Hormigón Armado
+        # Viga de HormigÃ³n Armado
         if "concreteBeam" in struct and struct["concreteBeam"]:
             cb = struct["concreteBeam"]
             context.update({
@@ -350,7 +350,7 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
                 "footing.checkStatus": ft.get("checkStatus", ""),
             })
 
-            # Refuerzo (varía según el tipo)
+            # Refuerzo (varÃ­a segÃºn el tipo)
             reinforcement = ft.get("reinforcement", {})
             if "xDirection" in reinforcement:  # Zapata aislada
                 xdir = reinforcement.get("xDirection", {})
@@ -410,7 +410,7 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
                 "footing.passes": str(ft.get("checkPasses", ft.get("passes", ""))),
             })
 
-    # Permitir inyección de placeholders de tablas y extras
+    # Permitir inyecciÃ³n de placeholders de tablas y extras
     tables = data.get("tables")
     if isinstance(tables, dict):
         context.update(tables)
@@ -432,30 +432,32 @@ def _replace_placeholders_in_text(text: str, context: Dict[str, Any]) -> str:
     """
     def replacer(match):
         placeholder = match.group(1).strip()
-        value = context.get(placeholder, f"{{{{placeholder}}}}")  # Mantiene el placeholder si no existe
-        return str(value) if value else ""
+        if placeholder in context:
+            value = context[placeholder]
+            return "" if value is None else str(value)
+        return match.group(0)
 
-    # Patrón para encontrar {{variable}}
+    # PatrÃ³n para encontrar {{variable}}
     pattern = r'\{\{([^}]+)\}\}'
     return re.sub(pattern, replacer, text)
 
 
 def _replace_placeholders_in_runs(paragraph, context: Dict[str, Any]):
     """
-    Reemplaza placeholders en los runs de un párrafo.
+    Reemplaza placeholders en los runs de un pÃ¡rrafo.
 
-    Esta función maneja el caso donde un placeholder puede estar dividido
-    entre múltiples runs de texto en Word, lo que sucede frecuentemente cuando
+    Esta funciÃ³n maneja el caso donde un placeholder puede estar dividido
+    entre mÃºltiples runs de texto en Word, lo que sucede frecuentemente cuando
     se edita el documento manualmente.
     """
-    # Obtener el texto completo del párrafo
+    # Obtener el texto completo del pÃ¡rrafo
     full_text = paragraph.text
 
     # Si no hay placeholders, no hacemos nada
     if '{{' not in full_text or '}}' not in full_text:
         return
 
-    # Patrón para encontrar placeholders
+    # PatrÃ³n para encontrar placeholders
     pattern = r'\{\{([^}]+)\}\}'
 
     # Encontrar todos los placeholders y sus posiciones en el texto completo
@@ -464,22 +466,22 @@ def _replace_placeholders_in_runs(paragraph, context: Dict[str, Any]):
     if not matches:
         return
 
-    # Construir el nuevo texto reemplazando los placeholders de atrás hacia adelante
+    # Construir el nuevo texto reemplazando los placeholders de atrÃ¡s hacia adelante
     new_text = full_text
     for match in reversed(matches):
         placeholder = match.group(1).strip()
         # Buscar el valor en el contexto
-        value = context.get(placeholder, "")
+        if placeholder in context:
+            value = context[placeholder]
+            value_str = "" if value is None else str(value)
+        else:
+            value_str = match.group(0)
+
+        # Reemplazar el placeholder con su valor
+        new_text = new_text[:match.start()] + value_str + new_text[match.end():]
 
-        # Si no se encuentra el valor, mantener el placeholder para debug
-        if not value and placeholder not in context:
-            value = f"{{{{placeholder}}}}"
-
-        # Reemplazar el placeholder con su valor
-        new_text = new_text[:match.start()] + str(value) + new_text[match.end():]
-
-    # Método más robusto: mantener el formato del primer run
-    # y poner todo el texto allí
+    # MÃ©todo mÃ¡s robusto: mantener el formato del primer run
+    # y poner todo el texto allÃ­
     if paragraph.runs:
         # Guardar el formato del primer run
         first_run = paragraph.runs[0]
@@ -496,7 +498,7 @@ def _replace_placeholders_in_runs(paragraph, context: Dict[str, Any]):
 
 
 def _replace_placeholders_in_paragraphs(doc: Document, context: Dict[str, Any]):
-    """Reemplaza placeholders en todos los párrafos del documento preservando el formato."""
+    """Reemplaza placeholders en todos los pÃ¡rrafos del documento preservando el formato."""
     for para in doc.paragraphs:
         if '{{' in para.text and '}}' in para.text:
             _replace_placeholders_in_runs(para, context)
@@ -514,10 +516,10 @@ def _replace_placeholders_in_tables(doc: Document, context: Dict[str, Any]):
 
 def _generate_seismic_spectrum_chart(data: Dict[str, Any]) -> Optional[io.BytesIO]:
     """
-    Genera un gráfico de espectros sísmicos (Aceleración vs Período).
+    Genera un grÃ¡fico de espectros sÃ­smicos (AceleraciÃ³n vs PerÃ­odo).
 
     Returns:
-        BytesIO con la imagen del gráfico en formato PNG, o None si no hay datos
+        BytesIO con la imagen del grÃ¡fico en formato PNG, o None si no hay datos
     """
     if "seismic" not in data or "seismic" not in data:
         return None
@@ -530,18 +532,18 @@ def _generate_seismic_spectrum_chart(data: Dict[str, Any]) -> Optional[io.BytesI
     if not spectrum:
         return None
 
-    # Extraer datos para el gráfico
+    # Extraer datos para el grÃ¡fico
     periods = [point["period"] for point in spectrum]
     sa_x = [point.get("SaX", point.get("Sa_x", 0)) for point in spectrum]
     sa_y = [point.get("SaY", point.get("Sa_y", 0)) for point in spectrum]
 
-    # Crear el gráfico
+    # Crear el grÃ¡fico
     plt.figure(figsize=(10, 6))
     plt.plot(periods, sa_x, 'b-', linewidth=2, label='Espectro X')
     plt.plot(periods, sa_y, 'r--', linewidth=2, label='Espectro Y')
-    plt.xlabel('Período T (s)', fontsize=12)
-    plt.ylabel('Aceleración espectral Sa (g)', fontsize=12)
-    plt.title('Espectros de Diseño Sísmico', fontsize=14, fontweight='bold')
+    plt.xlabel('PerÃ­odo T (s)', fontsize=12)
+    plt.ylabel('AceleraciÃ³n espectral Sa (g)', fontsize=12)
+    plt.title('Espectros de DiseÃ±o SÃ­smico', fontsize=14, fontweight='bold')
     plt.grid(True, alpha=0.3)
     plt.legend(fontsize=10)
     plt.tight_layout()
@@ -557,16 +559,16 @@ def _generate_seismic_spectrum_chart(data: Dict[str, Any]) -> Optional[io.BytesI
 
 def _insert_spectrum_chart(doc: Document, data: Dict[str, Any]):
     """
-    Inserta el gráfico de espectros sísmicos en el documento donde encuentre {{spectrumChart}}.
+    Inserta el grÃ¡fico de espectros sÃ­smicos en el documento donde encuentre {{spectrumChart}}.
     """
     chart_buffer = _generate_seismic_spectrum_chart(data)
     if not chart_buffer:
         return
 
-    # Buscar el placeholder {{spectrumChart}} en párrafos
+    # Buscar el placeholder {{spectrumChart}} en pÃ¡rrafos
     for para in doc.paragraphs:
         if '{{spectrumChart}}' in para.text:
-            # Limpiar el texto del párrafo
+            # Limpiar el texto del pÃ¡rrafo
             para.text = para.text.replace('{{spectrumChart}}', '')
             # Insertar la imagen
             run = para.add_run()
@@ -579,10 +581,10 @@ def generate_design_base_document(data: Dict[str, Any], project_name: str = "Pro
     """
     Genera un documento Word a partir de la plantilla usando sistema de placeholders.
 
-    Los placeholders se escriben en el Word como {{variable}} y se reemplazan automáticamente.
+    Los placeholders se escriben en el Word como {{variable}} y se reemplazan automÃ¡ticamente.
 
     Args:
-        data: Diccionario con los datos de bases de cálculo
+        data: Diccionario con los datos de bases de cÃ¡lculo
         project_name: Nombre del proyecto
 
     Returns:
@@ -603,6 +605,8 @@ def generate_design_base_document(data: Dict[str, Any], project_name: str = "Pro
 
     # Insertar gráfico de espectros si existe el placeholder
     _insert_spectrum_chart(doc, data)
+    # Insertar tablas nativas si fueron provistas
+    _insert_tables(doc, context)
 
     # Guardar en buffer
     buffer = io.BytesIO()
@@ -610,3 +614,6 @@ def generate_design_base_document(data: Dict[str, Any], project_name: str = "Pro
     buffer.seek(0)
 
     return buffer.getvalue()
+
+
+

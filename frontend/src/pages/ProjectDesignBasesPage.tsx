@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -144,13 +144,13 @@ const ProjectDesignBasesPage = () => {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  // Estados para descripción del edificio
+  // Estados para descripciÃ³n del edificio
   const [buildingDescription, setBuildingDescription] = useState<string>("");
   const [buildingLocation, setBuildingLocation] = useState<string>("");
   const [buildingArea, setBuildingArea] = useState<string>("");
   const [buildingHeight, setBuildingHeight] = useState<string>("");
 
-  // Estados para pilar de hormigón armado
+  // Estados para pilar de hormigÃ³n armado
   const [ccAxialLoad, setCcAxialLoad] = useState<string>("500");
   const [ccMomentX, setCcMomentX] = useState<string>("50");
   const [ccMomentY, setCcMomentY] = useState<string>("40");
@@ -162,7 +162,7 @@ const ProjectDesignBasesPage = () => {
   const [ccFc, setCcFc] = useState<string>("25");
   const [ccFy, setCcFy] = useState<string>("420");
 
-  // Estado para guardar/cargar bases de cálculo
+  // Estado para guardar/cargar bases de cÃ¡lculo
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
@@ -259,10 +259,10 @@ const ProjectDesignBasesPage = () => {
     },
   });
 
-  // Mutation para pilar de hormigón armado
+  // Mutation para pilar de hormigÃ³n armado
   const concreteColumnMutation = useConcreteColumn();
 
-  // Mutation para descripción del edificio
+  // Mutation para descripciÃ³n del edificio
   const buildingDescriptionMutation = useMutation({
     mutationFn: async () => {
       if (!projectId || !user?.id) {
@@ -312,7 +312,7 @@ const ProjectDesignBasesPage = () => {
   const buildExportPayload = () => {
     const payload: Record<string, unknown> = {};
 
-    // Agregar descripción del edificio si hay al menos un campo lleno
+    // Agregar descripciÃ³n del edificio si hay al menos un campo lleno
     if (buildingDescription || buildingLocation || buildingArea || buildingHeight) {
       payload.buildingDescription = {
         text: buildingDescription || undefined,
@@ -401,7 +401,7 @@ const ProjectDesignBasesPage = () => {
       };
     }
 
-    // Agregar cálculos estructurales si existen
+    // Agregar cÃ¡lculos estructurales si existen
     const structural: Record<string, unknown> = {};
     if (concreteColumnMutation.data) {
       structural.concreteColumn = concreteColumnMutation.data;
@@ -417,7 +417,7 @@ const ProjectDesignBasesPage = () => {
     setExportError(null);
     const payload = buildExportPayload();
     if (!Object.keys(payload).length) {
-      setExportError("Genera al menos un cálculo antes de exportar.");
+      setExportError("Genera al menos un cÃ¡lculo antes de exportar.");
       return;
     }
     setExporting(true);
@@ -440,7 +440,7 @@ const ProjectDesignBasesPage = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      setExportError(getErrorMessage(error) ?? "No se pudo generar la exportación.");
+      setExportError(getErrorMessage(error) ?? "No se pudo generar la exportaciÃ³n.");
     } finally {
       setExporting(false);
     }
@@ -448,12 +448,12 @@ const ProjectDesignBasesPage = () => {
 
   const handleSaveDesignBase = async () => {
     if (!saveName.trim() || !projectId) {
-      alert("Ingresa un nombre y asegúrate de tener un proyecto activo");
+      alert("Ingresa un nombre y asegÃºrate de tener un proyecto activo");
       return;
     }
     const payload = buildExportPayload();
     if (!Object.keys(payload).length) {
-      alert("Genera al menos un cálculo antes de guardar.");
+      alert("Genera al menos un cÃ¡lculo antes de guardar.");
       return;
     }
     try {
@@ -462,11 +462,11 @@ const ProjectDesignBasesPage = () => {
         name: saveName,
         data: payload,
       });
-      alert("Base de cálculo guardada exitosamente");
+      alert("Base de cÃ¡lculo guardada exitosamente");
       setSaveDialogOpen(false);
       setSaveName("");
     } catch (error) {
-      alert(getErrorMessage(error) ?? "No se pudo guardar la base de cálculo");
+      alert(getErrorMessage(error) ?? "No se pudo guardar la base de cÃ¡lculo");
     }
   };
 
@@ -489,7 +489,7 @@ const ProjectDesignBasesPage = () => {
       const { data } = await apiClient.get(`/design-bases/load/${id}`);
       const loadedData = data.data;
 
-      // Cargar descripción del edificio
+      // Cargar descripciÃ³n del edificio
       if (loadedData.buildingDescription) {
         setBuildingDescription(loadedData.buildingDescription.text || "");
         setBuildingLocation(loadedData.buildingDescription.location || "");
@@ -550,9 +550,9 @@ const ProjectDesignBasesPage = () => {
       }
 
       setLoadDialogOpen(false);
-      alert("Base de cálculo cargada exitosamente");
+      alert("Base de cÃ¡lculo cargada exitosamente");
     } catch (error) {
-      alert(getErrorMessage(error) ?? "No se pudo cargar la base de cálculo");
+      alert(getErrorMessage(error) ?? "No se pudo cargar la base de cÃ¡lculo");
     }
   };
 
@@ -563,7 +563,7 @@ const ProjectDesignBasesPage = () => {
     }
     const payload = buildExportPayload();
     if (!Object.keys(payload).length) {
-      alert("Genera al menos un cálculo antes de crear el documento.");
+      alert("Genera al menos un cÃ¡lculo antes de crear el documento.");
       return;
     }
     try {
@@ -626,7 +626,7 @@ const ProjectDesignBasesPage = () => {
     }
   };
 
-  // Función para guardar automáticamente en el historial
+  // FunciÃ³n para guardar automÃ¡ticamente en el historial
   const saveToHistoryAutomatically = async () => {
     if (!projectId) return;
 
@@ -641,7 +641,7 @@ const ProjectDesignBasesPage = () => {
         hour: "2-digit",
         minute: "2-digit"
       });
-      const autoName = `Cálculo ${timestamp}`;
+      const autoName = `CÃ¡lculo ${timestamp}`;
 
       await apiClient.post("/design-bases/runs/create", {
         projectId,
@@ -650,15 +650,15 @@ const ProjectDesignBasesPage = () => {
         data: payload,
       });
 
-      console.log("Guardado automático en historial:", autoName);
+      console.log("Guardado automÃ¡tico en historial:", autoName);
       setAutoSaveSnackbar(true);
     } catch (error) {
-      console.error("Error al guardar automáticamente:", error);
+      console.error("Error al guardar automÃ¡ticamente:", error);
       // No mostramos alert para no interrumpir el flujo del usuario
     }
   };
 
-  // useEffect para guardar automáticamente cuando se completen cálculos importantes
+  // useEffect para guardar automÃ¡ticamente cuando se completen cÃ¡lculos importantes
   useEffect(() => {
     if (seismicMutation.isSuccess && seismicMutation.data && projectId) {
       saveToHistoryAutomatically();
@@ -723,7 +723,7 @@ const ProjectDesignBasesPage = () => {
   if (optionsLoading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 6 }}>
-        <Typography>Cargando catálogos...</Typography>
+        <Typography>Cargando catÃ¡logos...</Typography>
       </Box>
     );
   }
@@ -731,7 +731,7 @@ const ProjectDesignBasesPage = () => {
   if (isError || !options) {
     return (
       <Alert severity="error">
-        No se pudieron recuperar las opciones base. Verifica la API e inténtalo nuevamente.
+        No se pudieron recuperar las opciones base. Verifica la API e intÃ©ntalo nuevamente.
       </Alert>
     );
   }
@@ -740,7 +740,7 @@ const ProjectDesignBasesPage = () => {
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Typography variant="h5" gutterBottom>
-          Bases de cálculo y cargas de diseño
+          Bases de cÃ¡lculo y cargas de diseÃ±o
         </Typography>
         <Stack direction="row" spacing={1} alignItems="center">
           <TextField
@@ -797,27 +797,27 @@ const ProjectDesignBasesPage = () => {
         </Stack>
       </Box>
 
-      {/* Card de Descripción del Edificio */}
+      {/* Card de DescripciÃ³n del Edificio */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Descripción del Edificio
+            DescripciÃ³n del Edificio
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
-                label="Descripción General"
+                label="DescripciÃ³n General"
                 value={buildingDescription}
                 onChange={(e) => setBuildingDescription(e.target.value)}
                 fullWidth
                 multiline
                 rows={3}
-                placeholder="Ej: Edificio de oficinas de 5 pisos con estructura de hormigón armado..."
+                placeholder="Ej: Edificio de oficinas de 5 pisos con estructura de hormigÃ³n armado..."
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label="Ubicación"
+                label="UbicaciÃ³n"
                 value={buildingLocation}
                 onChange={(e) => setBuildingLocation(e.target.value)}
                 fullWidth
@@ -826,7 +826,7 @@ const ProjectDesignBasesPage = () => {
             </Grid>
             <Grid item xs={12} md={3}>
               <TextField
-                label="Área Total (m²)"
+                label="Ãrea Total (mÂ²)"
                 value={buildingArea}
                 onChange={(e) => setBuildingArea(e.target.value)}
                 fullWidth
@@ -853,18 +853,18 @@ const ProjectDesignBasesPage = () => {
                   (!buildingDescription && !buildingLocation && !buildingArea && !buildingHeight)
                 }
               >
-                Guardar Descripción
+                Guardar DescripciÃ³n
               </Button>
               {buildingDescriptionMutation.isSuccess && (
                 <Alert severity="success" sx={{ mt: 2 }}>
-                  Descripción guardada en el historial
+                  DescripciÃ³n guardada en el historial
                 </Alert>
               )}
               {buildingDescriptionMutation.isError && (
                 <Alert severity="error" sx={{ mt: 2 }}>
                   {(buildingDescriptionMutation.error as any)?.response?.data?.detail ||
                     (buildingDescriptionMutation.error as Error)?.message ||
-                    "Error al guardar la descripción"}
+                    "Error al guardar la descripciÃ³n"}
                 </Alert>
               )}
             </Grid>
@@ -919,13 +919,13 @@ const ProjectDesignBasesPage = () => {
                 Consultar carga viva
               </Button>
               {liveLoadMutation.isError && (
-                <Alert severity="error">No se encontró la combinación seleccionada.</Alert>
+                <Alert severity="error">No se encontrÃ³ la combinaciÃ³n seleccionada.</Alert>
               )}
               {liveLoadMutation.data && (
                 <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 }}>
                   <Typography color="text.secondary">Carga uniforme</Typography>
                   <Typography>
-                    {liveLoadMutation.data.uniformLoad ?? liveLoadMutation.data.uniformLoadRaw} kN/m²
+                    {liveLoadMutation.data.uniformLoad ?? liveLoadMutation.data.uniformLoadRaw} kN/mÂ²
                   </Typography>
                   <Typography color="text.secondary">Carga concentrada</Typography>
                   <Typography>
@@ -942,7 +942,7 @@ const ProjectDesignBasesPage = () => {
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <Typography variant="h6">Reducción por área tributaria (NCh1537)</Typography>
+              <Typography variant="h6">ReducciÃ³n por Ã¡rea tributaria (NCh1537)</Typography>
               <TextField
                 select
                 label="Elemento estructural"
@@ -957,20 +957,20 @@ const ProjectDesignBasesPage = () => {
                 ))}
               </TextField>
               <TextField
-                label="Área tributaria (m²)"
+                label="Ãrea tributaria (mÂ²)"
                 type="number"
                 value={tributaryArea}
                 onChange={(event) => setTributaryArea(event.target.value)}
                 fullWidth
               />
               <TextField
-                label="Carga base (kN/m²)"
+                label="Carga base (kN/mÂ²)"
                 type="number"
                 value={manualBaseLoad}
                 onChange={(event) => setManualBaseLoad(event.target.value)}
                 helperText={
                   baseUniformLoad
-                    ? `Valor sugerido según catálogo: ${baseUniformLoad.toFixed(2)}`
+                    ? `Valor sugerido segÃºn catÃ¡logo: ${baseUniformLoad.toFixed(2)}`
                     : "Ingresa la carga uniforme que deseas reducir."
                 }
                 fullWidth
@@ -1003,11 +1003,11 @@ const ProjectDesignBasesPage = () => {
               </Button>
               {liveLoadReductionMutation.isSuccess && (
                 <Alert severity="success">
-                  Carga reducida: {liveLoadReductionMutation.data.reducedLoad.toFixed(3)} kN/m²
+                  Carga reducida: {liveLoadReductionMutation.data.reducedLoad.toFixed(3)} kN/mÂ²
                 </Alert>
               )}
               {liveLoadReductionMutation.isError && (
-                <Alert severity="error">No fue posible calcular la reducción.</Alert>
+                <Alert severity="error">No fue posible calcular la reducciÃ³n.</Alert>
               )}
             </CardContent>
           </Card>
@@ -1018,7 +1018,7 @@ const ProjectDesignBasesPage = () => {
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <Typography variant="h6">Presión de viento (NCh432)</Typography>
+              <Typography variant="h6">PresiÃ³n de viento (NCh432)</Typography>
               <TextField
                 select
                 label="Entorno"
@@ -1061,7 +1061,7 @@ const ProjectDesignBasesPage = () => {
               {windMutation.data && (
                 <Alert severity={windMutation.data.q ? "success" : "warning"}>
                   {windMutation.data.q
-                    ? `q = ${windMutation.data.q.toFixed(3)} kN/m²`
+                    ? `q = ${windMutation.data.q.toFixed(3)} kN/mÂ²`
                     : windMutation.data.message}
                 </Alert>
               )}
@@ -1077,7 +1077,7 @@ const ProjectDesignBasesPage = () => {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     select
-                    label="Latitud (°)"
+                    label="Latitud (Â°)"
                     value={latitudeBand}
                     onChange={(event) => {
                       setLatitudeBand(event.target.value);
@@ -1111,7 +1111,7 @@ const ProjectDesignBasesPage = () => {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     select
-                    label="Condición térmica"
+                    label="CondiciÃ³n tÃ©rmica"
                     value={thermalCondition}
                     onChange={(event) => setThermalCondition(event.target.value)}
                     fullWidth
@@ -1126,7 +1126,7 @@ const ProjectDesignBasesPage = () => {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     select
-                    label="Categoría de importancia"
+                    label="CategorÃ­a de importancia"
                     value={importanceCategory}
                     onChange={(event) => setImportanceCategory(event.target.value)}
                     fullWidth
@@ -1141,7 +1141,7 @@ const ProjectDesignBasesPage = () => {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     select
-                    label="Categoría de exposición"
+                    label="CategorÃ­a de exposiciÃ³n"
                     value={exposureCategory}
                     onChange={(event) => {
                       setExposureCategory(event.target.value);
@@ -1159,7 +1159,7 @@ const ProjectDesignBasesPage = () => {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     select
-                    label="Condición de exposición"
+                    label="CondiciÃ³n de exposiciÃ³n"
                     value={exposureCondition}
                     onChange={(event) => setExposureCondition(event.target.value)}
                     disabled={!exposureCategory}
@@ -1189,7 +1189,7 @@ const ProjectDesignBasesPage = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    label="Inclinación (°)"
+                    label="InclinaciÃ³n (Â°)"
                     type="number"
                     value={roofPitch}
                     onChange={(event) => setRoofPitch(event.target.value)}
@@ -1226,11 +1226,11 @@ const ProjectDesignBasesPage = () => {
                 Calcular nieve sobre techo
               </Button>
               {snowMutation.isError && (
-                <Alert severity="error">No hay datos para la combinación seleccionada.</Alert>
+                <Alert severity="error">No hay datos para la combinaciÃ³n seleccionada.</Alert>
               )}
               {snowMutation.data && (
                 <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 1 }}>
-                  <Typography color="text.secondary">Pg (kN/m²)</Typography>
+                  <Typography color="text.secondary">Pg (kN/mÂ²)</Typography>
                   <Typography>{snowMutation.data.pg?.toFixed(2) ?? 'N/A'}</Typography>
                   <Typography color="text.secondary">ct</Typography>
                   <Typography>{snowMutation.data.ct?.toFixed(2) ?? 'N/A'}</Typography>
@@ -1240,7 +1240,7 @@ const ProjectDesignBasesPage = () => {
                   <Typography>{snowMutation.data.I?.toFixed(2) ?? 'N/A'}</Typography>
                   <Typography color="text.secondary">cs</Typography>
                   <Typography>{snowMutation.data.cs?.toFixed(3) ?? 'N/A'}</Typography>
-                  <Typography color="text.secondary">pf (kN/m²)</Typography>
+                  <Typography color="text.secondary">pf (kN/mÂ²)</Typography>
                   <Typography>{snowMutation.data.pf?.toFixed(3) ?? 'N/A'}</Typography>
                 </Box>
               )}
@@ -1251,12 +1251,12 @@ const ProjectDesignBasesPage = () => {
 
       <Card>
         <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <Typography variant="h6">Análisis sísmico base (NCh433)</Typography>
+          <Typography variant="h6">AnÃ¡lisis sÃ­smico base (NCh433)</Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}>
               <TextField
                 select
-                label="Categoría estructural"
+                label="CategorÃ­a estructural"
                 value={seismicCategory}
                 onChange={(event) => setSeismicCategory(event.target.value)}
                 fullWidth
@@ -1271,7 +1271,7 @@ const ProjectDesignBasesPage = () => {
             <Grid item xs={12} md={3}>
               <TextField
                 select
-                label="Zona sísmica"
+                label="Zona sÃ­smica"
                 value={seismicZone}
                 onChange={(event) => setSeismicZone(event.target.value)}
                 fullWidth
@@ -1309,7 +1309,7 @@ const ProjectDesignBasesPage = () => {
             </Grid>
             <Grid item xs={12} md={3}>
               <TextField
-                label="Peso sísmico total (kN)"
+                label="Peso sÃ­smico total (kN)"
                 type="number"
                 value={psValue}
                 onChange={(event) => setPsValue(event.target.value)}
@@ -1318,7 +1318,7 @@ const ProjectDesignBasesPage = () => {
             </Grid>
             <Grid item xs={12} md={3}>
               <TextField
-                label="Período Tx (s)"
+                label="PerÃ­odo Tx (s)"
                 type="number"
                 value={txValue}
                 onChange={(event) => setTxValue(event.target.value)}
@@ -1327,7 +1327,7 @@ const ProjectDesignBasesPage = () => {
             </Grid>
             <Grid item xs={12} md={3}>
               <TextField
-                label="Período Ty (s)"
+                label="PerÃ­odo Ty (s)"
                 type="number"
                 value={tyValue}
                 onChange={(event) => setTyValue(event.target.value)}
@@ -1336,7 +1336,7 @@ const ProjectDesignBasesPage = () => {
             </Grid>
             <Grid item xs={12} md={3}>
               <TextField
-                label="R₀ (deriva)"
+                label="Râ‚€ (deriva)"
                 type="number"
                 value={r0Value}
                 onChange={(event) => setR0Value(event.target.value)}
@@ -1347,7 +1347,7 @@ const ProjectDesignBasesPage = () => {
 
           <Divider />
 
-          <Typography variant="subtitle1">Distribución de niveles</Typography>
+          <Typography variant="subtitle1">DistribuciÃ³n de niveles</Typography>
           <Stack spacing={1}>
             {stories.map((story, index) => (
               <Stack key={story.id} direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center">
@@ -1421,7 +1421,7 @@ const ProjectDesignBasesPage = () => {
 
           {seismicMutation.isError && (
             <Alert severity="error">
-              {seismicErrorMessage ?? "Verifica los valores ingresados; no se pudo calcular el análisis."}
+              {seismicErrorMessage ?? "Verifica los valores ingresados; no se pudo calcular el anÃ¡lisis."}
             </Alert>
           )}
 
@@ -1436,12 +1436,12 @@ const ProjectDesignBasesPage = () => {
                 <Typography>{seismicMutation.data.Qbasx.toFixed(3)} kN</Typography>
                 <Typography color="text.secondary">Q<sub>bas,y</sub></Typography>
                 <Typography>{seismicMutation.data.Qbasy.toFixed(3)} kN</Typography>
-                <Typography color="text.secondary">Q<sub>basal,mín</sub></Typography>
+                <Typography color="text.secondary">Q<sub>basal,mÃ­n</sub></Typography>
                 <Typography>{seismicMutation.data.Q0Min.toFixed(3)} kN</Typography>
-                <Typography color="text.secondary">Q<sub>basal,máx</sub></Typography>
+                <Typography color="text.secondary">Q<sub>basal,mÃ¡x</sub></Typography>
                 <Typography>{seismicMutation.data.Q0Max.toFixed(3)} kN</Typography>
               </Box>
-              <Typography variant="subtitle2">Distribución de fuerzas por nivel</Typography>
+              <Typography variant="subtitle2">DistribuciÃ³n de fuerzas por nivel</Typography>
               <DataGrid
                 autoHeight
                 density="compact"
@@ -1453,7 +1453,7 @@ const ProjectDesignBasesPage = () => {
                 ]}
                 hideFooter
               />
-              <Typography variant="subtitle2">Espectro de diseño (Sa)</Typography>
+              <Typography variant="subtitle2">Espectro de diseÃ±o (Sa)</Typography>
               <DataGrid
                 autoHeight
                 density="compact"
@@ -1488,11 +1488,11 @@ const ProjectDesignBasesPage = () => {
         </CardContent>
       </Card>
 
-      {/* Card para Pilar de Hormigón Armado (ACI318) */}
+      {/* Card para Pilar de HormigÃ³n Armado (ACI318) */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Pilar de Hormigón Armado (ACI318)
+            Pilar de HormigÃ³n Armado (ACI318)
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
@@ -1506,7 +1506,7 @@ const ProjectDesignBasesPage = () => {
             </Grid>
             <Grid item xs={12} md={4}>
               <TextField
-                label="Momento X (kN·m)"
+                label="Momento X (kNÂ·m)"
                 type="number"
                 value={ccMomentX}
                 onChange={(e) => setCcMomentX(e.target.value)}
@@ -1515,7 +1515,7 @@ const ProjectDesignBasesPage = () => {
             </Grid>
             <Grid item xs={12} md={4}>
               <TextField
-                label="Momento Y (kN·m)"
+                label="Momento Y (kNÂ·m)"
                 type="number"
                 value={ccMomentY}
                 onChange={(e) => setCcMomentY(e.target.value)}
@@ -1604,7 +1604,7 @@ const ProjectDesignBasesPage = () => {
                 }
                 disabled={concreteColumnMutation.isPending}
               >
-                Diseñar Pilar
+                DiseÃ±ar Pilar
               </Button>
             </Grid>
           </Grid>
@@ -1618,7 +1618,7 @@ const ProjectDesignBasesPage = () => {
           {concreteColumnMutation.data && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="subtitle1" gutterBottom>
-                Resultados del Diseño
+                Resultados del DiseÃ±o
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
@@ -1631,7 +1631,7 @@ const ProjectDesignBasesPage = () => {
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" color="text.secondary">
-                    Ratio de Utilización
+                    Ratio de UtilizaciÃ³n
                   </Typography>
                   <Typography variant="body1" color={(concreteColumnMutation.data.axialCapacityRatio ?? 0) > 1 ? "error" : "success.main"}>
                     {((concreteColumnMutation.data.axialCapacityRatio ?? 0) * 100).toFixed(1)}%
@@ -1642,7 +1642,7 @@ const ProjectDesignBasesPage = () => {
                     Refuerzo Longitudinal
                   </Typography>
                   <Typography variant="body1">
-                    {concreteColumnMutation.data.longitudinalSteel?.numBars ?? 'N/A'} φ{concreteColumnMutation.data.longitudinalSteel?.barDiameter ?? 'N/A'} ({concreteColumnMutation.data.longitudinalSteel?.totalArea?.toFixed(0) ?? 'N/A'} mm²)
+                    {concreteColumnMutation.data.longitudinalSteel?.numBars ?? 'N/A'} Ï†{concreteColumnMutation.data.longitudinalSteel?.barDiameter ?? 'N/A'} ({concreteColumnMutation.data.longitudinalSteel?.totalArea?.toFixed(0) ?? 'N/A'} mmÂ²)
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1650,7 +1650,7 @@ const ProjectDesignBasesPage = () => {
                     Estribos
                   </Typography>
                   <Typography variant="body1">
-                    φ{concreteColumnMutation.data.transverseSteel?.diameter ?? 'N/A'} @ {concreteColumnMutation.data.transverseSteel?.spacing ?? 'N/A'} mm
+                    Ï†{concreteColumnMutation.data.transverseSteel?.diameter ?? 'N/A'} @ {concreteColumnMutation.data.transverseSteel?.spacing ?? 'N/A'} mm
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1663,7 +1663,7 @@ const ProjectDesignBasesPage = () => {
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" color="text.secondary">
-                    Factor de Magnificación
+                    Factor de MagnificaciÃ³n
                   </Typography>
                   <Typography variant="body1">
                     {concreteColumnMutation.data.magnificationFactor?.toFixed(3) ?? 'N/A'}
@@ -1675,9 +1675,9 @@ const ProjectDesignBasesPage = () => {
         </CardContent>
       </Card>
 
-      {/* Diálogo para guardar */}
+      {/* DiÃ¡logo para guardar */}
       <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)}>
-        <DialogTitle>Guardar base de cálculo</DialogTitle>
+        <DialogTitle>Guardar base de cÃ¡lculo</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -1686,8 +1686,8 @@ const ProjectDesignBasesPage = () => {
             fullWidth
             value={saveName}
             onChange={(e) => setSaveName(e.target.value)}
-            placeholder="Ej: Base sísmica edificio X"
-            helperText={`Se guardará en el proyecto: ${projects.find(p => p.id === projectId)?.name || "No seleccionado"}`}
+            placeholder="Ej: Base sÃ­smica edificio X"
+            helperText={`Se guardarÃ¡ en el proyecto: ${projects.find(p => p.id === projectId)?.name || "No seleccionado"}`}
           />
         </DialogContent>
         <DialogActions>
@@ -1698,9 +1698,9 @@ const ProjectDesignBasesPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Diálogo para cargar */}
+      {/* DiÃ¡logo para cargar */}
       <Dialog open={loadDialogOpen} onClose={() => setLoadDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Cargar base de cálculo</DialogTitle>
+        <DialogTitle>Cargar base de cÃ¡lculo</DialogTitle>
         <DialogContent>
           {savedBases.length === 0 ? (
             <Typography color="text.secondary" sx={{ py: 2 }}>
@@ -1726,7 +1726,7 @@ const ProjectDesignBasesPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Diálogo para generar documento Word */}
+      {/* DiÃ¡logo para generar documento Word */}
       <Dialog open={generateDocDialogOpen} onClose={() => setGenerateDocDialogOpen(false)}>
         <DialogTitle>Generar documento Word</DialogTitle>
         <DialogContent>
@@ -1738,7 +1738,7 @@ const ProjectDesignBasesPage = () => {
             value={docProjectName}
             onChange={(e) => setDocProjectName(e.target.value)}
             placeholder="Ej: Edificio Comercial Centro"
-            helperText="Este nombre aparecerá en el documento generado"
+            helperText="Este nombre aparecerÃ¡ en el documento generado"
           />
         </DialogContent>
         <DialogActions>
@@ -1749,7 +1749,7 @@ const ProjectDesignBasesPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Diálogo para historial de documentos */}
+      {/* DiÃ¡logo para historial de documentos */}
       <Dialog open={historyDialogOpen} onClose={() => setHistoryDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Historial de documentos generados</DialogTitle>
         <DialogContent>
@@ -1787,7 +1787,7 @@ const ProjectDesignBasesPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Diálogo para preview del documento */}
+      {/* DiÃ¡logo para preview del documento */}
       <Dialog open={previewDialogOpen} onClose={() => setPreviewDialogOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
           Preview: {previewData?.name}
@@ -1802,41 +1802,41 @@ const ProjectDesignBasesPage = () => {
         <DialogContent>
           {previewData && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {/* Información general */}
+              {/* InformaciÃ³n general */}
               <Card variant="outlined">
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
-                    Información del Documento
+                    InformaciÃ³n del Documento
                   </Typography>
                   <Typography variant="body2">
                     <strong>Nombre:</strong> {previewData.name}
                   </Typography>
                   <Typography variant="body2">
-                    <strong>Fecha de creación:</strong> {new Date(previewData.createdAt).toLocaleString()}
+                    <strong>Fecha de creaciÃ³n:</strong> {new Date(previewData.createdAt).toLocaleString()}
                   </Typography>
                 </CardContent>
               </Card>
 
-              {/* Descripción del edificio */}
+              {/* DescripciÃ³n del edificio */}
               {previewData.data.buildingDescription && (
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      Descripción del Edificio
+                      DescripciÃ³n del Edificio
                     </Typography>
                     {previewData.data.buildingDescription.text && (
                       <Typography variant="body2" paragraph>
-                        <strong>Descripción:</strong> {previewData.data.buildingDescription.text}
+                        <strong>DescripciÃ³n:</strong> {previewData.data.buildingDescription.text}
                       </Typography>
                     )}
                     {previewData.data.buildingDescription.location && (
                       <Typography variant="body2">
-                        <strong>Ubicación:</strong> {previewData.data.buildingDescription.location}
+                        <strong>UbicaciÃ³n:</strong> {previewData.data.buildingDescription.location}
                       </Typography>
                     )}
                     {previewData.data.buildingDescription.area && (
                       <Typography variant="body2">
-                        <strong>Área total:</strong> {previewData.data.buildingDescription.area} m²
+                        <strong>Ãrea total:</strong> {previewData.data.buildingDescription.area} mÂ²
                       </Typography>
                     )}
                     {previewData.data.buildingDescription.height && (
@@ -1876,7 +1876,7 @@ const ProjectDesignBasesPage = () => {
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      Presión de Viento
+                      PresiÃ³n de Viento
                     </Typography>
                     <Typography variant="body2">
                       <strong>Entorno:</strong> {previewData.data.wind.environment}
@@ -1885,7 +1885,7 @@ const ProjectDesignBasesPage = () => {
                       <strong>Altura:</strong> {previewData.data.wind.height} m
                     </Typography>
                     <Typography variant="body2">
-                      <strong>Presión:</strong> {previewData.data.wind.q?.toFixed(2)} kgf/m²
+                      <strong>PresiÃ³n:</strong> {previewData.data.wind.q?.toFixed(2)} kgf/mÂ²
                     </Typography>
                   </CardContent>
                 </Card>
@@ -1896,10 +1896,10 @@ const ProjectDesignBasesPage = () => {
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      Análisis Sísmico
+                      AnÃ¡lisis SÃ­smico
                     </Typography>
                     <Typography variant="body2">
-                      <strong>Categoría:</strong> {previewData.data.seismic.params.category}
+                      <strong>CategorÃ­a:</strong> {previewData.data.seismic.params.category}
                     </Typography>
                     <Typography variant="body2">
                       <strong>Zona:</strong> {previewData.data.seismic.params.zone}
@@ -1923,19 +1923,19 @@ const ProjectDesignBasesPage = () => {
                 </Card>
               )}
 
-              {/* Cálculos Estructurales */}
+              {/* CÃ¡lculos Estructurales */}
               {previewData.data.structural && (
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      Cálculos Estructurales
+                      CÃ¡lculos Estructurales
                     </Typography>
 
-                    {/* Pilar de Hormigón Armado */}
+                    {/* Pilar de HormigÃ³n Armado */}
                     {previewData.data.structural.concreteColumn && (
                       <Box sx={{ mb: 2 }}>
                         <Typography variant="subtitle1" gutterBottom>
-                          Pilar de Hormigón Armado (ACI318)
+                          Pilar de HormigÃ³n Armado (ACI318)
                         </Typography>
                         <Grid container spacing={1}>
                           <Grid item xs={6}>
@@ -1945,17 +1945,17 @@ const ProjectDesignBasesPage = () => {
                           </Grid>
                           <Grid item xs={6}>
                             <Typography variant="body2">
-                              <strong>Ratio de Utilización:</strong> {(previewData.data.structural.concreteColumn.axialCapacityRatio * 100)?.toFixed(1)}%
+                              <strong>Ratio de UtilizaciÃ³n:</strong> {(previewData.data.structural.concreteColumn.axialCapacityRatio * 100)?.toFixed(1)}%
                             </Typography>
                           </Grid>
                           <Grid item xs={6}>
                             <Typography variant="body2">
-                              <strong>Refuerzo Longitudinal:</strong> {previewData.data.structural.concreteColumn.longitudinalSteel?.numBars} φ{previewData.data.structural.concreteColumn.longitudinalSteel?.barDiameter}
+                              <strong>Refuerzo Longitudinal:</strong> {previewData.data.structural.concreteColumn.longitudinalSteel?.numBars} Ï†{previewData.data.structural.concreteColumn.longitudinalSteel?.barDiameter}
                             </Typography>
                           </Grid>
                           <Grid item xs={6}>
                             <Typography variant="body2">
-                              <strong>Estribos:</strong> φ{previewData.data.structural.concreteColumn.transverseSteel?.diameter} @ {previewData.data.structural.concreteColumn.transverseSteel?.spacing} mm
+                              <strong>Estribos:</strong> Ï†{previewData.data.structural.concreteColumn.transverseSteel?.diameter} @ {previewData.data.structural.concreteColumn.transverseSteel?.spacing} mm
                             </Typography>
                           </Grid>
                           <Grid item xs={6}>
@@ -1965,7 +1965,7 @@ const ProjectDesignBasesPage = () => {
                           </Grid>
                           <Grid item xs={6}>
                             <Typography variant="body2">
-                              <strong>¿Es Esbelto?:</strong> {previewData.data.structural.concreteColumn.isSlender ? "Sí" : "No"}
+                              <strong>Â¿Es Esbelto?:</strong> {previewData.data.structural.concreteColumn.isSlender ? "SÃ­" : "No"}
                             </Typography>
                           </Grid>
                         </Grid>
@@ -1989,12 +1989,12 @@ const ProjectDesignBasesPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar para guardado automático */}
+      {/* Snackbar para guardado automÃ¡tico */}
       <Snackbar
         open={autoSaveSnackbar}
         autoHideDuration={3000}
         onClose={() => setAutoSaveSnackbar(false)}
-        message="Guardado automáticamente en el historial"
+        message="Guardado automÃ¡ticamente en el historial"
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       />
     </Box>

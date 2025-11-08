@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+﻿import { Route, Routes } from "react-router-dom";
 
 import DashboardPage from "./pages/DashboardPage";
 import ProjectsPage from "./pages/ProjectsPage";
@@ -10,6 +10,7 @@ import RequireAuth from "./components/RequireAuth";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import ProjectCalculationsPage from "./pages/ProjectCalculationsPage";
 import ProjectDocumentationPage from "./pages/ProjectDocumentationPage";
+import SubscriptionPage from "./pages/SubscriptionPage";
 import ProjectDesignBasesPage from "./pages/ProjectDesignBasesPage";
 
 function App() {
@@ -27,9 +28,11 @@ function App() {
           <Route path="/payments" element={<PaymentsPage />} />
         </Route>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/subscribe" element={<SubscriptionPage />} />
       </Route>
     </Routes>
   );
 }
 
 export default App;
+

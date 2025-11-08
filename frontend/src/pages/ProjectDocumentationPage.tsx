@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -37,6 +37,7 @@ type CalculationType = {
 const calculationTypes: CalculationType[] = [
   { id: "building_description", label: "Descripción del Edificio", description: "Información general del proyecto" },
   { id: "live_load", label: "Cargas de Uso", description: "Sobrecargas según tipo de edificio y uso" },
+  { id: "reduction", label: "Reducción de Cargas", description: "Reducción de sobrecargas por área tributaria" },
   { id: "wind_load", label: "Cargas de Viento", description: "Presión de viento según ambiente y altura" },
   { id: "snow_load", label: "Cargas de Nieve", description: "Carga de nieve en techo según ubicación" },
   { id: "seismic", label: "Análisis Sísmico", description: "Espectro y fuerzas sísmicas según NCh433" },
@@ -55,7 +56,13 @@ const ProjectDocumentationPage = () => {
   const setProjectInSession = useSession((state) => state.setProject);
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(sessionProjectId);
-  const [selectedCalculations, setSelectedCalculations] = useState<Record<string, string[]>>({});
+  const [selectedCalculations, setSelectedCalculations] = useState<Record<string, string[]>>(() => {
+  const key = selectedProjectId ? `docSelection:${selectedProjectId}` : null;
+  if (key) {
+    try { const saved = localStorage.getItem(key); if (saved) return JSON.parse(saved); } catch {}
+  }
+  return {};
+});
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +80,7 @@ const ProjectDocumentationPage = () => {
     }
   }, [projectOptions, selectedProjectId, sessionProjectId, setProjectInSession]);
 
-  // Agrupar cálculos por tipo
+  // Agrupar cÃ¡lculos por tipo
   const groupedCalculations = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     calculationTypes.forEach((type) => {
@@ -107,7 +114,7 @@ const ProjectDocumentationPage = () => {
 
   const handleGenerateDocument = async () => {
     if (!selectedProjectId || totalSelected === 0) {
-      setError("Selecciona al menos un cálculo para generar el documento");
+      setError("Selecciona al menos un cÃ¡lculo para generar el documento");
       return;
     }
 
@@ -123,7 +130,7 @@ const ProjectDocumentationPage = () => {
         {
           projectId: selectedProjectId,
           calculationIds: selectedRunIds,
-          name: `Memoria de Cálculo - ${dayjs().format("YYYY-MM-DD HH:mm")}`,
+          name: `Memoria de CÃ¡lculo - ${dayjs().format("YYYY-MM-DD HH:mm")}`,
         },
         { responseType: "blob" }
       );
@@ -161,15 +168,15 @@ const ProjectDocumentationPage = () => {
         console.log("Set critical result:", result);
       }
 
-      // Verificar que el backend devolvió datos
+      // Verificar que el backend devolviÃ³ datos
       if (!result?.run) {
         console.error("Backend returned null run data:", result);
-        throw new Error("El backend no devolvió datos actualizados");
+        throw new Error("El backend no devolviÃ³ datos actualizados");
       }
 
       console.log("Updated run data:", result.run);
 
-      // Actualizar el caché de React Query manualmente
+      // Actualizar el cachÃ© de React Query manualmente
       queryClient.setQueryData<CalculationRun[]>(
         ["calculation-runs", selectedProjectId],
         (oldData) => {
@@ -177,13 +184,13 @@ const ProjectDocumentationPage = () => {
 
           console.log("Updating cache, old data:", oldData);
 
-          // Si se está marcando como crítico, desmarcar otros del mismo tipo
+          // Si se estÃ¡ marcando como crÃ­tico, desmarcar otros del mismo tipo
           const updatedData = oldData.map((run) => {
             if (run.id === runId) {
-              // Este es el elemento que se modificó
+              // Este es el elemento que se modificÃ³
               return { ...run, is_critical: result.run.is_critical };
             } else if (run.element_type === elementType && !currentIsCritical) {
-              // Si estamos marcando uno como crítico, desmarcar los demás del mismo tipo
+              // Si estamos marcando uno como crÃ­tico, desmarcar los demÃ¡s del mismo tipo
               return { ...run, is_critical: false };
             }
             return run;
@@ -197,7 +204,7 @@ const ProjectDocumentationPage = () => {
       console.log("Cache manually updated");
     } catch (error) {
       console.error("Error toggling critical element:", error);
-      setError("Error al marcar elemento crítico. Verifica que la base de datos tenga la columna 'is_critical'.");
+      setError("Error al marcar elemento crÃ­tico. Verifica que la base de datos tenga la columna 'is_critical'.");
 
       // Refrescar desde el servidor en caso de error
       await queryClient.refetchQueries({
@@ -245,9 +252,9 @@ const ProjectDocumentationPage = () => {
           }}
         >
           {params.row.is_critical ? (
-            <StarIcon color="warning" titleAccess="Elemento crítico para reportes" />
+            <StarIcon color="warning" titleAccess="Elemento crÃ­tico para reportes" />
           ) : (
-            <StarBorderIcon color="action" titleAccess="Marcar como crítico" />
+            <StarBorderIcon color="action" titleAccess="Marcar como crÃ­tico" />
           )}
         </Box>
       ),
@@ -256,7 +263,7 @@ const ProjectDocumentationPage = () => {
       field: "created_at",
       headerName: "Fecha",
       width: 150,
-      valueFormatter: (value) => (value ? dayjs(value).format("DD/MM/YYYY HH:mm") : "—"),
+      valueFormatter: (value) => (value ? dayjs(value).format("DD/MM/YYYY HH:mm") : "â€”"),
     },
     { field: "summary", headerName: "Resumen", flex: 1, minWidth: 250 },
   ];
@@ -269,31 +276,31 @@ const ProjectDocumentationPage = () => {
       case "building_description": {
         const parts = [];
         if (result?.text) parts.push(result.text.substring(0, 50) + (result.text.length > 50 ? "..." : ""));
-        if (result?.location) parts.push(`📍 ${result.location}`);
-        if (result?.area) parts.push(`📐 ${result.area} m²`);
-        if (result?.height) parts.push(`📏 ${result.height} m`);
-        return parts.length > 0 ? parts.join(" | ") : "—";
+        if (result?.location) parts.push(`ðŸ“ ${result.location}`);
+        if (result?.area) parts.push(`ðŸ“ ${result.area} mÂ²`);
+        if (result?.height) parts.push(`ðŸ“ ${result.height} m`);
+        return parts.length > 0 ? parts.join(" | ") : "â€”";
       }
 
       case "live_load":
-        return `${inputs?.buildingType || "—"} | ${inputs?.usage || "—"} | ${result?.uniformLoad || result?.uniformLoadRaw || "—"} kN/m²`;
+        return `${inputs?.buildingType || "â€”"} | ${inputs?.usage || "â€”"} | ${result?.uniformLoad || result?.uniformLoadRaw || "â€”"} kN/mÂ²`;
 
       case "wind_load":
-        return `Ambiente: ${inputs?.environment || "—"} | Altura: ${inputs?.height || "—"}m | q = ${result?.q?.toFixed(2) || "—"} kN/m²`;
+        return `Ambiente: ${inputs?.environment || "â€”"} | Altura: ${inputs?.height || "â€”"}m | q = ${result?.q?.toFixed(2) || "â€”"} kN/mÂ²`;
 
       case "snow_load":
-        return `Banda ${inputs?.latitudeBand || "—"} | pf = ${result?.pf?.toFixed(2) || "—"} kN/m²`;
+        return `Banda ${inputs?.latitudeBand || "â€”"} | pf = ${result?.pf?.toFixed(2) || "â€”"} kN/mÂ²`;
 
       case "seismic":
-        return `Zona ${inputs?.zone || "—"} | Qbas,x = ${result?.Qbasx?.toFixed(2) || "—"} kN | Qbas,y = ${result?.Qbasy?.toFixed(2) || "—"} kN`;
+        return `Zona ${inputs?.zone || "â€”"} | Qbas,x = ${result?.Qbasx?.toFixed(2) || "â€”"} kN | Qbas,y = ${result?.Qbasy?.toFixed(2) || "â€”"} kN`;
 
       case "rc_column": {
         const longSteel = result?.longitudinalSteel;
         const transSteel = result?.transverseSteel;
         if (longSteel && transSteel) {
-          return `${longSteel.numBars}φ${longSteel.barDiameter} (${Math.round(longSteel.totalArea)}mm²), Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
+          return `${longSteel.numBars}Ï†${longSteel.barDiameter} (${Math.round(longSteel.totalArea)}mmÂ²), Est Ï†${transSteel.diameter}@${transSteel.spacing}mm`;
         }
-        return "—";
+        return "â€”";
       }
 
       case "rc_beam": {
@@ -301,35 +308,35 @@ const ProjectDocumentationPage = () => {
         const negReinf = result?.negativeReinforcement;
         const transSteel = result?.transverseSteel;
         if (posReinf && negReinf && transSteel) {
-          return `Sup: ${negReinf.numBars}φ${negReinf.barDiameter}, Inf: ${posReinf.numBars}φ${posReinf.barDiameter}, Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
+          return `Sup: ${negReinf.numBars}Ï†${negReinf.barDiameter}, Inf: ${posReinf.numBars}Ï†${posReinf.barDiameter}, Est Ï†${transSteel.diameter}@${transSteel.spacing}mm`;
         }
-        return "—";
+        return "â€”";
       }
 
       case "steel_column":
-        return `Perfil: ${inputs?.profileName || "Personalizado"} | Pn = ${result?.pn?.toFixed(1) || "—"} kN | Ratio: ${((result?.interactionRatio || 0) * 100).toFixed(1)}%`;
+        return `Perfil: ${inputs?.profileName || "Personalizado"} | Pn = ${result?.pn?.toFixed(1) || "â€”"} kN | Ratio: ${((result?.interactionRatio || 0) * 100).toFixed(1)}%`;
 
       case "steel_beam":
-        return `Perfil: ${inputs?.profileName || "Personalizado"} | Mn = ${result?.mn?.toFixed(1) || "—"} kN·m | Ratio: ${((result?.flexureRatio || 0) * 100).toFixed(1)}%`;
+        return `Perfil: ${inputs?.profileName || "Personalizado"} | Mn = ${result?.mn?.toFixed(1) || "â€”"} kNÂ·m | Ratio: ${((result?.flexureRatio || 0) * 100).toFixed(1)}%`;
 
       case "wood_column":
-        return `Sección: ${inputs?.width || "—"}x${inputs?.depth || "—"} cm | Pn = ${result?.pn?.toFixed(1) || "—"} kN | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
+        return `SecciÃ³n: ${inputs?.width || "â€”"}x${inputs?.depth || "â€”"} cm | Pn = ${result?.pn?.toFixed(1) || "â€”"} kN | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
 
       case "wood_beam":
-        return `Sección: ${inputs?.width || "—"}x${inputs?.height || "—"} cm | Mn = ${result?.mn?.toFixed(1) || "—"} kN·m | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
+        return `SecciÃ³n: ${inputs?.width || "â€”"}x${inputs?.height || "â€”"} cm | Mn = ${result?.mn?.toFixed(1) || "â€”"} kNÂ·m | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
 
       case "footing":
-        return `Tipo: ${inputs?.footingType || "—"} | Dimensión: ${inputs?.length || "—"}x${inputs?.width || "—"} m | H = ${inputs?.footingDepth || "—"} cm`;
+        return `Tipo: ${inputs?.footingType || "â€”"} | DimensiÃ³n: ${inputs?.length || "â€”"}x${inputs?.width || "â€”"} m | H = ${inputs?.footingDepth || "â€”"} cm`;
 
       default:
-        return "—";
+        return "â€”";
     }
   };
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
-        <Typography variant="h5">Documentación del proyecto</Typography>
+        <Typography variant="h5">DocumentaciÃ³n del proyecto</Typography>
         <TextField
           select
           label="Proyecto"
@@ -352,7 +359,7 @@ const ProjectDocumentationPage = () => {
 
       {!selectedProjectId && (
         <Alert severity="info">
-          Selecciona un proyecto para ver los cálculos disponibles y generar la memoria de cálculo.
+          Selecciona un proyecto para ver los cÃ¡lculos disponibles y generar la memoria de cÃ¡lculo.
         </Alert>
       )}
 
@@ -363,10 +370,10 @@ const ProjectDocumentationPage = () => {
               <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography variant="h6" gutterBottom>
-                    Generar Memoria de Cálculo
+                    Generar Memoria de CÃ¡lculo
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Selecciona los cálculos que deseas incluir en el documento Word. Puedes elegir múltiples cálculos de
+                    Selecciona los cÃ¡lculos que deseas incluir en el documento Word. Puedes elegir mÃºltiples cÃ¡lculos de
                     cada tipo.
                   </Typography>
                 </Box>
@@ -421,8 +428,8 @@ const ProjectDocumentationPage = () => {
 
                   {calculations.length === 0 ? (
                     <Alert severity="info">
-                      No hay cálculos de este tipo en el proyecto actual. Ve a las páginas correspondientes para crear
-                      cálculos.
+                      No hay cÃ¡lculos de este tipo en el proyecto actual. Ve a las pÃ¡ginas correspondientes para crear
+                      cÃ¡lculos.
                     </Alert>
                   ) : (
                     <DataGrid
@@ -454,3 +461,11 @@ const ProjectDocumentationPage = () => {
 };
 
 export default ProjectDocumentationPage;
+
+
+
+
+
+
+
+

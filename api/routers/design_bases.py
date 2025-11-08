@@ -499,6 +499,18 @@ async def generate_document_from_calculations(
                 if "footing" not in document_data["structural"]:
                     document_data["structural"]["footing"] = result_json
 
+        # Generar tablas de resumen e inyectarlas al contexto de documento (si hay cálculos)
+        from services.table_generator import generate_all_tables
+        tables = generate_all_tables(project_id, calculations)
+        if isinstance(document_data, dict):
+            document_data.setdefault("tables", {}).update(tables)
+
+        # Generar tablas de resumen e inyectarlas al contexto de documento (si hay cálculos)
+        from services.table_generator import generate_all_tables
+        tables = generate_all_tables(project_id, calculations)
+        if isinstance(document_data, dict):
+            document_data.setdefault("tables", {}).update(tables)
+
         # Generar documento Word
         project_name = name
         docx_bytes = generate_design_base_document(document_data, project_name)
