@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -141,6 +141,25 @@ const ProjectDesignBasesPage = () => {
     { id: 1, height: "3.0", weight: "300" },
     { id: 2, height: "3.0", weight: "300" },
   ]);
+
+  const handleStoryChange = (id: number, field: "height" | "weight", value: string) => {
+    setStories((prev) => prev.map((story) => (story.id === id ? { ...story, [field]: value } : story)));
+  };
+
+  const handleAddStory = () => {
+    setStories((prev) => {
+      const nextId = prev.length ? Math.max(...prev.map((s) => s.id)) + 1 : 1;
+      const last = prev[prev.length - 1];
+      return [
+        ...prev,
+        { id: nextId, height: last?.height ?? "3.0", weight: last?.weight ?? "300" },
+      ];
+    });
+  };
+
+  const handleRemoveStory = (id: number) => {
+    setStories((prev) => (prev.length > 1 ? prev.filter((s) => s.id !== id) : prev));
+  };
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
