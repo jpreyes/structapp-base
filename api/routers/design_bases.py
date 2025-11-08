@@ -92,13 +92,26 @@ async def live_load_lookup(payload: LiveLoadRequest):
     return {"results": result}
 
 
-@router.post("/live-load/reduction", response_model=LiveLoadReductionResponse)
+@router.post("/live-load/reduction")
 async def live_load_reduction(payload: LiveLoadReductionRequest):
     try:
         reduced = calculate_live_load_reduction(payload.element_type, payload.tributary_area, payload.base_load)
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return {"reducedLoad": reduced}
+
+    result = {"reducedLoad": reduced}
+
+    # Guardar en historial si se proporcionaron project_id y user_id
+    if payload.project_id and payload.user_id:
+        inputs = {
+            "elementType": payload.element_type,
+            "tributaryArea": payload.tributary_area,
+            "baseLoad": payload.base_load,
+        }
+        record = save_run(payload.project_id, payload.user_id, "live_load_reduction", inputs, result)
+        return {"results": result, "run_id": record["id"]}
+
+    return {"results": result}
 
 
 @router.post("/wind")
@@ -401,12 +414,20 @@ async def generate_document_from_calculations(
         if not project_id or not calculation_ids:
             raise ValueError("Faltan project_id o calculation_ids")
 
+        print(f"Generating document for project {project_id}")
+        print(f"Received {len(calculation_ids)} calculation IDs: {calculation_ids}")
+
         # Obtener todos los cálculos seleccionados
         calculations = []
         for calc_id in calculation_ids:
             run = fetch_run(calc_id)
             if run:
                 calculations.append(run)
+            else:
+                print(f"Warning: Calculation {calc_id} not found in database")
+
+        if not calculations:
+            raise ValueError("No se encontraron cálculos válidos para generar el documento")
 
         # Construir el payload para el generador de documentos
         # Agrupar por tipo
@@ -433,6 +454,15 @@ async def generate_document_from_calculations(
                         "buildingType": input_json.get("buildingType", ""),
                         "usage": input_json.get("usage", ""),
                         **result_json,
+                    }
+
+            elif element_type == "live_load_reduction":
+                if "reduction" not in document_data:
+                    document_data["reduction"] = {
+                        "elementType": input_json.get("elementType", ""),
+                        "tributaryArea": input_json.get("tributaryArea", 0),
+                        "baseLoad": input_json.get("baseLoad", 0),
+                        "reducedLoad": result_json.get("reducedLoad", 0),
                     }
 
             elif element_type == "wind_load":
@@ -494,16 +524,18 @@ async def generate_document_from_calculations(
                     document_data["structural"]["woodBeam"] = result_json
 
             elif element_type == "footing":
+                print(f"Processing footing calculation: run_id={run.get('id')}")
+                print(f"Footing input_json keys: {list(input_json.keys()) if input_json else 'None'}")
+                print(f"Footing result_json keys: {list(result_json.keys()) if result_json else 'None'}")
+                print(f"Footing result_json: {result_json}")
+
                 if "structural" not in document_data:
                     document_data["structural"] = {}
                 if "footing" not in document_data["structural"]:
                     document_data["structural"]["footing"] = result_json
-
-        # Generar tablas de resumen e inyectarlas al contexto de documento (si hay cálculos)
-        from services.table_generator import generate_all_tables
-        tables = generate_all_tables(project_id, calculations)
-        if isinstance(document_data, dict):
-            document_data.setdefault("tables", {}).update(tables)
+                    print(f"Stored FIRST footing data in document_data")
+                else:
+                    print(f"Skipping footing - already have one stored")
 
         # Generar tablas de resumen e inyectarlas al contexto de documento (si hay cálculos)
         from services.table_generator import generate_all_tables
@@ -525,6 +557,14 @@ async def generate_document_from_calculations(
 
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        import traceback
+        error_details = f"Error generando documento: {str(exc)}\n{traceback.format_exc()}"
+        print(error_details)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al generar el documento: {str(exc)}"
+        ) from exc
 
 
 @router.delete("/runs/delete/{run_id}")

@@ -25,8 +25,12 @@ def list_runs(project_id: str):
 
 
 def fetch_run(run_id: str):
-    response = supa().table("calc_runs").select("*").eq("id", run_id).single().execute()
-    return response.data
+    try:
+        response = supa().table("calc_runs").select("*").eq("id", run_id).single().execute()
+        return response.data
+    except Exception as e:
+        print(f"Warning: Could not fetch run {run_id}: {str(e)}")
+        return None
 
 
 def set_critical_element(run_id: str, project_id: str, element_type: str):

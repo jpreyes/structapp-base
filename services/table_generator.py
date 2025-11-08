@@ -1,38 +1,34 @@
 """
-Servicio para generar tablas HTML con resúmenes de cálculos estructurales.
+Servicio para generar tablas con resúmenes de cálculos estructurales en texto plano formateado.
 Usado para placeholders como {{steelBeamsTable}}, {{concreteColumnsTable}}, etc.
+
+Formato de salida:
+- Tablas en texto plano con separador " | " entre columnas
+- Primera línea: encabezado con nombres de columnas
+- Segunda línea: línea separadora con "─" * 80
+- Líneas siguientes: filas de datos
 """
 
 
 def generate_concrete_columns_table(runs: list[dict]) -> str:
     """
-    Genera tabla HTML con todos los pilares de hormigón calculados.
+    Genera tabla con todos los pilares de hormigón calculados.
 
     Args:
         runs: Lista de cálculos del tipo rc_column
 
     Returns:
-        String con tabla HTML formateada
+        String con tabla formateada en texto plano
     """
     if not runs:
-        return "<p>No se han calculado pilares de hormigón en este proyecto.</p>"
+        return "No se han calculado pilares de hormigón en este proyecto."
 
-    html = """
-    <table style="border-collapse: collapse; width: 100%; font-size: 10pt;">
-        <thead>
-            <tr style="background-color: #f0f0f0;">
-                <th style="border: 1px solid #ddd; padding: 8px;">ID</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Dimensiones (cm)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Refuerzo Long.</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Estribos</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Pn (kN)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Ratio</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
-            </tr>
-        </thead>
-        <tbody>
-    """
+    # Header
+    lines = []
+    lines.append("ID | Dimensiones (cm) | Refuerzo Long. | Estribos | Pn (kN) | Ratio | Estado")
+    lines.append("─" * 80)
 
+    # Rows
     for idx, run in enumerate(runs, 1):
         inputs = run.get("input_json", {})
         results = run.get("result_json", {})
@@ -51,52 +47,36 @@ def generate_concrete_columns_table(runs: list[dict]) -> str:
 
         # Determinar estado
         status = "OK" if ratio < 1.0 else "No cumple"
-        status_color = "#4CAF50" if ratio < 1.0 else "#f44336"
 
-        html += f"""
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">C-{idx}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{width}×{depth}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{long_str}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{trans_str}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{pn:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{ratio*100:.1f}%</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; color: {status_color}; font-weight: bold;">{status}</td>
-            </tr>
-        """
+        lines.append(f"C-{idx} | {width}×{depth} | {long_str} | {trans_str} | {pn:.2f} | {ratio*100:.1f}% | {status}")
 
-    html += """
-        </tbody>
-    </table>
-    """
-
-    return html
+    return "\n".join(lines)
 
 
 def generate_concrete_beams_table(runs: list[dict]) -> str:
-    """Genera tabla HTML con todas las vigas de hormigón calculadas."""
-    if not runs:
-        return "<p>No se han calculado vigas de hormigón en este proyecto.</p>"
-
-    html = """
-    <table style="border-collapse: collapse; width: 100%; font-size: 10pt;">
-        <thead>
-            <tr style="background-color: #f0f0f0;">
-                <th style="border: 1px solid #ddd; padding: 8px;">ID</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Dimensiones (cm)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Refuerzo Superior</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Refuerzo Inferior</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Estribos</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Deflexión</th>
-            </tr>
-        </thead>
-        <tbody>
     """
+    Genera tabla con todas las vigas de hormigón calculadas.
 
+    Args:
+        runs: Lista de cálculos del tipo rc_beam
+
+    Returns:
+        String con tabla formateada en texto plano
+    """
+    if not runs:
+        return "No se han calculado vigas de hormigón en este proyecto."
+
+    # Header
+    lines = []
+    lines.append("ID | Dimensiones (cm) | Refuerzo Superior | Refuerzo Inferior | Estribos | Deflexión")
+    lines.append("─" * 80)
+
+    # Rows
     for idx, run in enumerate(runs, 1):
         inputs = run.get("input_json", {})
         results = run.get("result_json", {})
 
+        # Extraer datos
         width = inputs.get("width", "—")
         height = inputs.get("height", "—")
         pos_reinf = results.get("positiveReinforcement") or results.get("positiveReinforcemenet", {})
@@ -104,54 +84,40 @@ def generate_concrete_beams_table(runs: list[dict]) -> str:
         trans_steel = results.get("transverseSteel", {})
         deflection_check = results.get("deflectionCheck", "—")
 
+        # Formatear refuerzo
         pos_str = f"{pos_reinf.get('numBars', '—')}φ{pos_reinf.get('barDiameter', '—')}"
         neg_str = f"{neg_reinf.get('numBars', '—')}φ{neg_reinf.get('barDiameter', '—')}"
         trans_str = f"φ{trans_steel.get('diameter', '—')}@{trans_steel.get('spacing', '—')}mm"
 
-        html += f"""
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">V-{idx}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{width}×{height}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{neg_str}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{pos_str}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{trans_str}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{deflection_check}</td>
-            </tr>
-        """
+        lines.append(f"V-{idx} | {width}×{height} | {neg_str} | {pos_str} | {trans_str} | {deflection_check}")
 
-    html += """
-        </tbody>
-    </table>
-    """
-
-    return html
+    return "\n".join(lines)
 
 
 def generate_steel_columns_table(runs: list[dict]) -> str:
-    """Genera tabla HTML con todos los pilares de acero calculados."""
-    if not runs:
-        return "<p>No se han calculado pilares de acero en este proyecto.</p>"
-
-    html = """
-    <table style="border-collapse: collapse; width: 100%; font-size: 10pt;">
-        <thead>
-            <tr style="background-color: #f0f0f0;">
-                <th style="border: 1px solid #ddd; padding: 8px;">ID</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Perfil</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Pn (kN)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Mnx (kN·m)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Mny (kN·m)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Ratio Int.</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
-            </tr>
-        </thead>
-        <tbody>
     """
+    Genera tabla con todos los pilares de acero calculados.
 
+    Args:
+        runs: Lista de cálculos del tipo steel_column
+
+    Returns:
+        String con tabla formateada en texto plano
+    """
+    if not runs:
+        return "No se han calculado pilares de acero en este proyecto."
+
+    # Header
+    lines = []
+    lines.append("ID | Perfil | Pn (kN) | Mnx (kN·m) | Mny (kN·m) | Ratio Int. | Estado")
+    lines.append("─" * 80)
+
+    # Rows
     for idx, run in enumerate(runs, 1):
         inputs = run.get("input_json", {})
         results = run.get("result_json", {})
 
+        # Extraer datos
         section = results.get("section", inputs.get("profileName", "—"))
         pn = results.get("pn", 0)
         mnx = results.get("mnX", 0)
@@ -159,54 +125,38 @@ def generate_steel_columns_table(runs: list[dict]) -> str:
         ratio = results.get("interactionRatio", 0)
         passes = results.get("passes", False)
 
+        # Determinar estado
         status = "OK" if passes else "No cumple"
-        status_color = "#4CAF50" if passes else "#f44336"
 
-        html += f"""
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">PC-{idx}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{section}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{pn:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{mnx:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{mny:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{ratio*100:.1f}%</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; color: {status_color}; font-weight: bold;">{status}</td>
-            </tr>
-        """
+        lines.append(f"PC-{idx} | {section} | {pn:.2f} | {mnx:.2f} | {mny:.2f} | {ratio*100:.1f}% | {status}")
 
-    html += """
-        </tbody>
-    </table>
-    """
-
-    return html
+    return "\n".join(lines)
 
 
 def generate_steel_beams_table(runs: list[dict]) -> str:
-    """Genera tabla HTML con todas las vigas de acero calculadas."""
-    if not runs:
-        return "<p>No se han calculado vigas de acero en este proyecto.</p>"
-
-    html = """
-    <table style="border-collapse: collapse; width: 100%; font-size: 10pt;">
-        <thead>
-            <tr style="background-color: #f0f0f0;">
-                <th style="border: 1px solid #ddd; padding: 8px;">ID</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Perfil</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Mn (kN·m)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Vn (kN)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Ratio Flexión</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Deflexión (cm)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
-            </tr>
-        </thead>
-        <tbody>
     """
+    Genera tabla con todas las vigas de acero calculadas.
 
+    Args:
+        runs: Lista de cálculos del tipo steel_beam
+
+    Returns:
+        String con tabla formateada en texto plano
+    """
+    if not runs:
+        return "No se han calculado vigas de acero en este proyecto."
+
+    # Header
+    lines = []
+    lines.append("ID | Perfil | Mn (kN·m) | Vn (kN) | Ratio Flexión | Deflexión (cm) | Estado")
+    lines.append("─" * 80)
+
+    # Rows
     for idx, run in enumerate(runs, 1):
         inputs = run.get("input_json", {})
         results = run.get("result_json", {})
 
+        # Extraer datos
         section = results.get("section", inputs.get("profileName", "—"))
         mn = results.get("mn", 0)
         vn = results.get("vn", 0)
@@ -214,54 +164,38 @@ def generate_steel_beams_table(runs: list[dict]) -> str:
         deflection = results.get("deflection", 0)
         passes = results.get("passes", False)
 
+        # Determinar estado
         status = "OK" if passes else "No cumple"
-        status_color = "#4CAF50" if passes else "#f44336"
 
-        html += f"""
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">VA-{idx}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{section}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{mn:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{vn:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{flex_ratio*100:.1f}%</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{deflection:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; color: {status_color}; font-weight: bold;">{status}</td>
-            </tr>
-        """
+        lines.append(f"VA-{idx} | {section} | {mn:.2f} | {vn:.2f} | {flex_ratio*100:.1f}% | {deflection:.2f} | {status}")
 
-    html += """
-        </tbody>
-    </table>
-    """
-
-    return html
+    return "\n".join(lines)
 
 
 def generate_wood_columns_table(runs: list[dict]) -> str:
-    """Genera tabla HTML con todos los pilares de madera calculados."""
-    if not runs:
-        return "<p>No se han calculado pilares de madera en este proyecto.</p>"
-
-    html = """
-    <table style="border-collapse: collapse; width: 100%; font-size: 10pt;">
-        <thead>
-            <tr style="background-color: #f0f0f0;">
-                <th style="border: 1px solid #ddd; padding: 8px;">ID</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Tipo de Madera</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Sección (cm)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Pn (kN)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Ratio</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Esbeltez</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
-            </tr>
-        </thead>
-        <tbody>
     """
+    Genera tabla con todos los pilares de madera calculados.
 
+    Args:
+        runs: Lista de cálculos del tipo wood_column
+
+    Returns:
+        String con tabla formateada en texto plano
+    """
+    if not runs:
+        return "No se han calculado pilares de madera en este proyecto."
+
+    # Header
+    lines = []
+    lines.append("ID | Tipo de Madera | Sección (cm) | Pn (kN) | Ratio | Esbeltez | Estado")
+    lines.append("─" * 80)
+
+    # Rows
     for idx, run in enumerate(runs, 1):
         inputs = run.get("input_json", {})
         results = run.get("result_json", {})
 
+        # Extraer datos
         wood_type = results.get("woodType", inputs.get("woodType", "—"))
         width = inputs.get("width", "—")
         depth = inputs.get("depth", "—")
@@ -270,53 +204,35 @@ def generate_wood_columns_table(runs: list[dict]) -> str:
         slenderness = max(results.get("slendernessX", 0), results.get("slendernessY", 0))
         status = results.get("checkStatus", "—")
 
-        status_color = "#4CAF50" if status == "OK" else "#f44336"
+        lines.append(f"PM-{idx} | {wood_type} | {width}×{depth} | {pn:.2f} | {ratio*100:.1f}% | {slenderness:.2f} | {status}")
 
-        html += f"""
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">PM-{idx}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{wood_type}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{width}×{depth}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{pn:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{ratio*100:.1f}%</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{slenderness:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; color: {status_color}; font-weight: bold;">{status}</td>
-            </tr>
-        """
-
-    html += """
-        </tbody>
-    </table>
-    """
-
-    return html
+    return "\n".join(lines)
 
 
 def generate_wood_beams_table(runs: list[dict]) -> str:
-    """Genera tabla HTML con todas las vigas de madera calculadas."""
-    if not runs:
-        return "<p>No se han calculado vigas de madera en este proyecto.</p>"
-
-    html = """
-    <table style="border-collapse: collapse; width: 100%; font-size: 10pt;">
-        <thead>
-            <tr style="background-color: #f0f0f0;">
-                <th style="border: 1px solid #ddd; padding: 8px;">ID</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Tipo de Madera</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Sección</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Mn (kN·m)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Vn (kN)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Ratio</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
-            </tr>
-        </thead>
-        <tbody>
     """
+    Genera tabla con todas las vigas de madera calculadas.
 
+    Args:
+        runs: Lista de cálculos del tipo wood_beam
+
+    Returns:
+        String con tabla formateada en texto plano
+    """
+    if not runs:
+        return "No se han calculado vigas de madera en este proyecto."
+
+    # Header
+    lines = []
+    lines.append("ID | Tipo de Madera | Sección | Mn (kN·m) | Vn (kN) | Ratio | Estado")
+    lines.append("─" * 80)
+
+    # Rows
     for idx, run in enumerate(runs, 1):
         inputs = run.get("input_json", {})
         results = run.get("result_json", {})
 
+        # Extraer datos
         wood_type = results.get("woodType", inputs.get("woodType", "—"))
         section = results.get("section", f"{inputs.get('width', '—')}×{inputs.get('height', '—')} cm")
         mn = results.get("mn", 0)
@@ -324,54 +240,38 @@ def generate_wood_beams_table(runs: list[dict]) -> str:
         ratio = results.get("utilizationRatio", 0)
         passes = results.get("passes", False)
 
+        # Determinar estado
         status = "OK" if passes else "No cumple"
-        status_color = "#4CAF50" if passes else "#f44336"
 
-        html += f"""
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">VM-{idx}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{wood_type}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{section}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{mn:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{vn:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{ratio*100:.1f}%</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; color: {status_color}; font-weight: bold;">{status}</td>
-            </tr>
-        """
+        lines.append(f"VM-{idx} | {wood_type} | {section} | {mn:.2f} | {vn:.2f} | {ratio*100:.1f}% | {status}")
 
-    html += """
-        </tbody>
-    </table>
-    """
-
-    return html
+    return "\n".join(lines)
 
 
 def generate_footings_table(runs: list[dict]) -> str:
-    """Genera tabla HTML con todas las zapatas calculadas."""
-    if not runs:
-        return "<p>No se han calculado zapatas en este proyecto.</p>"
-
-    html = """
-    <table style="border-collapse: collapse; width: 100%; font-size: 10pt;">
-        <thead>
-            <tr style="background-color: #f0f0f0;">
-                <th style="border: 1px solid #ddd; padding: 8px;">ID</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Tipo</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Dimensiones (m)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Altura (cm)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Presión Máx (kPa)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Acero (cm²/m)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
-            </tr>
-        </thead>
-        <tbody>
     """
+    Genera tabla con todas las zapatas calculadas.
 
+    Args:
+        runs: Lista de cálculos del tipo footing
+
+    Returns:
+        String con tabla formateada en texto plano
+    """
+    if not runs:
+        return "No se han calculado zapatas en este proyecto."
+
+    # Header
+    lines = []
+    lines.append("ID | Tipo | Dimensiones (m) | Altura (cm) | Presión Máx (kPa) | Acero (cm²/m) | Estado")
+    lines.append("─" * 80)
+
+    # Rows
     for idx, run in enumerate(runs, 1):
         inputs = run.get("input_json", {})
         results = run.get("result_json", {})
 
+        # Extraer datos
         footing_type = "Aislada" if inputs.get("footingType") == "isolated" else "Corrida"
         length = results.get("length", inputs.get("length", 0))
         width = results.get("width", inputs.get("width", 0))
@@ -381,27 +281,12 @@ def generate_footings_table(runs: list[dict]) -> str:
         as_trans = results.get("asTransverse", 0)
         passes = results.get("passes", False)
 
+        # Determinar estado
         status = "OK" if passes else "No cumple"
-        status_color = "#4CAF50" if passes else "#f44336"
 
-        html += f"""
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">Z-{idx}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{footing_type}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{length:.2f}×{width:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{depth:.1f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{pressure_max:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{as_long:.2f} / {as_trans:.2f}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; color: {status_color}; font-weight: bold;">{status}</td>
-            </tr>
-        """
+        lines.append(f"Z-{idx} | {footing_type} | {length:.2f}×{width:.2f} | {depth:.1f} | {pressure_max:.2f} | {as_long:.2f} / {as_trans:.2f} | {status}")
 
-    html += """
-        </tbody>
-    </table>
-    """
-
-    return html
+    return "\n".join(lines)
 
 
 def generate_all_tables(project_id: str, runs: list[dict]) -> dict[str, str]:
@@ -413,7 +298,7 @@ def generate_all_tables(project_id: str, runs: list[dict]) -> dict[str, str]:
         runs: Lista de todos los cálculos del proyecto
 
     Returns:
-        Dict con los placeholders de tabla y su contenido HTML:
+        Dict con los placeholders de tabla y su contenido en texto plano:
         {
             "concreteColumnsTable": "...",
             "concreteBeamsTable": "...",

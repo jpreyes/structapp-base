@@ -464,6 +464,7 @@ const ProjectCalculationsPage = () => {
     setRunId(null);
     footingMutation.mutate({
       ...footingForm,
+      footingType: footingForm.footingType as "isolated" | "continuous",
       projectId: selectedProjectId,
       userId: user.id,
     });
@@ -494,7 +495,7 @@ const ProjectCalculationsPage = () => {
           fc: Number(inputs.fc ?? defaultBeamForm.fc),
           fy: Number(inputs.fy ?? defaultBeamForm.fy),
         });
-        setResult(run.result_json as ConcreteBeamResponse);
+        setResult(run.result_json as unknown as ConcreteBeamResponse);
       } else if (run.element_type === "rc_column") {
         setColumnForm({
           axialLoad: Number(inputs.axialLoad ?? defaultColumnForm.axialLoad),
@@ -508,7 +509,7 @@ const ProjectCalculationsPage = () => {
           fc: Number(inputs.fc ?? defaultColumnForm.fc),
           fy: Number(inputs.fy ?? defaultColumnForm.fy),
         });
-        setResult(run.result_json as ConcreteColumnResponse);
+        setResult(run.result_json as unknown as ConcreteColumnResponse);
       } else if (run.element_type === "steel_column") {
         setSteelColumnForm({
           axialLoad: Number(inputs.axialLoad ?? defaultSteelColumnForm.axialLoad),
@@ -519,7 +520,7 @@ const ProjectCalculationsPage = () => {
           sectionType: inputs.sectionType ?? defaultSteelColumnForm.sectionType,
           profileName: inputs.profileName ?? defaultSteelColumnForm.profileName,
         });
-        setResult(run.result_json as SteelColumnResponse);
+        setResult(run.result_json as unknown as SteelColumnResponse);
       } else if (run.element_type === "steel_beam") {
         setSteelBeamForm({
           moment: Number(inputs.moment ?? defaultSteelBeamForm.moment),
@@ -530,7 +531,7 @@ const ProjectCalculationsPage = () => {
           profileName: inputs.profileName ?? defaultSteelBeamForm.profileName,
           lateralSupport: inputs.lateralSupport ?? defaultSteelBeamForm.lateralSupport,
         });
-        setResult(run.result_json as SteelBeamResponse);
+        setResult(run.result_json as unknown as SteelBeamResponse);
       } else if (run.element_type === "wood_column") {
         setWoodColumnForm({
           axialLoad: Number(inputs.axialLoad ?? defaultWoodColumnForm.axialLoad),
@@ -539,7 +540,7 @@ const ProjectCalculationsPage = () => {
           length: Number(inputs.length ?? defaultWoodColumnForm.length),
           woodType: inputs.woodType ?? defaultWoodColumnForm.woodType,
         });
-        setResult(run.result_json as WoodColumnResponse);
+        setResult(run.result_json as unknown as WoodColumnResponse);
       } else if (run.element_type === "wood_beam") {
         setWoodBeamForm({
           moment: Number(inputs.moment ?? defaultWoodBeamForm.moment),
@@ -550,7 +551,7 @@ const ProjectCalculationsPage = () => {
           woodType: inputs.woodType ?? defaultWoodBeamForm.woodType,
           lateralSupport: inputs.lateralSupport ?? defaultWoodBeamForm.lateralSupport,
         });
-        setResult(run.result_json as WoodBeamResponse);
+        setResult(run.result_json as unknown as WoodBeamResponse);
       } else if (run.element_type === "footing") {
         setFootingForm({
           axialLoad: Number(inputs.axialLoad ?? defaultFootingForm.axialLoad),
@@ -566,7 +567,7 @@ const ProjectCalculationsPage = () => {
           width: Number(inputs.width ?? defaultFootingForm.width),
           footingDepth: Number(inputs.footingDepth ?? defaultFootingForm.footingDepth),
         });
-        setResult(run.result_json as FootingResponse);
+        setResult(run.result_json as unknown as FootingResponse);
       } else {
         setResult(null);
       }

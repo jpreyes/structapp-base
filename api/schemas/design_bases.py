@@ -41,6 +41,8 @@ class LiveLoadResponse(BaseModel):
 
 
 class LiveLoadReductionRequest(BaseModel):
+    project_id: Optional[str] = Field(None, alias="projectId", description="ID del proyecto (opcional para historial)")
+    user_id: Optional[str] = Field(None, alias="userId", description="ID del usuario (opcional para historial)")
     element_type: str = Field(..., alias="elementType")
     tributary_area: float = Field(..., alias="tributaryArea", gt=0)
     base_load: float = Field(..., alias="baseLoad", gt=0)

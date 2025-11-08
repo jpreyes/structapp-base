@@ -125,12 +125,15 @@ const ProjectDocumentationPage = () => {
       // Recopilar los IDs seleccionados
       const selectedRunIds = Object.values(selectedCalculations).flat();
 
+      // Obtener el nombre real del proyecto
+      const currentProjectName = projectOptions.find((project) => project.id === selectedProjectId)?.name ?? "Proyecto";
+
       const response = await apiClient.post(
         "/design-bases/runs/generate-from-calculations",
         {
           projectId: selectedProjectId,
           calculationIds: selectedRunIds,
-          name: `Memoria de CÃ¡lculo - ${dayjs().format("YYYY-MM-DD HH:mm")}`,
+          name: currentProjectName,
         },
         { responseType: "blob" }
       );

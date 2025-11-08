@@ -1,4 +1,4 @@
-﻿import { Box, Button, Card, CardContent, Grid, Typography } from "@mui/material";
+import { Box, Button, Card, CardContent, Grid, Typography } from "@mui/material";
 import apiClient from "../api/client";
 
 const SubscriptionPage = () => {
@@ -55,7 +55,7 @@ const SubscriptionPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6">Suscripción</Typography>
-              <Typography variant="body2" color="text.secondary">.990 CLP mensual · .000 CLP anual.</Typography>
+              <Typography variant="body2" color="text.secondary">$9.990 CLP mensual · $100.000 CLP anual.</Typography>
               <Button
                 variant="contained"
                 color="secondary"

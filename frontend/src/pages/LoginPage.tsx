@@ -107,7 +107,7 @@ const LoginPage = () => {
                 type="submit"
                 variant="contained"
                 size="large"
-                disabled={authMutation.isLoading}
+                disabled={authMutation.isPending}
               >
                 {mode === "login" ? "Entrar" : "Registrarme"}
               </Button>

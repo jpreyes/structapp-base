@@ -659,66 +659,9 @@ const ProjectDesignBasesPage = () => {
   };
 
   // useEffect para guardar automÃ¡ticamente cuando se completen cÃ¡lculos importantes
-  useEffect(() => {
-    if (seismicMutation.isSuccess && seismicMutation.data && projectId) {
-      saveToHistoryAutomatically();
-    }
-  }, [seismicMutation.isSuccess, seismicMutation.data]);
+  
 
-  useEffect(() => {
-    if (windMutation.isSuccess && windMutation.data && projectId) {
-      saveToHistoryAutomatically();
-    }
-  }, [windMutation.isSuccess, windMutation.data]);
-
-  useEffect(() => {
-    if (snowMutation.isSuccess && snowMutation.data && projectId) {
-      saveToHistoryAutomatically();
-    }
-  }, [snowMutation.isSuccess, snowMutation.data]);
-
-  useEffect(() => {
-    if (liveLoadMutation.isSuccess && liveLoadMutation.data && projectId) {
-      saveToHistoryAutomatically();
-    }
-  }, [liveLoadMutation.isSuccess, liveLoadMutation.data]);
-
-  useEffect(() => {
-    if (concreteColumnMutation.isSuccess && concreteColumnMutation.data && projectId) {
-      saveToHistoryAutomatically();
-    }
-  }, [concreteColumnMutation.isSuccess, concreteColumnMutation.data]);
-
-  const handleAddStory = () => {
-    const nextId = stories.length ? Math.max(...stories.map((s) => s.id)) + 1 : 1;
-    setStories([...stories, { id: nextId, height: "3.0", weight: "300" }]);
-  };
-
-  const handleRemoveStory = (id: number) => {
-    if (stories.length <= 1) return;
-    setStories(stories.filter((story) => story.id != id));
-  };
-
-  const handleStoryChange = (id: number, field: "height" | "weight", value: string) => {
-    setStories((prev) => prev.map((story) => (story.id === id ? { ...story, [field]: value } : story)));
-  };
-
-  useEffect(() => {
-    if (!liveLoadMutation.data) {
-      return;
-    }
-    const candidate =
-      liveLoadMutation.data.uniformLoad ??
-      (liveLoadMutation.data.uniformLoadRaw && Number(liveLoadMutation.data.uniformLoadRaw));
-    if (candidate != null && !Number.isNaN(candidate)) {
-      setManualBaseLoad(candidate.toString());
-    }
-  }, [liveLoadMutation.data]);
-
-  const baseUniformLoad =
-    liveLoadMutation.data?.uniformLoad ??
-    (liveLoadMutation.data?.uniformLoadRaw ? Number(liveLoadMutation.data.uniformLoadRaw) : undefined);
-  const baseLoadValue = manualBaseLoad !== "" ? Number(manualBaseLoad) : undefined;
+    const baseLoadValue = manualBaseLoad !== "" ? Number(manualBaseLoad) : undefined;
 
   if (optionsLoading) {
     return (
@@ -968,19 +911,14 @@ const ProjectDesignBasesPage = () => {
                 type="number"
                 value={manualBaseLoad}
                 onChange={(event) => setManualBaseLoad(event.target.value)}
-                helperText={
-                  baseUniformLoad
-                    ? `Valor sugerido segÃºn catÃ¡logo: ${baseUniformLoad.toFixed(2)}`
-                    : "Ingresa la carga uniforme que deseas reducir."
-                }
+                helperText="Ingresa la carga uniforme que deseas reducir."
                 fullWidth
               />
               <Button
                 variant="contained"
                 onClick={() => {
                   const areaValue = Number(tributaryArea);
-                  const baseLoadValue =
-                    manualBaseLoad !== "" ? Number(manualBaseLoad) : baseUniformLoad ?? Number.NaN;
+                  const baseLoadValue = manualBaseLoad !== "" ? Number(manualBaseLoad) : Number.NaN;
                   if (!Number.isFinite(areaValue) || !Number.isFinite(baseLoadValue)) {
                     return;
                   }
@@ -1003,7 +941,7 @@ const ProjectDesignBasesPage = () => {
               </Button>
               {liveLoadReductionMutation.isSuccess && (
                 <Alert severity="success">
-                  Carga reducida: {liveLoadReductionMutation.data.reducedLoad.toFixed(3)} kN/mÂ²
+                  Carga reducida: {typeof liveLoadReductionMutation.data?.reducedLoad === "number" ? `${liveLoadReductionMutation.data.reducedLoad.toFixed(3)} kN/m2` : "N/A"}
                 </Alert>
               )}
               {liveLoadReductionMutation.isError && (
@@ -1083,7 +1021,7 @@ const ProjectDesignBasesPage = () => {
                       setLatitudeBand(event.target.value);
                       setAltitudeBand("");
                     }}
-                    fullWidth
+                fullWidth
                   >
                     {Object.keys(options.snowLatitudeBands).map((lat) => (
                       <MenuItem key={lat} value={lat}>
@@ -1099,7 +1037,7 @@ const ProjectDesignBasesPage = () => {
                     value={altitudeBand}
                     onChange={(event) => setAltitudeBand(event.target.value)}
                     disabled={!latitudeBand}
-                    fullWidth
+                fullWidth
                   >
                     {altitudeOptions.map((alt) => (
                       <MenuItem key={alt} value={alt}>
@@ -1114,7 +1052,7 @@ const ProjectDesignBasesPage = () => {
                     label="CondiciÃ³n tÃ©rmica"
                     value={thermalCondition}
                     onChange={(event) => setThermalCondition(event.target.value)}
-                    fullWidth
+                fullWidth
                   >
                     {options.snowThermalConditions.map((option) => (
                       <MenuItem key={option} value={option}>
@@ -1129,7 +1067,7 @@ const ProjectDesignBasesPage = () => {
                     label="CategorÃ­a de importancia"
                     value={importanceCategory}
                     onChange={(event) => setImportanceCategory(event.target.value)}
-                    fullWidth
+                fullWidth
                   >
                     {options.snowImportanceCategories.map((option) => (
                       <MenuItem key={option} value={option}>
@@ -1147,7 +1085,7 @@ const ProjectDesignBasesPage = () => {
                       setExposureCategory(event.target.value);
                       setExposureCondition("");
                     }}
-                    fullWidth
+                fullWidth
                   >
                     {Object.keys(options.snowExposureCategories).map((categoryKey) => (
                       <MenuItem key={categoryKey} value={categoryKey}>
@@ -1163,7 +1101,7 @@ const ProjectDesignBasesPage = () => {
                     value={exposureCondition}
                     onChange={(event) => setExposureCondition(event.target.value)}
                     disabled={!exposureCategory}
-                    fullWidth
+                fullWidth
                   >
                     {exposureConditions.map((option) => (
                       <MenuItem key={option} value={option}>
@@ -1178,7 +1116,7 @@ const ProjectDesignBasesPage = () => {
                     label="Tipo de superficie"
                     value={surfaceType}
                     onChange={(event) => setSurfaceType(event.target.value)}
-                    fullWidth
+                fullWidth
                   >
                     {options.snowSurfaceTypes.map((option) => (
                       <MenuItem key={option} value={option}>
@@ -1193,7 +1131,7 @@ const ProjectDesignBasesPage = () => {
                     type="number"
                     value={roofPitch}
                     onChange={(event) => setRoofPitch(event.target.value)}
-                    fullWidth
+                fullWidth
                   />
                 </Grid>
               </Grid>
@@ -1683,7 +1621,7 @@ const ProjectDesignBasesPage = () => {
             autoFocus
             margin="dense"
             label="Nombre"
-            fullWidth
+                fullWidth
             value={saveName}
             onChange={(e) => setSaveName(e.target.value)}
             placeholder="Ej: Base sÃ­smica edificio X"
@@ -1734,7 +1672,7 @@ const ProjectDesignBasesPage = () => {
             autoFocus
             margin="dense"
             label="Nombre del proyecto"
-            fullWidth
+                fullWidth
             value={docProjectName}
             onChange={(e) => setDocProjectName(e.target.value)}
             placeholder="Ej: Edificio Comercial Centro"
@@ -2002,3 +1940,6 @@ const ProjectDesignBasesPage = () => {
 };
 
 export default ProjectDesignBasesPage;
+
+
+

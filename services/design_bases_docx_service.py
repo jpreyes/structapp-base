@@ -9,8 +9,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from docx import Document
-from docx.shared import Inches, Pt
+from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from bs4 import BeautifulSoup
 import matplotlib
 matplotlib.use('Agg')  # Backend sin interfaz grÃ¡fica
 import matplotlib.pyplot as plt
@@ -325,6 +329,7 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
         # Zapata
         if "footing" in struct and struct["footing"]:
             ft = struct["footing"]
+            print(f"Building footing context from data: {ft}")
             context.update({
                 "footing.footingType": ft.get("footingType", ""),
                 "footing.dimensions.length": _format_value(ft.get("dimensions", {}).get("length"), 2),
@@ -378,36 +383,49 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
                 })
 
             # Aliases para compatibilidad con la plantilla existente
+            # Soportar tanto estructura anidada como plana
             dims = ft.get("dimensions", {})
             soil = ft.get("soilPressures", {})
             punching = ft.get("punchingShear", {})
             flex = ft.get("flexuralShear", {})
-            length = _format_value(dims.get("length"), 2)
-            width = _format_value(dims.get("width"), 2)
-            depth = _format_value(dims.get("depth"), 1)
-            as_long = context.get("footing.reinforcement.longitudinalSteel", "")
-            as_trans = context.get("footing.reinforcement.transverseSteel", "")
+
+            # Intentar obtener de estructura anidada primero, luego de estructura plana
+            length = _format_value(dims.get("length") or ft.get("length"), 2)
+            width = _format_value(dims.get("width") or ft.get("width"), 2)
+            depth = _format_value(dims.get("depth") or ft.get("depth"), 1)
+
+            # Acero - puede venir en estructura plana directamente
+            as_long = ft.get("asLongitudinal") or context.get("footing.reinforcement.longitudinalSteel", "")
+            as_trans = ft.get("asTransverse") or context.get("footing.reinforcement.transverseSteel", "")
+
+            # Diámetro de barra - soportar estructura plana
             bar_diam = (
-                str(ft.get("reinforcement", {}).get("xDirection", {}).get("barDiameter"))
-                or str(ft.get("reinforcement", {}).get("main", {}).get("barDiameter", ""))
+                str(ft.get("barDiameter") or "")
+                or str(ft.get("reinforcement", {}).get("xDirection", {}).get("barDiameter") or "")
+                or str(ft.get("reinforcement", {}).get("main", {}).get("barDiameter") or "")
             )
-            spacing = (
-                _format_value(ft.get("reinforcement", {}).get("xDirection", {}).get("spacing"), 1)
-                or _format_value(ft.get("reinforcement", {}).get("main", {}).get("spacing"), 1)
+
+            # Espaciamiento - soportar estructura plana
+            spacing_value = (
+                ft.get("spacing")
+                or ft.get("reinforcement", {}).get("xDirection", {}).get("spacing")
+                or ft.get("reinforcement", {}).get("main", {}).get("spacing")
             )
+            spacing = _format_value(spacing_value, 1) if spacing_value else ""
+
             context.update({
                 "footing.length": length,
                 "footing.width": width,
                 "footing.depth": depth,
-                "footing.soilPressureMax": _format_value(soil.get("max"), 2),
-                "footing.soilPressureMin": _format_value(soil.get("min"), 2),
-                "footing.punchingShearRatio": _format_value(punching.get("ratio"), 3),
-                "footing.beamShearRatio": _format_value(flex.get("ratio"), 3),
-                "footing.asLongitudinal": as_long,
-                "footing.asTransverse": as_trans,
+                "footing.soilPressureMax": _format_value(soil.get("max") or ft.get("soilPressureMax"), 2),
+                "footing.soilPressureMin": _format_value(soil.get("min") or ft.get("soilPressureMin"), 2),
+                "footing.punchingShearRatio": _format_value(punching.get("ratio") or ft.get("punchingShearRatio"), 3),
+                "footing.beamShearRatio": _format_value(flex.get("ratio") or ft.get("beamShearRatio"), 3),
+                "footing.asLongitudinal": _format_value(as_long, 2) if isinstance(as_long, (int, float)) else as_long,
+                "footing.asTransverse": _format_value(as_trans, 2) if isinstance(as_trans, (int, float)) else as_trans,
                 "footing.barDiameter": bar_diam,
                 "footing.spacing": spacing,
-                "footing.passes": str(ft.get("checkPasses", ft.get("passes", ""))),
+                "footing.passes": str(ft.get("checkPasses") or ft.get("passes") or ""),
             })
 
     # Permitir inyecciÃ³n de placeholders de tablas y extras
@@ -422,6 +440,14 @@ def _build_context(data: Dict[str, Any], project_name: str) -> Dict[str, Any]:
     )
     if isinstance(extra_placeholders, dict):
         context.update(extra_placeholders)
+
+    # Log para depuración de tablas
+    table_keys = [k for k in context.keys() if 'Table' in k or 'table' in k]
+    print(f"Table placeholders in context: {table_keys}")
+    for key in table_keys:
+        value = context[key]
+        if isinstance(value, str):
+            print(f"  {key}: type=str, length={len(value)}, starts_with={value[:50] if value else 'EMPTY'}")
 
     return context
 
@@ -497,11 +523,61 @@ def _replace_placeholders_in_runs(paragraph, context: Dict[str, Any]):
         paragraph.add_run(new_text)
 
 
+def _insert_table_text(paragraph, table_text: str):
+    """
+    Inserta texto de tabla formateado en el párrafo.
+
+    Args:
+        paragraph: Párrafo donde insertar la tabla
+        table_text: String con contenido de tabla en texto plano formateado
+    """
+    try:
+        # Simplemente insertar el texto tal cual
+        paragraph.clear()
+        paragraph.text = table_text
+
+        # Aplicar fuente monoespaciada para mejor alineación
+        if paragraph.runs:
+            for run in paragraph.runs:
+                run.font.name = 'Courier New'
+                run.font.size = Pt(9)
+
+        print(f"Table text inserted successfully")
+
+    except Exception as e:
+        import traceback
+        print(f"Error inserting table text: {e}")
+        print(traceback.format_exc())
+        paragraph.text = table_text
+
+
 def _replace_placeholders_in_paragraphs(doc: Document, context: Dict[str, Any]):
     """Reemplaza placeholders en todos los pÃ¡rrafos del documento preservando el formato."""
     for para in doc.paragraphs:
         if '{{' in para.text and '}}' in para.text:
-            _replace_placeholders_in_runs(para, context)
+            # Verificar si el placeholder es una tabla
+            pattern = r'\{\{([^}]+)\}\}'
+            matches = re.findall(pattern, para.text)
+
+            print(f"Found paragraph with placeholders: {para.text[:100]}")
+            print(f"Matches found: {matches}")
+
+            table_processed = False
+            for placeholder in matches:
+                if placeholder in context:
+                    value = context[placeholder]
+                    print(f"Processing placeholder '{placeholder}', value type: {type(value)}")
+
+                    # Si el placeholder termina en "Table", es una tabla formateada
+                    if isinstance(value, str) and placeholder.endswith('Table') and '\n' in value:
+                        print(f"Inserting formatted table for placeholder: {placeholder}")
+                        _insert_table_text(para, value)
+                        table_processed = True
+                        break
+
+            # Si no es una tabla, procesamiento normal
+            if not table_processed:
+                _replace_placeholders_in_runs(para, context)
 
 
 def _replace_placeholders_in_tables(doc: Document, context: Dict[str, Any]):
@@ -511,7 +587,27 @@ def _replace_placeholders_in_tables(doc: Document, context: Dict[str, Any]):
             for cell in row.cells:
                 for para in cell.paragraphs:
                     if '{{' in para.text and '}}' in para.text:
-                        _replace_placeholders_in_runs(para, context)
+                        # Verificar si el placeholder es una tabla formateada
+                        pattern = r'\{\{([^}]+)\}\}'
+                        matches = re.findall(pattern, para.text)
+
+                        print(f"Found table cell paragraph with placeholders: {para.text[:100]}")
+                        print(f"Matches found: {matches}")
+
+                        table_processed = False
+                        for placeholder in matches:
+                            if placeholder in context:
+                                value = context[placeholder]
+                                # Si el placeholder termina en "Table", es una tabla formateada
+                                if isinstance(value, str) and placeholder.endswith('Table') and '\n' in value:
+                                    print(f"Inserting formatted table for placeholder in cell: {placeholder}")
+                                    _insert_table_text(para, value)
+                                    table_processed = True
+                                    break
+
+                        # Si no es una tabla, procesamiento normal
+                        if not table_processed:
+                            _replace_placeholders_in_runs(para, context)
 
 
 def _generate_seismic_spectrum_chart(data: Dict[str, Any]) -> Optional[io.BytesIO]:
@@ -606,7 +702,7 @@ def generate_design_base_document(data: Dict[str, Any], project_name: str = "Pro
     # Insertar gráfico de espectros si existe el placeholder
     _insert_spectrum_chart(doc, data)
     # Insertar tablas nativas si fueron provistas
-    _insert_tables(doc, context)
+    # _insert_tables(doc, context)  # TODO: Implementar esta función si es necesaria
 
     # Guardar en buffer
     buffer = io.BytesIO()
