@@ -33,7 +33,7 @@ const SubscriptionPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6">Plan Free</Typography>
-              <Typography variant="body2" color="text.secondary">Incluye: Proyectos, Bases de cálculo, Vigas RC.</Typography>
+              <Typography variant="body2" color="text.secondary">Incluye: Tres proyectos activos simultáneos, Bases de cálculo, Vigas HA.</Typography>
               <Button
                 variant="outlined"
                 sx={{ mt: 2 }}
