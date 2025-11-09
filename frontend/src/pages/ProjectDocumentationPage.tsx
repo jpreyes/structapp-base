@@ -31,7 +31,7 @@ import { useNavigate } from "react-router-dom";
 import { useProjects } from "../hooks/useProjects";
 import { useCalculationRuns, CalculationRun } from "../hooks/useCalculationRuns";
 import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
-type EditableRun = CalculationRun & { calc_run_id?: string } | (CalculationRun & { calc_run_id?: string });
+type EditableRun = CalculationRun & { calc_run_id?: string; isDraft?: boolean };
 import { useSession } from "../store/useSession";
 import { useSetCriticalElement, useUnsetCriticalElement } from "../hooks/useStructuralCalcs";
 import apiClient from "../api/client";
@@ -69,6 +69,7 @@ const creationRoutes: Record<string, string> = {
   footing: "/projects/calculations",
 };
 
+const inlineEditorTypes = new Set(["live_load", "reduction"]);
 
 const calculationTypes: CalculationType[] = [
  { id: "building_description", label: "Descripción del Edificio", description: "Información general del proyecto" },
@@ -90,6 +91,7 @@ const ProjectDocumentationPage = () => {
   const { data: projects } = useProjects();
   const { data: designOptions } = useDesignBaseOptions();
   const sessionProjectId = useSession((state) => state.projectId);
+  const sessionUserId = useSession((state) => state.user?.id);
   const setProjectInSession = useSession((state) => state.setProject);
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(sessionProjectId);
@@ -187,6 +189,30 @@ const ProjectDocumentationPage = () => {
   };
 
   const handleCreateCalculation = (typeId: string) => {
+    if (inlineEditorTypes.has(typeId)) {
+      if (!selectedProjectId) {
+        setError("Selecciona un proyecto para crear un cálculo");
+        return;
+      }
+      if (!sessionUserId) {
+        setError("No se pudo identificar al usuario para crear el cálculo");
+        return;
+      }
+      const draft: EditableRun = {
+        id: `draft-${typeId}-${Date.now()}`,
+        project_id: selectedProjectId,
+        element_type: typeId,
+        created_at: new Date().toISOString(),
+        input_json: {},
+        result_json: {},
+        isDraft: true,
+      };
+      setEditingRun(draft);
+      setEditingValues({});
+      setEditingError(null);
+      return;
+    }
+
     const route = creationRoutes[typeId];
     if (!route) {
       return;
@@ -221,6 +247,8 @@ const ProjectDocumentationPage = () => {
     setEditingValues({});
     setEditingError(null);
   };
+
+  const isDraftRun = (run?: EditableRun | null) => Boolean(run?.isDraft);
 
   const handleEditingValueChange = (field: string, value: string) => {
     setEditingValues((prev) => ({ ...prev, [field]: value }));
@@ -257,6 +285,29 @@ const ProjectDocumentationPage = () => {
 
   const canSaveEditing = () => Boolean(buildUpdatePayload());
 
+  const createDraftCalculation = async (normalizedType: string, payload: Record<string, unknown>) => {
+    if (!selectedProjectId) {
+      throw new Error("Selecciona un proyecto antes de crear un cálculo");
+    }
+    if (!sessionUserId) {
+      throw new Error("No se pudo identificar al usuario para crear el cálculo");
+    }
+    const body = {
+      ...payload,
+      projectId: selectedProjectId,
+      userId: sessionUserId,
+    };
+    if (normalizedType === "live_load") {
+      await apiClient.post("/design-bases/live-load", body);
+      return;
+    }
+    if (normalizedType === "reduction") {
+      await apiClient.post("/design-bases/live-load/reduction", body);
+      return;
+    }
+    throw new Error("Este tipo de cálculo no se puede crear desde esta pantalla");
+  };
+
   const handleSaveEditing = async () => {
     if (!editingRun) {
       return;
@@ -267,13 +318,20 @@ const ProjectDocumentationPage = () => {
     }
     setEditingLoading(true);
     setEditingError(null);
+    const normalized = normalizeElementType(editingRun.element_type);
+    const isDraft = isDraftRun(editingRun);
+    const defaultMessage = isDraft ? "No se pudo crear el cálculo" : "No se pudo actualizar el cálculo";
     try {
-      const targetId = editingRun.calc_run_id ?? editingRun.id;
-      await apiClient.put(`/calculations/runs/${targetId}`, payload);
+      if (isDraft) {
+        await createDraftCalculation(normalized, payload);
+      } else {
+        const targetId = editingRun.calc_run_id ?? editingRun.id;
+        await apiClient.put(`/calculations/runs/${targetId}`, payload);
+      }
       await queryClient.invalidateQueries({ queryKey: ["calculation-runs", selectedProjectId], exact: true });
       handleCloseEditor();
     } catch (err) {
-      setEditingError(getErrorMessage(err) ?? "No se pudo actualizar el cálculo");
+      setEditingError(getErrorMessage(err) ?? defaultMessage);
     } finally {
       setEditingLoading(false);
     }
@@ -281,6 +339,10 @@ const ProjectDocumentationPage = () => {
 
   const handleDeleteRun = async (run: EditableRun | null) => {
     if (!run) {
+      return;
+    }
+    if (isDraftRun(run)) {
+      handleCloseEditor();
       return;
     }
     if (!window.confirm("¿Eliminar este cálculo?")) {
@@ -389,6 +451,8 @@ const ProjectDocumentationPage = () => {
     }
     return null;
   };
+
+  const isDraftEditing = isDraftRun(editingRun);
 
   const handleGenerateDocument = async () => {
     if (!selectedProjectId || totalSelected === 0) {
@@ -796,10 +860,10 @@ const ProjectDocumentationPage = () => {
               <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography variant="h6">
-                    Editar cálculo: {typeLabelMap[normalizeElementType(editingRun.element_type)] || editingRun.element_type}
+                    {isDraftEditing ? "Nuevo cálculo" : "Editar cálculo"}: {typeLabelMap[normalizeElementType(editingRun.element_type)] || editingRun.element_type}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Actualiza los datos del cálculo seleccionado o elimínalo del historial.
+                    {isDraftEditing ? "Completa los datos y crea un nuevo registro." : "Actualiza los datos del cálculo seleccionado o elimínalo del historial."}
                   </Typography>
                 </Box>
                 <IconButton onClick={handleCloseEditor}>
@@ -820,13 +884,19 @@ const ProjectDocumentationPage = () => {
                       onClick={handleSaveEditing}
                       disabled={!canSaveEditing() || editingLoading}
                     >
-                      {editingLoading ? "Guardando..." : "Guardar cambios"}
+                      {editingLoading
+                        ? isDraftEditing
+                          ? "Creando..."
+                          : "Guardando..."
+                        : isDraftEditing
+                          ? "Crear cálculo"
+                          : "Guardar cambios"}
                     </Button>
                     <Button
                       variant="outlined"
                       color="error"
                       onClick={() => handleDeleteRun(editingRun)}
-                      disabled={deletingRunId === editingRun?.id}
+                      disabled={isDraftEditing || deletingRunId === editingRun?.id}
                     >
                       {deletingRunId === editingRun?.id ? "Eliminando..." : "Eliminar cálculo"}
                     </Button>
