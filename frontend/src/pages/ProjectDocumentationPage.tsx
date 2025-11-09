@@ -1447,7 +1447,7 @@ const ProjectDocumentationPage = () => {
                   <CloseIcon />
                 </IconButton>
               </Stack>
-              {["live_load", "reduction", "building_description"].includes(normalizeElementType(editingRun.element_type)) ? (
+              {["live_load", "reduction", "building_description", "wind_load", "snow_load", "seismic"].includes(normalizeElementType(editingRun.element_type)) ? (
                 <>
                   {renderEditingFields()}
                   {editingError && (
