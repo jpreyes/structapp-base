@@ -1,4 +1,6 @@
 import io
+import logging
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -52,6 +54,7 @@ from services.design_base_runs_service import (
 from services.runs_service import fetch_run
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/live-loads", response_model=LiveLoadCatalogResponse)
@@ -86,8 +89,29 @@ async def live_load_lookup(payload: LiveLoadRequest):
             "buildingType": payload.building_type,
             "usage": payload.usage,
         }
-        record = save_run(payload.project_id, payload.user_id, "live_load", inputs, result)
-        return {"results": result, "run_id": record["id"]}
+
+        auto_data = {
+            "liveLoad": result,
+        }
+        try:
+            design_base_run = create_design_base_run(
+                project_id=payload.project_id,
+                user_id=payload.user_id,
+                name=f"Carga viva {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}",
+                data=auto_data,
+                design_base_id=None,
+                document_url=None,
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.error("No se pudo guardar live load en design_base_runs: %s", exc)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No se pudo guardar en historial") from exc
+
+        try:
+            save_run(payload.project_id, payload.user_id, "live_load", inputs, result)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("No se pudo guardar live load en calc_runs: %s", exc)
+
+        return {"results": result, "run_id": design_base_run["id"]}
 
     return {"results": result}
 
@@ -108,8 +132,34 @@ async def live_load_reduction(payload: LiveLoadReductionRequest):
             "tributaryArea": payload.tributary_area,
             "baseLoad": payload.base_load,
         }
-        record = save_run(payload.project_id, payload.user_id, "live_load_reduction", inputs, result)
-        return {"results": result, "run_id": record["id"]}
+
+        auto_data = {
+            "reduction": {
+                "elementType": payload.element_type,
+                "tributaryArea": payload.tributary_area,
+                "baseLoad": payload.base_load,
+                "reducedLoad": reduced,
+            }
+        }
+        try:
+            design_base_run = create_design_base_run(
+                project_id=payload.project_id,
+                user_id=payload.user_id,
+                name=f"Reducción de carga {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}",
+                data=auto_data,
+                design_base_id=None,
+                document_url=None,
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.error("No se pudo guardar reducción en design_base_runs: %s", exc)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No se pudo guardar en historial") from exc
+
+        try:
+            save_run(payload.project_id, payload.user_id, "reduction", inputs, result)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("No se pudo guardar reducción en calc_runs: %s", exc)
+
+        return {"results": result, "run_id": design_base_run["id"]}
 
     return {"results": result}
 
@@ -456,7 +506,7 @@ async def generate_document_from_calculations(
                         **result_json,
                     }
 
-            elif element_type == "live_load_reduction":
+            elif element_type == "reduction":
                 if "reduction" not in document_data:
                     document_data["reduction"] = {
                         "elementType": input_json.get("elementType", ""),

@@ -853,22 +853,23 @@ const ProjectDesignBasesPage = () => {
                 onClick={() => buildingDescriptionMutation.mutate()}
                 disabled={
                   !projectId ||
-                  buildingDescriptionMutation.isPending ||
-                  (!buildingDescription && !buildingLocation && !buildingArea && !buildingHeight)
+                  !user?.id ||
+                  (!buildingDescription && !buildingLocation && !buildingArea && !buildingHeight) ||
+                  buildingDescriptionMutation.isPending
                 }
               >
-                Guardar DescripciÃ³n
+                Guardar descripción
               </Button>
               {buildingDescriptionMutation.isSuccess && (
                 <Alert severity="success" sx={{ mt: 2 }}>
-                  DescripciÃ³n guardada en el historial
+                  Descripción guardada en el historial
                 </Alert>
               )}
               {buildingDescriptionMutation.isError && (
                 <Alert severity="error" sx={{ mt: 2 }}>
                   {(buildingDescriptionMutation.error as any)?.response?.data?.detail ||
                     (buildingDescriptionMutation.error as Error)?.message ||
-                    "Error al guardar la descripciÃ³n"}
+                    "Error al guardar la descripción"}
                 </Alert>
               )}
             </Grid>
@@ -923,19 +924,17 @@ const ProjectDesignBasesPage = () => {
                 Consultar carga viva
               </Button>
               {liveLoadMutation.isError && (
-                <Alert severity="error">No se encontrÃ³ la combinaciÃ³n seleccionada.</Alert>
+                <Alert severity="error">No se encontró la combinación seleccionada.</Alert>
               )}
               {liveLoadMutation.data && (
                 <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 }}>
                   <Typography color="text.secondary">Carga uniforme</Typography>
                   <Typography>
-                    {liveLoadMutation.data.uniformLoad ?? liveLoadMutation.data.uniformLoadRaw} kN/mÂ²
+                    {liveLoadMutation.data.uniformLoad ?? liveLoadMutation.data.uniformLoadRaw} kN/m²
                   </Typography>
                   <Typography color="text.secondary">Carga concentrada</Typography>
                   <Typography>
-                    {liveLoadMutation.data.concentratedLoad ??
-                      liveLoadMutation.data.concentratedLoadRaw}{" "}
-                    kN
+                    {liveLoadMutation.data.concentratedLoad ?? liveLoadMutation.data.concentratedLoadRaw} kN
                   </Typography>
                 </Box>
               )}
@@ -946,7 +945,7 @@ const ProjectDesignBasesPage = () => {
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <Typography variant="h6">ReducciÃ³n por Ã¡rea tributaria (NCh1537)</Typography>
+              <Typography variant="h6">Reducción por área tributaria (NCh1537)</Typography>
               <TextField
                 select
                 label="Elemento estructural"
@@ -968,7 +967,7 @@ const ProjectDesignBasesPage = () => {
                 fullWidth
               />
               <TextField
-                label="Carga base (kN/mÂ²)"
+                label="Carga base (kN/m²)"
                 type="number"
                 value={manualBaseLoad}
                 onChange={(event) => setManualBaseLoad(event.target.value)}
@@ -983,7 +982,20 @@ const ProjectDesignBasesPage = () => {
                   if (!Number.isFinite(areaValue) || !Number.isFinite(baseLoadValue)) {
                     return;
                   }
-                  liveLoadReductionMutation.mutate({ elementType, tributaryArea: areaValue, baseLoad: baseLoadValue }, { onSuccess: async () => { if (projectId) { try { await saveToHistoryAutomatically(); await handleViewHistory(); } catch (e) { console.error("Auto-guardado/Historial falló:", e); } } } });
+                  liveLoadReductionMutation.mutate(
+                    { elementType, tributaryArea: areaValue, baseLoad: baseLoadValue },
+                    {
+                      onSuccess: async () => {
+                        if (projectId) {
+                          try {
+                            await saveToHistoryAutomatically();
+                          } catch (e) {
+                            console.error("Auto-guardado falló:", e);
+                          }
+                        }
+                      },
+                    }
+                  );
                 }}
                 disabled={
                   !projectId ||
@@ -1999,6 +2011,8 @@ const ProjectDesignBasesPage = () => {
 };
 
 export default ProjectDesignBasesPage;
+
+
 
 
 

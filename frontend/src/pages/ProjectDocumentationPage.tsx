@@ -114,7 +114,7 @@ const ProjectDocumentationPage = () => {
 
   const handleGenerateDocument = async () => {
     if (!selectedProjectId || totalSelected === 0) {
-      setError("Selecciona al menos un cÃ¡lculo para generar el documento");
+      setError("Selecciona al menos un cálculo para generar el documento");
       return;
     }
 
