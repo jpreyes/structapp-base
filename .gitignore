@@ -6,3 +6,5 @@ __pycache__/
 .envrc
 .DS_Store
 *.log
+frontend/nul
+nul
