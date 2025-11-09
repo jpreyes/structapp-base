@@ -314,8 +314,8 @@ def calculate_seismic_base(
 
     spectrum = []
     # Generar 21 puntos del espectro: de 0 a 5 segundos con paso de 0.25s
-    for i in range(21):
-        tn = i * 0.25
+    for i in range(51):
+        tn = i * 0.1
         alfa_S = (1 + 4.5 * (tn / T0_S) ** p_S) / (1 + (tn / T0_S) ** 3) if tn > 0 else 1.0
         Sax = S_S * A_0 * alfa_S / (Rastx / I_s)
         SAy = S_S * A_0 * alfa_S / (Rasty / I_s)

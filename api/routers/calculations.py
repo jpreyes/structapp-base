@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel, Field
@@ -6,7 +7,13 @@ from pydantic import BaseModel, Field
 from api.dependencies import UserIdDep
 from api.schemas.calculations import CalculationResponse, CalculationRun, RCBeamPayload
 from calculations.rc_beam import run as run_rc_beam
-from services.design_bases_service import calculate_live_load_reduction, get_live_load
+from services.design_bases_service import (
+    calculate_live_load_reduction,
+    calculate_roof_snow_load,
+    calculate_seismic_base,
+    calculate_wind_pressure,
+    get_live_load,
+)
 from services.docs_service import export_rc_beam_pdf
 from services.runs_service import fetch_run, get_critical_elements, list_runs, save_run, set_critical_element, unset_critical_element
 from supa.client import supa
@@ -22,6 +29,46 @@ def _ensure_user_can_modify(run: dict, user_id: str):
 class UpdateLiveLoadPayload(BaseModel):
     building_type: str = Field(..., alias="buildingType")
     usage: str
+
+
+class UpdateBuildingDescriptionPayload(BaseModel):
+    text: str | None = None
+    location: str | None = None
+    area: str | None = None
+    height: str | None = None
+
+
+class UpdateWindPayload(BaseModel):
+    environment: str
+    height: float = Field(..., gt=0)
+
+
+class UpdateSnowPayload(BaseModel):
+    latitude_band: str = Field(..., alias="latitudeBand")
+    altitude_band: str = Field(..., alias="altitudeBand")
+    thermal_condition: str = Field(..., alias="thermalCondition")
+    importance_category: str = Field(..., alias="importanceCategory")
+    exposure_category: str = Field(..., alias="exposureCategory")
+    exposure_condition: str = Field(..., alias="exposureCondition")
+    surface_type: str = Field(..., alias="surfaceType")
+    roof_pitch: float = Field(..., alias="roofPitch", ge=0, le=90)
+
+
+class UpdateSeismicStory(BaseModel):
+    height: float = Field(..., gt=0)
+    weight: float = Field(..., gt=0)
+
+
+class UpdateSeismicPayload(BaseModel):
+    category: str
+    zone: str
+    soil: str
+    rs: float = Field(..., gt=0)
+    ps: float = Field(..., gt=0)
+    tx: float = Field(..., gt=0)
+    ty: float = Field(..., gt=0)
+    r0: float = Field(..., gt=0)
+    stories: List[UpdateSeismicStory] = Field(..., min_items=1)
 
 
 class UpdateReductionPayload(BaseModel):
@@ -108,6 +155,82 @@ async def update_calculation_run(run_id: str, payload: dict, user_id: UserIdDep)
             "uniformLoadRaw": raw["uniform_load_raw"],
             "concentratedLoad": raw["concentrated_load"],
             "concentratedLoadRaw": raw["concentrated_load_raw"],
+        }
+    elif element_type == "building_description":
+        data = UpdateBuildingDescriptionPayload(**payload)
+        if not any([data.text, data.location, data.area, data.height]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Debes ingresar al menos un dato de la descripción del edificio.",
+            )
+        inputs = {
+            "text": data.text,
+            "location": data.location,
+            "area": data.area,
+            "height": data.height,
+        }
+        result = inputs.copy()
+    elif element_type == "wind_load":
+        data = UpdateWindPayload(**payload)
+        try:
+            result = calculate_wind_pressure(data.environment, data.height)
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        inputs = {"environment": data.environment, "height": data.height}
+    elif element_type == "snow_load":
+        data = UpdateSnowPayload(**payload)
+        try:
+            result = calculate_roof_snow_load(
+                latitude_band=data.latitude_band,
+                altitude_band=data.altitude_band,
+                thermal_condition=data.thermal_condition,
+                importance_category=data.importance_category,
+                exposure_category=data.exposure_category,
+                exposure_condition=data.exposure_condition,
+                surface_type=data.surface_type,
+                roof_pitch_deg=data.roof_pitch,
+            )
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        inputs = {
+            "latitudeBand": data.latitude_band,
+            "altitudeBand": data.altitude_band,
+            "thermalCondition": data.thermal_condition,
+            "importanceCategory": data.importance_category,
+            "exposureCategory": data.exposure_category,
+            "exposureCondition": data.exposure_condition,
+            "surfaceType": data.surface_type,
+            "roofPitch": data.roof_pitch,
+        }
+    elif element_type == "seismic":
+        data = UpdateSeismicPayload(**payload)
+        story_heights = [story.height for story in data.stories]
+        story_weights = [story.weight for story in data.stories]
+        try:
+            result = calculate_seismic_base(
+                category=data.category,
+                zone=data.zone,
+                soil=data.soil,
+                rs_value=data.rs,
+                ps_value=data.ps,
+                tx=data.tx,
+                ty=data.ty,
+                r0=data.r0,
+                story_heights=story_heights,
+                story_weights=story_weights,
+            )
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        inputs = {
+            "category": data.category,
+            "zone": data.zone,
+            "soil": data.soil,
+            "rs": data.rs,
+            "ps": data.ps,
+            "tx": data.tx,
+            "ty": data.ty,
+            "r0": data.r0,
+            "stories": [{"height": story.height, "weight": story.weight} for story in data.stories],
         }
     elif element_type in {"reduction", "live_load_reduction"}:
         data = UpdateReductionPayload(**payload)

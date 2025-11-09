@@ -69,7 +69,42 @@ const creationRoutes: Record<string, string> = {
   footing: "/projects/calculations",
 };
 
-const inlineEditorTypes = new Set(["live_load", "reduction"]);
+const inlineEditorTypes = new Set(["building_description", "live_load", "reduction", "wind_load", "snow_load", "seismic"]);
+
+const defaultSeismicStories = () => [
+  { id: 1, height: "3.0", weight: "300" },
+  { id: 2, height: "3.0", weight: "300" },
+];
+
+const buildDefaultEditingValues = (typeId: string): Record<string, string> => {
+  switch (typeId) {
+    case "live_load":
+      return { buildingType: "", usage: "" };
+    case "reduction":
+      return { elementType: "", tributaryArea: "", baseLoad: "" };
+    case "building_description":
+      return { text: "", location: "", area: "", height: "" };
+    case "wind_load":
+      return { environment: "", height: "" };
+    case "snow_load":
+      return {
+        latitudeBand: "",
+        altitudeBand: "",
+        thermalCondition: "",
+        importanceCategory: "",
+        exposureCategory: "",
+        exposureCondition: "",
+        surfaceType: "",
+        roofPitch: "",
+      };
+    case "seismic":
+      return { category: "", zone: "", soil: "", rs: "", ps: "", tx: "", ty: "", r0: "" };
+    default:
+      return {};
+  }
+};
+
+const buildDefaultStoriesForType = (typeId: string) => (typeId === "seismic" ? defaultSeismicStories() : []);
 
 const calculationTypes: CalculationType[] = [
  { id: "building_description", label: "Descripción del Edificio", description: "Información general del proyecto" },
@@ -106,6 +141,7 @@ const ProjectDocumentationPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [editingRun, setEditingRun] = useState<EditableRun | null>(null);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
+  const [editingStories, setEditingStories] = useState<Array<{ id: number; height: string; weight: string }>>([]);
   const [editingError, setEditingError] = useState<string | null>(null);
   const [editingLoading, setEditingLoading] = useState(false);
   const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
@@ -137,6 +173,7 @@ const ProjectDocumentationPage = () => {
   useEffect(() => {
     if (!editingRun) {
       setEditingValues({});
+      setEditingStories([]);
       setEditingError(null);
       return;
     }
@@ -146,6 +183,7 @@ const ProjectDocumentationPage = () => {
         buildingType: (editingRun.input_json?.buildingType as string) ?? "",
         usage: (editingRun.input_json?.usage as string) ?? "",
       });
+      setEditingStories([]);
     } else if (normalized === "reduction") {
       const tributary = editingRun.input_json?.tributaryArea ?? editingRun.input_json?.tributary_area ?? "";
       const base = editingRun.input_json?.baseLoad ?? editingRun.input_json?.base_load ?? "";
@@ -154,8 +192,70 @@ const ProjectDocumentationPage = () => {
         tributaryArea: tributary !== undefined && tributary !== null ? String(tributary) : "",
         baseLoad: base !== undefined && base !== null ? String(base) : "",
       });
+      setEditingStories([]);
+    } else if (normalized === "building_description") {
+      const areaValue = editingRun.input_json?.area as string | number | undefined;
+      const heightValue = editingRun.input_json?.height as string | number | undefined;
+      setEditingValues({
+        text: (editingRun.input_json?.text as string) ?? "",
+        location: (editingRun.input_json?.location as string) ?? "",
+        area: areaValue !== undefined && areaValue !== null ? String(areaValue) : "",
+        height: heightValue !== undefined && heightValue !== null ? String(heightValue) : "",
+      });
+      setEditingStories([]);
+    } else if (normalized === "wind_load") {
+      const heightValue = editingRun.input_json?.height as number | undefined;
+      setEditingValues({
+        environment: (editingRun.input_json?.environment as string) ?? "",
+        height: heightValue !== undefined && heightValue !== null ? String(heightValue) : "",
+      });
+      setEditingStories([]);
+    } else if (normalized === "snow_load") {
+      const roofValue = editingRun.input_json?.roofPitch as number | undefined;
+      setEditingValues({
+        latitudeBand: (editingRun.input_json?.latitudeBand as string) ?? "",
+        altitudeBand: (editingRun.input_json?.altitudeBand as string) ?? "",
+        thermalCondition: (editingRun.input_json?.thermalCondition as string) ?? "",
+        importanceCategory: (editingRun.input_json?.importanceCategory as string) ?? "",
+        exposureCategory: (editingRun.input_json?.exposureCategory as string) ?? "",
+        exposureCondition: (editingRun.input_json?.exposureCondition as string) ?? "",
+        surfaceType: (editingRun.input_json?.surfaceType as string) ?? "",
+        roofPitch: roofValue !== undefined && roofValue !== null ? String(roofValue) : "",
+      });
+      setEditingStories([]);
+    } else if (normalized === "seismic") {
+      const rsValue = editingRun.input_json?.rs as number | undefined;
+      const psValue = editingRun.input_json?.ps as number | undefined;
+      const txValue = editingRun.input_json?.tx as number | undefined;
+      const tyValue = editingRun.input_json?.ty as number | undefined;
+      const r0Value = editingRun.input_json?.r0 as number | undefined;
+      setEditingValues({
+        category: (editingRun.input_json?.category as string) ?? "",
+        zone: (editingRun.input_json?.zone as string) ?? "",
+        soil: (editingRun.input_json?.soil as string) ?? "",
+        rs: rsValue !== undefined && rsValue !== null ? String(rsValue) : "",
+        ps: psValue !== undefined && psValue !== null ? String(psValue) : "",
+        tx: txValue !== undefined && txValue !== null ? String(txValue) : "",
+        ty: tyValue !== undefined && tyValue !== null ? String(tyValue) : "",
+        r0: r0Value !== undefined && r0Value !== null ? String(r0Value) : "",
+      });
+      const storiesInput = Array.isArray(editingRun.input_json?.stories)
+        ? (editingRun.input_json?.stories as Array<{ height?: number; weight?: number }>)
+        : [];
+      if (storiesInput.length) {
+        setEditingStories(
+          storiesInput.map((story, index) => ({
+            id: index + 1,
+            height: story.height !== undefined && story.height !== null ? String(story.height) : "",
+            weight: story.weight !== undefined && story.weight !== null ? String(story.weight) : "",
+          }))
+        );
+      } else {
+        setEditingStories(defaultSeismicStories());
+      }
     } else {
       setEditingValues({});
+      setEditingStories([]);
     }
     setEditingError(null);
   }, [editingRun]);
@@ -191,11 +291,15 @@ const ProjectDocumentationPage = () => {
   const handleCreateCalculation = (typeId: string) => {
     if (inlineEditorTypes.has(typeId)) {
       if (!selectedProjectId) {
-        setError("Selecciona un proyecto para crear un cálculo");
+        setError("Selecciona un proyecto para crear un c�lculo");
         return;
       }
       if (!sessionUserId) {
-        setError("No se pudo identificar al usuario para crear el cálculo");
+        setError("No se pudo identificar al usuario para crear el c�lculo");
+        return;
+      }
+      if (["wind_load", "snow_load", "seismic"].includes(typeId) && !designOptions) {
+        setError("Las opciones de dise�o a�n no est�n disponibles. Intenta nuevamente en unos segundos");
         return;
       }
       const draft: EditableRun = {
@@ -208,7 +312,8 @@ const ProjectDocumentationPage = () => {
         isDraft: true,
       };
       setEditingRun(draft);
-      setEditingValues({});
+      setEditingValues(buildDefaultEditingValues(typeId));
+      setEditingStories(buildDefaultStoriesForType(typeId));
       setEditingError(null);
       return;
     }
@@ -245,6 +350,7 @@ const ProjectDocumentationPage = () => {
   const handleCloseEditor = () => {
     setEditingRun(null);
     setEditingValues({});
+    setEditingStories([]);
     setEditingError(null);
   };
 
@@ -252,6 +358,22 @@ const ProjectDocumentationPage = () => {
 
   const handleEditingValueChange = (field: string, value: string) => {
     setEditingValues((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleEditingStoryChange = (id: number, field: "height" | "weight", value: string) => {
+    setEditingStories((prev) => prev.map((story) => (story.id === id ? { ...story, [field]: value } : story)));
+  };
+
+  const handleAddEditingStory = () => {
+    setEditingStories((prev) => {
+      const nextId = prev.length ? Math.max(...prev.map((story) => story.id)) + 1 : 1;
+      const last = prev[prev.length - 1];
+      return [...prev, { id: nextId, height: last?.height ?? "3.0", weight: last?.weight ?? "300" }];
+    });
+  };
+
+  const handleRemoveEditingStory = (id: number) => {
+    setEditingStories((prev) => (prev.length > 1 ? prev.filter((story) => story.id !== id) : prev));
   };
 
   const buildUpdatePayload = () => {
@@ -266,6 +388,111 @@ const ProjectDocumentationPage = () => {
       return {
         buildingType: editingValues.buildingType,
         usage: editingValues.usage,
+      };
+    }
+    if (normalized === "building_description") {
+      const textValue = editingValues.text?.trim() ?? "";
+      const locationValue = editingValues.location?.trim() ?? "";
+      const areaValue = editingValues.area?.trim() ?? "";
+      const heightValue = editingValues.height?.trim() ?? "";
+      if (![textValue, locationValue, areaValue, heightValue].some(Boolean)) {
+        return null;
+      }
+      return {
+        text: textValue || undefined,
+        location: locationValue || undefined,
+        area: areaValue || undefined,
+        height: heightValue || undefined,
+      };
+    }
+    if (normalized === "wind_load") {
+      if (!editingValues.environment) {
+        return null;
+      }
+      const heightValue = Number(editingValues.height);
+      if (!Number.isFinite(heightValue) || heightValue <= 0) {
+        return null;
+      }
+      return {
+        environment: editingValues.environment,
+        height: heightValue,
+      };
+    }
+    if (normalized === "snow_load") {
+      if (
+        !editingValues.latitudeBand ||
+        !editingValues.altitudeBand ||
+        !editingValues.thermalCondition ||
+        !editingValues.importanceCategory ||
+        !editingValues.exposureCategory ||
+        !editingValues.exposureCondition ||
+        !editingValues.surfaceType
+      ) {
+        return null;
+      }
+      const roofPitchValue = Number(editingValues.roofPitch);
+      if (!Number.isFinite(roofPitchValue) || roofPitchValue < 0 || roofPitchValue > 90) {
+        return null;
+      }
+      return {
+        latitudeBand: editingValues.latitudeBand,
+        altitudeBand: editingValues.altitudeBand,
+        thermalCondition: editingValues.thermalCondition,
+        importanceCategory: editingValues.importanceCategory,
+        exposureCategory: editingValues.exposureCategory,
+        exposureCondition: editingValues.exposureCondition,
+        surfaceType: editingValues.surfaceType,
+        roofPitch: roofPitchValue,
+      };
+    }
+    if (normalized === "seismic") {
+      if (!editingValues.category || !editingValues.zone || !editingValues.soil) {
+        return null;
+      }
+      const rsValue = Number(editingValues.rs);
+      const psValue = Number(editingValues.ps);
+      const txValue = Number(editingValues.tx);
+      const tyValue = Number(editingValues.ty);
+      const r0Value = Number(editingValues.r0);
+      if (
+        !Number.isFinite(rsValue) ||
+        !Number.isFinite(psValue) ||
+        !Number.isFinite(txValue) ||
+        !Number.isFinite(tyValue) ||
+        !Number.isFinite(r0Value) ||
+        rsValue <= 0 ||
+        psValue <= 0 ||
+        txValue <= 0 ||
+        tyValue <= 0 ||
+        r0Value <= 0
+      ) {
+        return null;
+      }
+      if (!editingStories.length) {
+        return null;
+      }
+      const storiesPayload = editingStories.map((story) => ({
+        height: Number(story.height),
+        weight: Number(story.weight),
+      }));
+      if (
+        storiesPayload.some(
+          (story) =>
+            !Number.isFinite(story.height) || story.height <= 0 || !Number.isFinite(story.weight) || story.weight <= 0
+        )
+      ) {
+        return null;
+      }
+      return {
+        category: editingValues.category,
+        zone: editingValues.zone,
+        soil: editingValues.soil,
+        rs: rsValue,
+        ps: psValue,
+        tx: txValue,
+        ty: tyValue,
+        r0: r0Value,
+        stories: storiesPayload,
       };
     }
     if (normalized === "reduction") {
@@ -287,10 +514,10 @@ const ProjectDocumentationPage = () => {
 
   const createDraftCalculation = async (normalizedType: string, payload: Record<string, unknown>) => {
     if (!selectedProjectId) {
-      throw new Error("Selecciona un proyecto antes de crear un cálculo");
+      throw new Error("Selecciona un proyecto antes de crear un c�lculo");
     }
     if (!sessionUserId) {
-      throw new Error("No se pudo identificar al usuario para crear el cálculo");
+      throw new Error("No se pudo identificar al usuario para crear el c�lculo");
     }
     const body = {
       ...payload,
@@ -305,7 +532,23 @@ const ProjectDocumentationPage = () => {
       await apiClient.post("/design-bases/live-load/reduction", body);
       return;
     }
-    throw new Error("Este tipo de cálculo no se puede crear desde esta pantalla");
+    if (normalizedType === "building_description") {
+      await apiClient.post("/design-bases/building-description", body);
+      return;
+    }
+    if (normalizedType === "wind_load") {
+      await apiClient.post("/design-bases/wind", body);
+      return;
+    }
+    if (normalizedType === "snow_load") {
+      await apiClient.post("/design-bases/snow", body);
+      return;
+    }
+    if (normalizedType === "seismic") {
+      await apiClient.post("/design-bases/seismic", body);
+      return;
+    }
+    throw new Error("Este tipo de c�lculo no se puede crear desde esta pantalla");
   };
 
   const handleSaveEditing = async () => {
@@ -377,7 +620,7 @@ const ProjectDocumentationPage = () => {
     const normalized = normalizeElementType(editingRun.element_type);
     if (normalized === "live_load") {
       if (!designOptions) {
-        return <Alert severity="info" sx={{ mt: 2 }}>Cargando catálogos...</Alert>;
+        return <Alert severity="info" sx={{ mt: 2 }}>Cargando cat�logos...</Alert>;
       }
       const buildingTypes = Object.keys(designOptions.liveLoadCategories || {});
       const usageOptionsForEdit = editingValues.buildingType
@@ -415,6 +658,340 @@ const ProjectDocumentationPage = () => {
         </Stack>
       );
     }
+    if (normalized === "building_description") {
+      return (
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          <TextField
+            label="Descripci�n del edificio"
+            value={editingValues.text ?? ""}
+            onChange={(event) => handleEditingValueChange("text", event.target.value)}
+            fullWidth
+            multiline
+            minRows={3}
+          />
+          <TextField
+            label="Ubicaci�n"
+            value={editingValues.location ?? ""}
+            onChange={(event) => handleEditingValueChange("location", event.target.value)}
+            fullWidth
+          />
+          <TextField
+            label="�rea total (m�)"
+            type="number"
+            value={editingValues.area ?? ""}
+            onChange={(event) => handleEditingValueChange("area", event.target.value)}
+            fullWidth
+          />
+          <TextField
+            label="Altura (m)"
+            type="number"
+            value={editingValues.height ?? ""}
+            onChange={(event) => handleEditingValueChange("height", event.target.value)}
+            fullWidth
+          />
+        </Stack>
+      );
+    }
+    if (normalized === "wind_load") {
+      if (!designOptions) {
+        return <Alert severity="info" sx={{ mt: 2 }}>Cargando cat�logos...</Alert>;
+      }
+      return (
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          <TextField
+            select
+            label="Ambiente"
+            value={editingValues.environment ?? ""}
+            onChange={(event) => handleEditingValueChange("environment", event.target.value)}
+            fullWidth
+          >
+            {designOptions.windEnvironments.map((env) => (
+              <MenuItem key={env} value={env}>
+                {env}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label="Altura sobre el terreno (m)"
+            type="number"
+            value={editingValues.height ?? ""}
+            onChange={(event) => handleEditingValueChange("height", event.target.value)}
+            fullWidth
+          />
+        </Stack>
+      );
+    }
+    if (normalized === "snow_load") {
+      if (!designOptions) {
+        return <Alert severity="info" sx={{ mt: 2 }}>Cargando cat�logos...</Alert>;
+      }
+      const latitudeBand = editingValues.latitudeBand ?? "";
+      const exposureCategory = editingValues.exposureCategory ?? "";
+      const altitudeOptionsForLat = latitudeBand
+        ? Object.keys(designOptions.snowLatitudeBands[latitudeBand] || {})
+        : [];
+      const exposureConditions = exposureCategory
+        ? designOptions.snowExposureCategories[exposureCategory] || []
+        : [];
+      return (
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Latitud"
+                value={latitudeBand}
+                onChange={(event) => {
+                  handleEditingValueChange("latitudeBand", event.target.value);
+                  handleEditingValueChange("altitudeBand", "");
+                }}
+                fullWidth
+              >
+                {Object.keys(designOptions.snowLatitudeBands || {}).map((lat) => (
+                  <MenuItem key={lat} value={lat}>
+                    {lat}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Altitud"
+                value={editingValues.altitudeBand ?? ""}
+                onChange={(event) => handleEditingValueChange("altitudeBand", event.target.value)}
+                fullWidth
+                disabled={!latitudeBand}
+              >
+                {altitudeOptionsForLat.map((alt) => (
+                  <MenuItem key={alt} value={alt}>
+                    {alt}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Condici�n t�rmica"
+                value={editingValues.thermalCondition ?? ""}
+                onChange={(event) => handleEditingValueChange("thermalCondition", event.target.value)}
+                fullWidth
+              >
+                {designOptions.snowThermalConditions.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Categor�a de importancia"
+                value={editingValues.importanceCategory ?? ""}
+                onChange={(event) => handleEditingValueChange("importanceCategory", event.target.value)}
+                fullWidth
+              >
+                {designOptions.snowImportanceCategories.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Categor�a de exposici�n"
+                value={exposureCategory}
+                onChange={(event) => {
+                  handleEditingValueChange("exposureCategory", event.target.value);
+                  handleEditingValueChange("exposureCondition", "");
+                }}
+                fullWidth
+              >
+                {Object.keys(designOptions.snowExposureCategories || {}).map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Condici�n de exposici�n"
+                value={editingValues.exposureCondition ?? ""}
+                onChange={(event) => handleEditingValueChange("exposureCondition", event.target.value)}
+                fullWidth
+                disabled={!exposureCategory}
+              >
+                {exposureConditions.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Tipo de superficie"
+                value={editingValues.surfaceType ?? ""}
+                onChange={(event) => handleEditingValueChange("surfaceType", event.target.value)}
+                fullWidth
+              >
+                {designOptions.snowSurfaceTypes.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Inclinaci�n (�)"
+                type="number"
+                value={editingValues.roofPitch ?? ""}
+                onChange={(event) => handleEditingValueChange("roofPitch", event.target.value)}
+                fullWidth
+              />
+            </Grid>
+          </Grid>
+        </Stack>
+      );
+    }
+    if (normalized === "seismic") {
+      if (!designOptions) {
+        return <Alert severity="info" sx={{ mt: 2 }}>Cargando cat�logos...</Alert>;
+      }
+      return (
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                select
+                label="Categor�a estructural"
+                value={editingValues.category ?? ""}
+                onChange={(event) => handleEditingValueChange("category", event.target.value)}
+                fullWidth
+              >
+                {designOptions.seismicCategories.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                select
+                label="Zona s�smica"
+                value={editingValues.zone ?? ""}
+                onChange={(event) => handleEditingValueChange("zone", event.target.value)}
+                fullWidth
+              >
+                {designOptions.seismicZones.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                select
+                label="Tipo de suelo"
+                value={editingValues.soil ?? ""}
+                onChange={(event) => handleEditingValueChange("soil", event.target.value)}
+                fullWidth
+              >
+                {designOptions.seismicSoils.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Coeficiente R"
+                type="number"
+                value={editingValues.rs ?? ""}
+                onChange={(event) => handleEditingValueChange("rs", event.target.value)}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Peso s�smico total (kN)"
+                type="number"
+                value={editingValues.ps ?? ""}
+                onChange={(event) => handleEditingValueChange("ps", event.target.value)}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Periodo Tx (s)"
+                type="number"
+                value={editingValues.tx ?? ""}
+                onChange={(event) => handleEditingValueChange("tx", event.target.value)}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Periodo Ty (s)"
+                type="number"
+                value={editingValues.ty ?? ""}
+                onChange={(event) => handleEditingValueChange("ty", event.target.value)}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="R�'0 (deriva)"
+                type="number"
+                value={editingValues.r0 ?? ""}
+                onChange={(event) => handleEditingValueChange("r0", event.target.value)}
+                fullWidth
+              />
+            </Grid>
+          </Grid>
+          <Divider />
+          <Typography variant="subtitle2">Distribuci�n de niveles</Typography>
+          <Stack spacing={1}>
+            {editingStories.map((story, index) => (
+              <Stack key={story.id} direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center">
+                <Typography variant="body2">Nivel {index + 1}</Typography>
+                <TextField
+                  label="Altura (m)"
+                  type="number"
+                  value={story.height}
+                  onChange={(event) => handleEditingStoryChange(story.id, "height", event.target.value)}
+                  sx={{ minWidth: 140 }}
+                />
+                <TextField
+                  label="Peso (kN)"
+                  type="number"
+                  value={story.weight}
+                  onChange={(event) => handleEditingStoryChange(story.id, "weight", event.target.value)}
+                  sx={{ minWidth: 140 }}
+                />
+                <IconButton onClick={() => handleRemoveEditingStory(story.id)} disabled={editingStories.length <= 1}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+            ))}
+            <Button startIcon={<AddIcon />} onClick={handleAddEditingStory} variant="outlined" sx={{ alignSelf: "flex-start" }}>
+              Agregar nivel
+            </Button>
+          </Stack>
+        </Stack>
+      );
+    }
     if (normalized === "reduction") {
       const elementOptions = designOptions?.liveLoadElementTypes || [];
       return (
@@ -433,14 +1010,14 @@ const ProjectDocumentationPage = () => {
             ))}
           </TextField>
           <TextField
-            label="Área tributaria (m²)"
+            label="�rea tributaria (m�)"
             type="number"
             value={editingValues.tributaryArea ?? ""}
             onChange={(event) => handleEditingValueChange("tributaryArea", event.target.value)}
             fullWidth
           />
           <TextField
-            label="Carga base (kN/m²)"
+            label="Carga base (kN/m�)"
             type="number"
             value={editingValues.baseLoad ?? ""}
             onChange={(event) => handleEditingValueChange("baseLoad", event.target.value)}
@@ -870,7 +1447,7 @@ const ProjectDocumentationPage = () => {
                   <CloseIcon />
                 </IconButton>
               </Stack>
-              {normalizeElementType(editingRun.element_type) === "live_load" || normalizeElementType(editingRun.element_type) === "reduction" ? (
+              {["live_load", "reduction", "building_description"].includes(normalizeElementType(editingRun.element_type)) ? (
                 <>
                   {renderEditingFields()}
                   {editingError && (
