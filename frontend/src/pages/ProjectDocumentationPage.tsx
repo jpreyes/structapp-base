@@ -20,6 +20,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import DownloadIcon from "@mui/icons-material/Download";
 import DescriptionIcon from "@mui/icons-material/Description";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import CloseIcon from "@mui/icons-material/Close";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
@@ -85,7 +86,7 @@ const ProjectDocumentationPage = () => {
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [editingError, setEditingError] = useState<string | null>(null);
   const [editingLoading, setEditingLoading] = useState(false);
-  const [deletingLoading, setDeletingLoading] = useState(false);
+  const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
 
   const projectOptions = useMemo(() => projects ?? [], [projects]);
   const typeLabelMap = useMemo(() => {
@@ -248,24 +249,31 @@ const ProjectDocumentationPage = () => {
     }
   };
 
-  const handleDeleteEditing = async () => {
-    if (!editingRun) {
+  const handleDeleteRun = async (run: CalculationRun | null) => {
+    if (!run) {
       return;
     }
     if (!window.confirm("¿Eliminar este cálculo?")) {
       return;
     }
-    setDeletingLoading(true);
+    setDeletingRunId(run.id);
     setEditingError(null);
     try {
-      await apiClient.delete(`/calculations/runs/${editingRun.id}`);
-      removeRunFromSelections(editingRun.id);
+      await apiClient.delete(`/calculations/runs/${run.id}`);
+      removeRunFromSelections(run.id);
       await queryClient.invalidateQueries({ queryKey: ["calculation-runs", selectedProjectId], exact: true });
-      handleCloseEditor();
+      if (editingRun?.id === run.id) {
+        handleCloseEditor();
+      }
     } catch (err) {
-      setEditingError(getErrorMessage(err) ?? "No se pudo eliminar el cálculo");
+      const message = getErrorMessage(err) ?? "No se pudo eliminar el cálculo";
+      if (editingRun?.id === run.id) {
+        setEditingError(message);
+      } else {
+        setError(message);
+      }
     } finally {
-      setDeletingLoading(false);
+      setDeletingRunId(null);
     }
   };
 
@@ -511,18 +519,31 @@ const ProjectDocumentationPage = () => {
     {
       field: "actions",
       headerName: "",
-      width: 80,
+      width: 110,
       sortable: false,
       renderCell: (params) => (
-        <IconButton
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleStartEditing(params.row as CalculationRun);
-          }}
-        >
-          <EditIcon fontSize="inherit" />
-        </IconButton>
+        <Stack direction="row" spacing={1}>
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStartEditing(params.row as CalculationRun);
+            }}
+          >
+            <EditIcon fontSize="inherit" />
+          </IconButton>
+          <IconButton
+            size="small"
+            color="error"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteRun(params.row as CalculationRun);
+            }}
+            disabled={deletingRunId === params.row.id}
+          >
+            <DeleteIcon fontSize="inherit" />
+          </IconButton>
+        </Stack>
       ),
     },
   ];
@@ -753,10 +774,10 @@ const ProjectDocumentationPage = () => {
                   <Button
                     variant="outlined"
                     color="error"
-                    onClick={handleDeleteEditing}
-                    disabled={deletingLoading}
+                    onClick={() => handleDeleteRun(editingRun)}
+                    disabled={deletingRunId === editingRun?.id}
                   >
-                    {deletingLoading ? "Eliminando..." : "Eliminar cálculo"}
+                    {deletingRunId === editingRun?.id ? "Eliminando..." : "Eliminar cálculo"}
                   </Button>
                 </Stack>
               </>
