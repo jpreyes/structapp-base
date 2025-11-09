@@ -31,6 +31,7 @@ import { useNavigate } from "react-router-dom";
 import { useProjects } from "../hooks/useProjects";
 import { useCalculationRuns, CalculationRun } from "../hooks/useCalculationRuns";
 import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
+type EditableRun = CalculationRun & { calc_run_id?: string } | (CalculationRun & { calc_run_id?: string });
 import { useSession } from "../store/useSession";
 import { useSetCriticalElement, useUnsetCriticalElement } from "../hooks/useStructuralCalcs";
 import apiClient from "../api/client";
@@ -101,7 +102,7 @@ const ProjectDocumentationPage = () => {
 });
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editingRun, setEditingRun] = useState<CalculationRun | null>(null);
+  const [editingRun, setEditingRun] = useState<EditableRun | null>(null);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [editingError, setEditingError] = useState<string | null>(null);
   const [editingLoading, setEditingLoading] = useState(false);
@@ -210,7 +211,7 @@ const ProjectDocumentationPage = () => {
     });
   };
 
-  const handleStartEditing = (run: CalculationRun) => {
+  const handleStartEditing = (run: EditableRun) => {
     setEditingRun(run);
     setEditingError(null);
   };
@@ -267,7 +268,8 @@ const ProjectDocumentationPage = () => {
     setEditingLoading(true);
     setEditingError(null);
     try {
-      await apiClient.put(`/calculations/runs/${editingRun.id}`, payload);
+      const targetId = editingRun.calc_run_id ?? editingRun.id;
+      await apiClient.put(`/calculations/runs/${targetId}`, payload);
       await queryClient.invalidateQueries({ queryKey: ["calculation-runs", selectedProjectId], exact: true });
       handleCloseEditor();
     } catch (err) {
@@ -277,7 +279,7 @@ const ProjectDocumentationPage = () => {
     }
   };
 
-  const handleDeleteRun = async (run: CalculationRun | null) => {
+  const handleDeleteRun = async (run: EditableRun | null) => {
     if (!run) {
       return;
     }
@@ -287,7 +289,8 @@ const ProjectDocumentationPage = () => {
     setDeletingRunId(run.id);
     setEditingError(null);
     try {
-      await apiClient.delete(`/calculations/runs/${run.id}`);
+      const targetId = run.calc_run_id ?? run.id;
+      await apiClient.delete(`/calculations/runs/${targetId}`);
       removeRunFromSelections(run.id);
       await queryClient.invalidateQueries({ queryKey: ["calculation-runs", selectedProjectId], exact: true });
       if (editingRun?.id === run.id) {
@@ -555,7 +558,7 @@ const ProjectDocumentationPage = () => {
             size="small"
             onClick={(e) => {
               e.stopPropagation();
-              handleStartEditing(params.row as CalculationRun);
+              handleStartEditing(params.row as EditableRun);
             }}
           >
             <EditIcon fontSize="inherit" />
@@ -757,6 +760,7 @@ const ProjectDocumentationPage = () => {
                   autoHeight
                   rows={calculations.map((run) => ({
                     ...run,
+                    calc_run_id: run.id,
                     summary: getSummary(run),
                     is_critical: run.is_critical ?? false,
                   }))}
@@ -777,54 +781,65 @@ const ProjectDocumentationPage = () => {
       })}
 
       {editingRun && (
-        <Card sx={{ mt: 3 }}>
-          <CardContent>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Box>
-                <Typography variant="h6">
-                  Editar cálculo: {typeLabelMap[normalizeElementType(editingRun.element_type)] || editingRun.element_type}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Actualiza los datos del cálculo seleccionado o elimínalo del historial.
-                </Typography>
-              </Box>
-              <IconButton onClick={handleCloseEditor}>
-                <CloseIcon />
-              </IconButton>
-            </Stack>
-            {normalizeElementType(editingRun.element_type) === "live_load" || normalizeElementType(editingRun.element_type) === "reduction" ? (
-              <>
-                {renderEditingFields()}
-                {editingError && (
-                  <Alert severity="error" sx={{ mt: 2 }}>
-                    {editingError}
-                  </Alert>
-                )}
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mt: 2 }}>
-                  <Button
-                    variant="contained"
-                    onClick={handleSaveEditing}
-                    disabled={!canSaveEditing() || editingLoading}
-                  >
-                    {editingLoading ? "Guardando..." : "Guardar cambios"}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    onClick={() => handleDeleteRun(editingRun)}
-                    disabled={deletingRunId === editingRun?.id}
-                  >
-                    {deletingRunId === editingRun?.id ? "Eliminando..." : "Eliminar cálculo"}
-                  </Button>
-                </Stack>
-              </>
-            ) : (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Este tipo de cálculo aún no se puede editar desde esta pantalla.
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+        <Box
+          sx={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 1300,
+            width: { xs: "calc(100% - 32px)", sm: 420 },
+            maxWidth: "100%",
+          }}
+        >
+          <Card elevation={6}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="h6">
+                    Editar cálculo: {typeLabelMap[normalizeElementType(editingRun.element_type)] || editingRun.element_type}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Actualiza los datos del cálculo seleccionado o elimínalo del historial.
+                  </Typography>
+                </Box>
+                <IconButton onClick={handleCloseEditor}>
+                  <CloseIcon />
+                </IconButton>
+              </Stack>
+              {normalizeElementType(editingRun.element_type) === "live_load" || normalizeElementType(editingRun.element_type) === "reduction" ? (
+                <>
+                  {renderEditingFields()}
+                  {editingError && (
+                    <Alert severity="error" sx={{ mt: 2 }}>
+                      {editingError}
+                    </Alert>
+                  )}
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mt: 2 }}>
+                    <Button
+                      variant="contained"
+                      onClick={handleSaveEditing}
+                      disabled={!canSaveEditing() || editingLoading}
+                    >
+                      {editingLoading ? "Guardando..." : "Guardar cambios"}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      onClick={() => handleDeleteRun(editingRun)}
+                      disabled={deletingRunId === editingRun?.id}
+                    >
+                      {deletingRunId === editingRun?.id ? "Eliminando..." : "Eliminar cálculo"}
+                    </Button>
+                  </Stack>
+                </>
+              ) : (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  Este tipo de cálculo aún no se puede editar desde esta pantalla.
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </Box>
       )}
         </>
       )}

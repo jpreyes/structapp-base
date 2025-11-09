@@ -132,7 +132,6 @@ async def update_calculation_run(run_id: str, payload: dict, user_id: UserIdDep)
             .update({
                 "input_json": inputs,
                 "result_json": result,
-                "updated_at": datetime.utcnow().isoformat(),
                 "element_type": element_type,
             })
             .eq("id", run_id)
