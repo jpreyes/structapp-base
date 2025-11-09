@@ -19,12 +19,14 @@ import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useQueryClient } from "@tanstack/react-query";
 import DownloadIcon from "@mui/icons-material/Download";
 import DescriptionIcon from "@mui/icons-material/Description";
+import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CloseIcon from "@mui/icons-material/Close";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import dayjs from "dayjs";
+import { useNavigate } from "react-router-dom";
 
 import { useProjects } from "../hooks/useProjects";
 import { useCalculationRuns, CalculationRun } from "../hooks/useCalculationRuns";
@@ -50,8 +52,25 @@ const getErrorMessage = (error: unknown): string | null => {
   return null;
 };
 
+const creationRoutes: Record<string, string> = {
+  building_description: "/projects/calculations",
+  live_load: "/projects/calculations",
+  reduction: "/projects/calculations",
+  wind_load: "/projects/calculations",
+  snow_load: "/projects/calculations",
+  seismic: "/projects/calculations",
+  rc_beam: "/projects/calculations",
+  rc_column: "/projects/calculations",
+  steel_beam: "/projects/calculations",
+  steel_column: "/projects/calculations",
+  wood_beam: "/projects/calculations",
+  wood_column: "/projects/calculations",
+  footing: "/projects/calculations",
+};
+
+
 const calculationTypes: CalculationType[] = [
-  { id: "building_description", label: "Descripción del Edificio", description: "Información general del proyecto" },
+ { id: "building_description", label: "Descripción del Edificio", description: "Información general del proyecto" },
   { id: "live_load", label: "Cargas de Uso", description: "Sobrecargas según tipo de edificio y uso" },
   { id: "reduction", label: "Reducción de Cargas", description: "Reducción de sobrecargas por área tributaria" },
   { id: "wind_load", label: "Cargas de Viento", description: "Presión de viento según ambiente y altura" },
@@ -99,6 +118,7 @@ const ProjectDocumentationPage = () => {
 
   const normalizeElementType = (typeId: string) => (typeId === "live_load_reduction" ? "reduction" : typeId);
   const { data: runs = [], isLoading: runsLoading } = useCalculationRuns(selectedProjectId);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const setCriticalMutation = useSetCriticalElement();
   const unsetCriticalMutation = useUnsetCriticalElement();
@@ -163,6 +183,14 @@ const ProjectDocumentationPage = () => {
       ...prev,
       [typeId]: checked ? groupedCalculations[typeId].map((run) => run.id) : [],
     }));
+  };
+
+  const handleCreateCalculation = (typeId: string) => {
+    const route = creationRoutes[typeId];
+    if (!route) {
+      return;
+    }
+    navigate(route);
   };
 
   const totalSelected = useMemo(() => {
@@ -684,6 +712,7 @@ const ProjectDocumentationPage = () => {
         const selectedCount = selectedCalculations[type.id]?.length || 0;
         const allSelected = calculations.length > 0 && selectedCount === calculations.length;
         const someSelected = selectedCount > 0 && selectedCount < calculations.length;
+        const creationRoute = creationRoutes[type.id];
 
         return (
           <Card key={type.id}>
@@ -696,6 +725,14 @@ const ProjectDocumentationPage = () => {
                     {type.description}
                   </Typography>
                 </Box>
+                <IconButton
+                  size="small"
+                  onClick={() => handleCreateCalculation(type.id)}
+                  disabled={!creationRoute}
+                  title="Agregar cálculo"
+                >
+                  <AddIcon fontSize="inherit" />
+                </IconButton>
                 {calculations.length > 0 && (
                   <FormControlLabel
                     control={
