@@ -9,6 +9,7 @@ import {
   Divider,
   FormControlLabel,
   Grid,
+  IconButton,
   MenuItem,
   Stack,
   TextField,
@@ -18,12 +19,15 @@ import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useQueryClient } from "@tanstack/react-query";
 import DownloadIcon from "@mui/icons-material/Download";
 import DescriptionIcon from "@mui/icons-material/Description";
+import EditIcon from "@mui/icons-material/Edit";
+import CloseIcon from "@mui/icons-material/Close";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import dayjs from "dayjs";
 
 import { useProjects } from "../hooks/useProjects";
 import { useCalculationRuns, CalculationRun } from "../hooks/useCalculationRuns";
+import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
 import { useSession } from "../store/useSession";
 import { useSetCriticalElement, useUnsetCriticalElement } from "../hooks/useStructuralCalcs";
 import apiClient from "../api/client";
@@ -32,6 +36,17 @@ type CalculationType = {
   id: string;
   label: string;
   description: string;
+};
+
+const getErrorMessage = (error: unknown): string | null => {
+  const maybeAxios = error as { response?: { data?: { detail?: string } } };
+  if (maybeAxios?.response?.data?.detail) {
+    return maybeAxios.response.data.detail;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return null;
 };
 
 const calculationTypes: CalculationType[] = [
@@ -52,6 +67,7 @@ const calculationTypes: CalculationType[] = [
 
 const ProjectDocumentationPage = () => {
   const { data: projects } = useProjects();
+  const { data: designOptions } = useDesignBaseOptions();
   const sessionProjectId = useSession((state) => state.projectId);
   const setProjectInSession = useSession((state) => state.setProject);
 
@@ -65,8 +81,22 @@ const ProjectDocumentationPage = () => {
 });
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingRun, setEditingRun] = useState<CalculationRun | null>(null);
+  const [editingValues, setEditingValues] = useState<Record<string, string>>({});
+  const [editingError, setEditingError] = useState<string | null>(null);
+  const [editingLoading, setEditingLoading] = useState(false);
+  const [deletingLoading, setDeletingLoading] = useState(false);
 
   const projectOptions = useMemo(() => projects ?? [], [projects]);
+  const typeLabelMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    calculationTypes.forEach((type) => {
+      map[type.id] = type.label;
+    });
+    return map;
+  }, []);
+
+  const normalizeElementType = (typeId: string) => (typeId === "live_load_reduction" ? "reduction" : typeId);
   const { data: runs = [], isLoading: runsLoading } = useCalculationRuns(selectedProjectId);
   const queryClient = useQueryClient();
   const setCriticalMutation = useSetCriticalElement();
@@ -80,11 +110,37 @@ const ProjectDocumentationPage = () => {
     }
   }, [projectOptions, selectedProjectId, sessionProjectId, setProjectInSession]);
 
+  useEffect(() => {
+    if (!editingRun) {
+      setEditingValues({});
+      setEditingError(null);
+      return;
+    }
+    const normalized = normalizeElementType(editingRun.element_type);
+    if (normalized === "live_load") {
+      setEditingValues({
+        buildingType: (editingRun.input_json?.buildingType as string) ?? "",
+        usage: (editingRun.input_json?.usage as string) ?? "",
+      });
+    } else if (normalized === "reduction") {
+      const tributary = editingRun.input_json?.tributaryArea ?? editingRun.input_json?.tributary_area ?? "";
+      const base = editingRun.input_json?.baseLoad ?? editingRun.input_json?.base_load ?? "";
+      setEditingValues({
+        elementType: (editingRun.input_json?.elementType as string) ?? "",
+        tributaryArea: tributary !== undefined && tributary !== null ? String(tributary) : "",
+        baseLoad: base !== undefined && base !== null ? String(base) : "",
+      });
+    } else {
+      setEditingValues({});
+    }
+    setEditingError(null);
+  }, [editingRun]);
+
   // Agrupar cÃ¡lculos por tipo
   const groupedCalculations = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     calculationTypes.forEach((type) => {
-      grouped[type.id] = runs.filter((run) => run.element_type === type.id);
+      grouped[type.id] = runs.filter((run) => normalizeElementType(run.element_type) === type.id);
     });
     return grouped;
   }, [runs]);
@@ -111,6 +167,189 @@ const ProjectDocumentationPage = () => {
   const totalSelected = useMemo(() => {
     return Object.values(selectedCalculations).reduce((sum, arr) => sum + arr.length, 0);
   }, [selectedCalculations]);
+
+  const removeRunFromSelections = (runId: string) => {
+    setSelectedCalculations((prev) => {
+      const next: Record<string, string[]> = {};
+      Object.entries(prev).forEach(([key, ids]) => {
+        const filtered = ids.filter((id) => id !== runId);
+        if (filtered.length) {
+          next[key] = filtered;
+        }
+      });
+      return next;
+    });
+  };
+
+  const handleStartEditing = (run: CalculationRun) => {
+    setEditingRun(run);
+    setEditingError(null);
+  };
+
+  const handleCloseEditor = () => {
+    setEditingRun(null);
+    setEditingValues({});
+    setEditingError(null);
+  };
+
+  const handleEditingValueChange = (field: string, value: string) => {
+    setEditingValues((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const buildUpdatePayload = () => {
+    if (!editingRun) {
+      return null;
+    }
+    const normalized = normalizeElementType(editingRun.element_type);
+    if (normalized === "live_load") {
+      if (!editingValues.buildingType || !editingValues.usage) {
+        return null;
+      }
+      return {
+        buildingType: editingValues.buildingType,
+        usage: editingValues.usage,
+      };
+    }
+    if (normalized === "reduction") {
+      const tributary = Number(editingValues.tributaryArea);
+      const base = Number(editingValues.baseLoad);
+      if (!editingValues.elementType || !Number.isFinite(tributary) || tributary <= 0 || !Number.isFinite(base) || base <= 0) {
+        return null;
+      }
+      return {
+        elementType: editingValues.elementType,
+        tributaryArea: tributary,
+        baseLoad: base,
+      };
+    }
+    return null;
+  };
+
+  const canSaveEditing = () => Boolean(buildUpdatePayload());
+
+  const handleSaveEditing = async () => {
+    if (!editingRun) {
+      return;
+    }
+    const payload = buildUpdatePayload();
+    if (!payload) {
+      return;
+    }
+    setEditingLoading(true);
+    setEditingError(null);
+    try {
+      await apiClient.put(`/calculations/runs/${editingRun.id}`, payload);
+      await queryClient.invalidateQueries({ queryKey: ["calculation-runs", selectedProjectId], exact: true });
+      handleCloseEditor();
+    } catch (err) {
+      setEditingError(getErrorMessage(err) ?? "No se pudo actualizar el cálculo");
+    } finally {
+      setEditingLoading(false);
+    }
+  };
+
+  const handleDeleteEditing = async () => {
+    if (!editingRun) {
+      return;
+    }
+    if (!window.confirm("¿Eliminar este cálculo?")) {
+      return;
+    }
+    setDeletingLoading(true);
+    setEditingError(null);
+    try {
+      await apiClient.delete(`/calculations/runs/${editingRun.id}`);
+      removeRunFromSelections(editingRun.id);
+      await queryClient.invalidateQueries({ queryKey: ["calculation-runs", selectedProjectId], exact: true });
+      handleCloseEditor();
+    } catch (err) {
+      setEditingError(getErrorMessage(err) ?? "No se pudo eliminar el cálculo");
+    } finally {
+      setDeletingLoading(false);
+    }
+  };
+
+  const renderEditingFields = () => {
+    if (!editingRun) {
+      return null;
+    }
+    const normalized = normalizeElementType(editingRun.element_type);
+    if (normalized === "live_load") {
+      if (!designOptions) {
+        return <Alert severity="info" sx={{ mt: 2 }}>Cargando catálogos...</Alert>;
+      }
+      const buildingTypes = Object.keys(designOptions.liveLoadCategories || {});
+      const usageOptionsForEdit = editingValues.buildingType
+        ? designOptions.liveLoadCategories[editingValues.buildingType] || []
+        : [];
+      return (
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          <TextField
+            select
+            label="Tipo de edificio"
+            value={editingValues.buildingType ?? ""}
+            onChange={(event) => handleEditingValueChange("buildingType", event.target.value)}
+            fullWidth
+          >
+            {buildingTypes.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            label="Uso / recinto"
+            value={editingValues.usage ?? ""}
+            onChange={(event) => handleEditingValueChange("usage", event.target.value)}
+            fullWidth
+            disabled={!editingValues.buildingType}
+          >
+            {usageOptionsForEdit.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Stack>
+      );
+    }
+    if (normalized === "reduction") {
+      const elementOptions = designOptions?.liveLoadElementTypes || [];
+      return (
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          <TextField
+            select
+            label="Elemento estructural"
+            value={editingValues.elementType ?? ""}
+            onChange={(event) => handleEditingValueChange("elementType", event.target.value)}
+            fullWidth
+          >
+            {elementOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label="Área tributaria (m²)"
+            type="number"
+            value={editingValues.tributaryArea ?? ""}
+            onChange={(event) => handleEditingValueChange("tributaryArea", event.target.value)}
+            fullWidth
+          />
+          <TextField
+            label="Carga base (kN/m²)"
+            type="number"
+            value={editingValues.baseLoad ?? ""}
+            onChange={(event) => handleEditingValueChange("baseLoad", event.target.value)}
+            fullWidth
+          />
+        </Stack>
+      );
+    }
+    return null;
+  };
 
   const handleGenerateDocument = async () => {
     if (!selectedProjectId || totalSelected === 0) {
@@ -269,6 +508,23 @@ const ProjectDocumentationPage = () => {
       valueFormatter: (value) => (value ? dayjs(value).format("DD/MM/YYYY HH:mm") : "â€”"),
     },
     { field: "summary", headerName: "Resumen", flex: 1, minWidth: 250 },
+    {
+      field: "actions",
+      headerName: "",
+      width: 80,
+      sortable: false,
+      renderCell: (params) => (
+        <IconButton
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleStartEditing(params.row as CalculationRun);
+          }}
+        >
+          <EditIcon fontSize="inherit" />
+        </IconButton>
+      ),
+    },
   ];
 
   const getSummary = (run: any): string => {
@@ -287,6 +543,10 @@ const ProjectDocumentationPage = () => {
 
       case "live_load":
         return `${inputs?.buildingType || "â€”"} | ${inputs?.usage || "â€”"} | ${result?.uniformLoad || result?.uniformLoadRaw || "â€”"} kN/mÂ²`;
+
+      case "reduction":
+      case "live_load_reduction":
+        return `Elemento: ${inputs?.elementType || "â€”"} | Área: ${inputs?.tributaryArea || inputs?.tributary_area || "â€”"} m² | Carga reducida: ${typeof result?.reducedLoad === "number" ? result.reducedLoad.toFixed(3) : result?.reducedLoad || "â€”"} kN/m²`;
 
       case "wind_load":
         return `Ambiente: ${inputs?.environment || "â€”"} | Altura: ${inputs?.height || "â€”"}m | q = ${result?.q?.toFixed(2) || "â€”"} kN/mÂ²`;
@@ -399,64 +659,115 @@ const ProjectDocumentationPage = () => {
           </Card>
 
           {calculationTypes.map((type) => {
-            const calculations = groupedCalculations[type.id] || [];
-            const selectedCount = selectedCalculations[type.id]?.length || 0;
-            const allSelected = calculations.length > 0 && selectedCount === calculations.length;
-            const someSelected = selectedCount > 0 && selectedCount < calculations.length;
+        const calculations = groupedCalculations[type.id] || [];
+        const selectedCount = selectedCalculations[type.id]?.length || 0;
+        const allSelected = calculations.length > 0 && selectedCount === calculations.length;
+        const someSelected = selectedCount > 0 && selectedCount < calculations.length;
 
-            return (
-              <Card key={type.id}>
-                <CardContent>
-                  <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-                    <DescriptionIcon color="primary" />
-                    <Box flex={1}>
-                      <Typography variant="h6">{type.label}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {type.description}
-                      </Typography>
-                    </Box>
-                    {calculations.length > 0 && (
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={allSelected}
-                            indeterminate={someSelected}
-                            onChange={(e) => handleToggleAllType(type.id, e.target.checked)}
-                          />
-                        }
-                        label={`Seleccionar todos (${calculations.length})`}
+        return (
+          <Card key={type.id}>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+                <DescriptionIcon color="primary" />
+                <Box flex={1}>
+                  <Typography variant="h6">{type.label}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {type.description}
+                  </Typography>
+                </Box>
+                {calculations.length > 0 && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={allSelected}
+                        indeterminate={someSelected}
+                        onChange={(e) => handleToggleAllType(type.id, e.target.checked)}
                       />
-                    )}
-                  </Stack>
+                    }
+                    label={`Seleccionar todos (${calculations.length})`}
+                  />
+                )}
+              </Stack>
 
-                  {calculations.length === 0 ? (
-                    <Alert severity="info">
-                      No hay cÃ¡lculos de este tipo en el proyecto actual. Ve a las pÃ¡ginas correspondientes para crear
-                      cÃ¡lculos.
-                    </Alert>
-                  ) : (
-                    <DataGrid
-                      autoHeight
-                      rows={calculations.map((run) => ({
-                        ...run,
-                        summary: getSummary(run),
-                        is_critical: run.is_critical ?? false,
-                      }))}
-                      columns={getColumns(type.id)}
-                      loading={runsLoading}
-                      hideFooter
-                      disableRowSelectionOnClick
-                      sx={{
-                        "& .MuiDataGrid-columnHeaders": {
-                          fontWeight: 600,
-                        },
-                      }}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+              {calculations.length === 0 ? (
+                <Alert severity="info">
+                  No hay cálculos de este tipo en el proyecto actual. Ve a las páginas correspondientes para crear
+                  cálculos.
+                </Alert>
+              ) : (
+                <DataGrid
+                  autoHeight
+                  rows={calculations.map((run) => ({
+                    ...run,
+                    summary: getSummary(run),
+                    is_critical: run.is_critical ?? false,
+                  }))}
+                  columns={getColumns(type.id)}
+                  loading={runsLoading}
+                  hideFooter
+                  disableRowSelectionOnClick
+                  sx={{
+                    "& .MuiDataGrid-columnHeaders": {
+                      fontWeight: 600,
+                    },
+                  }}
+                />
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+
+      {editingRun && (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Stack direction="row" alignItems="center" justifyContent="space-between">
+              <Box>
+                <Typography variant="h6">
+                  Editar cálculo: {typeLabelMap[normalizeElementType(editingRun.element_type)] || editingRun.element_type}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Actualiza los datos del cálculo seleccionado o elimínalo del historial.
+                </Typography>
+              </Box>
+              <IconButton onClick={handleCloseEditor}>
+                <CloseIcon />
+              </IconButton>
+            </Stack>
+            {normalizeElementType(editingRun.element_type) === "live_load" || normalizeElementType(editingRun.element_type) === "reduction" ? (
+              <>
+                {renderEditingFields()}
+                {editingError && (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    {editingError}
+                  </Alert>
+                )}
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mt: 2 }}>
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveEditing}
+                    disabled={!canSaveEditing() || editingLoading}
+                  >
+                    {editingLoading ? "Guardando..." : "Guardar cambios"}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={handleDeleteEditing}
+                    disabled={deletingLoading}
+                  >
+                    {deletingLoading ? "Eliminando..." : "Eliminar cálculo"}
+                  </Button>
+                </Stack>
+              </>
+            ) : (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Este tipo de cálculo aún no se puede editar desde esta pantalla.
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
         </>
       )}
     </Box>
