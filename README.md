@@ -1,29 +1,47 @@
-# StructApp — Full Web App
+# StructApp Web Platform
 
-## Setup rápido
+## Backend (FastAPI + Supabase)
+
 ```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env  # rellena SUPABASE_URL / SUPABASE_ANON_KEY
-# En Supabase → SQL Editor → pega supabase/schema.sql
-# En Supabase → Auth → activa Email/Password
-streamlit run app.py
+cp .env.example .env  # completa SUPABASE_URL / SUPABASE_ANON_KEY
+
+uvicorn api.main:app --reload --port 8000
 ```
-App en `http://localhost:8501`.
 
-## Deploy (Railway/Render)
-- Variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `APP_URL`.
-- Comando: `streamlit run app.py --server.address=0.0.0.0 --server.port=$PORT`
+Endpoints principales:
+- `POST /auth/login`, `POST /auth/register`
+- `GET|POST|PATCH /projects`
+- `GET|POST|PATCH|DELETE /tasks`
+- `GET|POST|DELETE /payments`
+- `POST /calculations/rc-beam` y `GET /calculations/rc-beam/{run_id}/report`
 
-Webhook (servicio aparte):
+## Frontend (React + Vite)
+
 ```bash
-uvicorn payments_webhook.main:app --host 0.0.0.0 --port $PORT
+cd frontend
+npm install
+npm run dev
 ```
 
-## Qué incluye
-- Auth Supabase + RLS
-- Proyectos, RC Beam, Historial
-- Kanban por proyecto
-- Gantt por proyecto (Plotly)
-- Estados de pago
-- Billing (placeholder + webhook)
-- Tema oscuro + CSS
+Configura un `.env` en `frontend/` si quieres URLs específicas:
+```
+VITE_API_BASE_URL=http://localhost:8000
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_KEY=...
+```
+
+El servidor de desarrollo corre en `http://localhost:5173` con proxy hacia la API (`/api`).
+
+## Migración progresiva
+- El frontend React consume el nuevo backend FastAPI y convive con la app Streamlit mientras se realiza la transición.
+- Los módulos existentes en `services/` y `supa/` siguen siendo la fuente de verdad para Supabase y lógica de negocio.
+- Puedes mover gradualmente los módulos de Streamlit hacia React reutilizando las rutas ya expuestas.
+
+## Features actuales
+- Autenticación con Supabase (token expuesto al cliente).
+- Gestión de proyectos, tareas, pagos y cálculos estructurales (RC Beam).
+- Dashboard con métricas, calendario (FullCalendar) y tablas reactivas.
+- Arquitectura lista para extender a Kanban drag-and-drop, Gantt avanzado y reportes adicionales.

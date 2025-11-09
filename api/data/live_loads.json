@@ -1,0 +1,270 @@
+{
+  "Biblioteca": {
+    "Área de Lectura": {
+      "uniform_load": "3.0",
+      "concentrated_load": "4.5"
+    },
+    "Apilamiento de archivos <1,8m": {
+      "uniform_load": "5.0",
+      "concentrated_load": "4.5"
+    },
+    "Apilamiento extra por cada 0,3m adicionales": {
+      "uniform_load": "0.5",
+      "concentrated_load": "0"
+    },
+    "Pasillos": {
+      "uniform_load": "4.0",
+      "concentrated_load": "0"
+    }
+  },
+  "Bodegas": {
+    "Áreas de mercadería liviana": {
+      "uniform_load": "6.0",
+      "concentrated_load": "4.5"
+    },
+    "Áreas de mercadería pesada": {
+      "uniform_load": "12.0",
+      "concentrated_load": "0"
+    }
+  },
+  "Cárceles": {
+    "Áreas de celda": {
+      "uniform_load": "2.0",
+      "concentrated_load": "0"
+    },
+    "Pasillos": {
+      "uniform_load": "4.0",
+      "concentrated_load": "0"
+    }
+  },
+  "Escuelas": {
+    "Salas de Clases": {
+      "uniform_load": "3.0",
+      "concentrated_load": "4.5"
+    },
+    "Pasillos": {
+      "uniform_load": "4.0",
+      "concentrated_load": "4.5"
+    }
+  },
+  "Estacionamientos": {
+    "Vehículos livianos": {
+      "uniform_load": "3.0",
+      "concentrated_load": "13.5"
+    },
+    "Buses, camiones y otros vehículos pesados": {
+      "uniform_load": ">12.0",
+      "concentrated_load": ">36"
+    }
+  },
+  "Fábricas": {
+    "Industria liviana": {
+      "uniform_load": "6.0",
+      "concentrated_load": "9.0"
+    },
+    "Industria pesada": {
+      "uniform_load": "12.0",
+      "concentrated_load": "13.5"
+    }
+  },
+  "Hospitales": {
+    "Áreas de hospitalización": {
+      "uniform_load": "2.0",
+      "concentrated_load": "4.5"
+    },
+    "Laboratorios/quirófanos": {
+      "uniform_load": "3.0",
+      "concentrated_load": "4.5"
+    },
+    "Pasillos y salas de espera": {
+      "uniform_load": "4.0",
+      "concentrated_load": "4.5"
+    }
+  },
+  "Hoteles": {
+    "Habitaciones": {
+      "uniform_load": "2.0",
+      "concentrated_load": "0"
+    },
+    "Áreas públicas y sus pasillos": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    }
+  },
+  "Iglesias": {
+    "Con asientos fijos": {
+      "uniform_load": "3.0",
+      "concentrated_load": "0"
+    },
+    "Con asientos móviles": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    }
+  },
+  "Oficinas": {
+    "Privadas sin equipos": {
+      "uniform_load": "2.5",
+      "concentrated_load": "0"
+    },
+    "Públicas o privadas con equipos": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Correores": {
+      "uniform_load": "4.0",
+      "concentrated_load": "0"
+    }
+  },
+  "Teatros/estadios": {
+    "Áreas con asientos fijos": {
+      "uniform_load": "3.0",
+      "concentrated_load": "0"
+    },
+    "Áreas con asientos móviles o sin asientos": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Áreas para escenarios": {
+      "uniform_load": "7.0",
+      "concentrated_load": "0"
+    },
+    "Áreas de general, lobbies, plataformas, boleterias, galerías y gradas": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    }
+  },
+  "Gimnasios": {
+    "Pisos principales y balcones": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Gradas/terrazas/accesos": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    }
+  },
+  "Tiendas": {
+    "Áreas para ventas al por menor": {
+      "uniform_load": "4.0",
+      "concentrated_load": "4.5"
+    },
+    "Áreas para ventas al por mayor": {
+      "uniform_load": "6.0",
+      "concentrated_load": "4.5"
+    },
+    "Bodegas de elementos livianos": {
+      "uniform_load": "6.0",
+      "concentrated_load": "4.5"
+    },
+    "Bodegas de elementos pesados": {
+      "uniform_load": "12.0",
+      "concentrated_load": "0"
+    }
+  },
+  "Viviendas": {
+    "Áreas de uso general": {
+      "uniform_load": "2.0",
+      "concentrated_load": "0"
+    },
+    "Dormitorios y buhardillas habitables": {
+      "uniform_load": "2.0",
+      "concentrated_load": "0"
+    },
+    "Balcones que no excedan los 10 m2": {
+      "uniform_load": "3.0",
+      "concentrated_load": "0"
+    },
+    "Entretecho con almacenaje": {
+      "uniform_load": "1.5",
+      "concentrated_load": "0"
+    }
+  },
+  "Lugares especiales de uso público": {
+    "Corredores/lugares de uso público": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Balcones exteriores": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Aceras, accesos vehículares y patios sujetos a maniobras de camiones": {
+      "uniform_load": "12.0",
+      "concentrated_load": "36"
+    },
+    "Calzadas vehicular": {
+      "uniform_load": "Autoridad competente",
+      "concentrated_load": "Autoridad competente"
+    },
+    "Sala de juegos, incluyendo bolos y billares o similares": {
+      "uniform_load": "4.0",
+      "concentrated_load": "0"
+    },
+    "Pasarelas de mantenimiento": {
+      "uniform_load": "2.0",
+      "concentrated_load": "0"
+    },
+    "Pasarelas y plataformas elevadas de uso público": {
+      "uniform_load": "4.0",
+      "concentrated_load": "0"
+    },
+    "Escape de incendios": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Escaleras y vías de evacuación": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Parque de diversiones": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Salas para equipos computacionales": {
+      "uniform_load": "4.0",
+      "concentrated_load": "0"
+    },
+    "Tribunales de justicia": {
+      "uniform_load": "5.0",
+      "concentrated_load": "1.35"
+    },
+    "Parrilla de piso en sala de máquina ascensores (en área 2,6 m2)": {
+      "uniform_load": "0",
+      "concentrated_load": "0"
+    },
+    "Museos": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Áreas para fiestas y bailes": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Comedores y restaurantes": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Escaleras de gato para acceso de mantención": {
+      "uniform_load": "2.0",
+      "concentrated_load": "1.35"
+    },
+    "Cocina y lavandería": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    },
+    "Estacionamiento de tren o metro": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    }
+  },
+  "Techos": {
+    "Con acceso peatonal (uso privado)": {
+      "uniform_load": "2.0",
+      "concentrated_load": "0"
+    },
+    "Con acceso peatonal (uso público)": {
+      "uniform_load": "5.0",
+      "concentrated_load": "0"
+    }
+  }
+}
