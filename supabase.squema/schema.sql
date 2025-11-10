@@ -25,6 +25,7 @@ create table if not exists public.user_subscriptions (
     trial_started_at timestamptz,
     trial_expires_at timestamptz,
     flow_subscription_id text,
+    flow_customer_id text,
     provider_plan_id text,
     updated_at timestamptz not null default now()
 );
@@ -66,35 +67,35 @@ alter table public.kanban_cards enable row level security;
 alter table public.project_tasks enable row level security;
 alter table public.design_bases enable row level security;
 alter table public.design_base_runs enable row level security;
-create policy "profiles_select" on public.profiles for select using ( user_id = auth.uid() );
-create policy "profiles_upsert" on public.profiles for insert with check ( user_id = auth.uid() );
-create policy "profiles_update" on public.profiles for update using ( user_id = auth.uid() ) with check ( user_id = auth.uid() );
-create policy "projects_select" on public.projects for select using ( created_by = auth.uid() );
-create policy "projects_insert" on public.projects for insert with check ( created_by = auth.uid() );
-create policy "projects_update" on public.projects for update using ( created_by = auth.uid() ) with check ( created_by = auth.uid() );
-create policy "projects_delete" on public.projects for delete using ( created_by = auth.uid() );
-create policy "runs_select" on public.calc_runs for select using ( created_by = auth.uid() );
-create policy "runs_insert" on public.calc_runs for insert with check ( created_by = auth.uid() );
-create policy "runs_delete" on public.calc_runs for delete using ( created_by = auth.uid() );
-create policy "pp_select" on public.project_payments for select using ( exists (select 1 from public.projects p where p.id = project_payments.project_id and p.created_by = auth.uid()) );
-create policy "pp_insert" on public.project_payments for insert with check ( exists (select 1 from public.projects p where p.id = project_payments.project_id and p.created_by = auth.uid()) );
-create policy "pp_delete" on public.project_payments for delete using ( exists (select 1 from public.projects p where p.id = project_payments.project_id and p.created_by = auth.uid()) );
-create policy "kb_cols_select" on public.kanban_columns for select using ( exists (select 1 from public.projects p where p.id = kanban_columns.project_id and p.created_by = auth.uid()) );
-create policy "kb_cols_mut" on public.kanban_columns for all using ( exists (select 1 from public.projects p where p.id = kanban_columns.project_id and p.created_by = auth.uid()) ) with check ( exists (select 1 from public.projects p where p.id = kanban_columns.project_id and p.created_by = auth.uid()) );
-create policy "kb_cards_select" on public.kanban_cards for select using ( exists (select 1 from public.projects p where p.id = kanban_cards.project_id and p.created_by = auth.uid()) );
-create policy "kb_cards_mut" on public.kanban_cards for all using ( exists (select 1 from public.projects p where p.id = kanban_cards.project_id and p.created_by = auth.uid()) ) with check ( exists (select 1 from public.projects p where p.id = kanban_cards.project_id and p.created_by = auth.uid()) );
-create policy "tasks_select" on public.project_tasks for select using ( exists (select 1 from public.projects p where p.id = project_tasks.project_id and p.created_by = auth.uid()) );
-create policy "tasks_mut" on public.project_tasks for all using ( exists (select 1 from public.projects p where p.id = project_tasks.project_id and p.created_by = auth.uid()) ) with check ( exists (select 1 from public.projects p where p.id = project_tasks.project_id and p.created_by = auth.uid()) );
-create policy "bill_select" on public.billing_accounts for select using ( user_id = auth.uid() );
-create policy "bill_upsert" on public.billing_accounts for insert with check ( user_id = auth.uid() );
-create policy "bill_update" on public.billing_accounts for update using ( user_id = auth.uid() ) with check ( user_id = auth.uid() );
-create policy "subscriptions_select" on public.user_subscriptions for select using ( user_id = auth.uid() );
-create policy "subscriptions_upsert" on public.user_subscriptions for insert with check ( user_id = auth.uid() );
-create policy "subscriptions_update" on public.user_subscriptions for update using ( user_id = auth.uid() ) with check ( user_id = auth.uid() );
-create policy "design_bases_select" on public.design_bases for select using ( created_by = auth.uid() );
-create policy "design_bases_insert" on public.design_bases for insert with check ( created_by = auth.uid() );
-create policy "design_bases_update" on public.design_bases for update using ( created_by = auth.uid() ) with check ( created_by = auth.uid() );
-create policy "design_bases_delete" on public.design_bases for delete using ( created_by = auth.uid() );
-create policy "design_base_runs_select" on public.design_base_runs for select using ( created_by = auth.uid() );
-create policy "design_base_runs_insert" on public.design_base_runs for insert with check ( created_by = auth.uid() );
-create policy "design_base_runs_delete" on public.design_base_runs for delete using ( created_by = auth.uid() );
+create policy "profiles_select" on public.profiles for select using ( user_id = (select auth.uid()) );
+create policy "profiles_upsert" on public.profiles for insert with check ( user_id = (select auth.uid()) );
+create policy "profiles_update" on public.profiles for update using ( user_id = (select auth.uid()) ) with check ( user_id = (select auth.uid()) );
+create policy "projects_select" on public.projects for select using ( created_by = (select auth.uid()) );
+create policy "projects_insert" on public.projects for insert with check ( created_by = (select auth.uid()) );
+create policy "projects_update" on public.projects for update using ( created_by = (select auth.uid()) ) with check ( created_by = (select auth.uid()) );
+create policy "projects_delete" on public.projects for delete using ( created_by = (select auth.uid()) );
+create policy "runs_select" on public.calc_runs for select using ( created_by = (select auth.uid()) );
+create policy "runs_insert" on public.calc_runs for insert with check ( created_by = (select auth.uid()) );
+create policy "runs_delete" on public.calc_runs for delete using ( created_by = (select auth.uid()) );
+create policy "pp_select" on public.project_payments for select using ( exists (select 1 from public.projects p where p.id = project_payments.project_id and p.created_by = (select auth.uid())) );
+create policy "pp_insert" on public.project_payments for insert with check ( exists (select 1 from public.projects p where p.id = project_payments.project_id and p.created_by = (select auth.uid())) );
+create policy "pp_delete" on public.project_payments for delete using ( exists (select 1 from public.projects p where p.id = project_payments.project_id and p.created_by = (select auth.uid())) );
+create policy "kb_cols_select" on public.kanban_columns for select using ( exists (select 1 from public.projects p where p.id = kanban_columns.project_id and p.created_by = (select auth.uid())) );
+create policy "kb_cols_mut" on public.kanban_columns for all using ( exists (select 1 from public.projects p where p.id = kanban_columns.project_id and p.created_by = (select auth.uid())) ) with check ( exists (select 1 from public.projects p where p.id = kanban_columns.project_id and p.created_by = (select auth.uid())) );
+create policy "kb_cards_select" on public.kanban_cards for select using ( exists (select 1 from public.projects p where p.id = kanban_cards.project_id and p.created_by = (select auth.uid())) );
+create policy "kb_cards_mut" on public.kanban_cards for all using ( exists (select 1 from public.projects p where p.id = kanban_cards.project_id and p.created_by = (select auth.uid())) ) with check ( exists (select 1 from public.projects p where p.id = kanban_cards.project_id and p.created_by = (select auth.uid())) );
+create policy "tasks_select" on public.project_tasks for select using ( exists (select 1 from public.projects p where p.id = project_tasks.project_id and p.created_by = (select auth.uid())) );
+create policy "tasks_mut" on public.project_tasks for all using ( exists (select 1 from public.projects p where p.id = project_tasks.project_id and p.created_by = (select auth.uid())) ) with check ( exists (select 1 from public.projects p where p.id = project_tasks.project_id and p.created_by = (select auth.uid())) );
+create policy "bill_select" on public.billing_accounts for select using ( user_id = (select auth.uid()) );
+create policy "bill_upsert" on public.billing_accounts for insert with check ( user_id = (select auth.uid()) );
+create policy "bill_update" on public.billing_accounts for update using ( user_id = (select auth.uid()) ) with check ( user_id = (select auth.uid()) );
+create policy "subscriptions_select" on public.user_subscriptions for select using ( user_id = (select auth.uid()) );
+create policy "subscriptions_upsert" on public.user_subscriptions for insert with check ( user_id = (select auth.uid()) );
+create policy "subscriptions_update" on public.user_subscriptions for update using ( user_id = (select auth.uid()) ) with check ( user_id = (select auth.uid()) );
+create policy "design_bases_select" on public.design_bases for select using ( created_by = (select auth.uid()) );
+create policy "design_bases_insert" on public.design_bases for insert with check ( created_by = (select auth.uid()) );
+create policy "design_bases_update" on public.design_bases for update using ( created_by = (select auth.uid()) ) with check ( created_by = (select auth.uid()) );
+create policy "design_bases_delete" on public.design_bases for delete using ( created_by = (select auth.uid()) );
+create policy "design_base_runs_select" on public.design_base_runs for select using ( created_by = (select auth.uid()) );
+create policy "design_base_runs_insert" on public.design_base_runs for insert with check ( created_by = (select auth.uid()) );
+create policy "design_base_runs_delete" on public.design_base_runs for delete using ( created_by = (select auth.uid()) );

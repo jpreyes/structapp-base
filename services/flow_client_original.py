@@ -7,7 +7,7 @@ from typing import Literal, Dict, Optional
 import requests
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+load_dotenv()
 
 FLOW_BASE_URL = os.getenv("FLOW_BASE_URL", "")
 FLOW_API_KEY = os.getenv("FLOW_API_KEY", "")
@@ -19,8 +19,6 @@ FLOW_RETURN_URL = os.getenv("FLOW_RETURN_URL", "")
 FLOW_CONFIRM_URL = os.getenv("FLOW_CONFIRM_URL", "")
 FLOW_PLAN_MONTHLY_ID = os.getenv("FLOW_PLAN_MONTHLY_ID", "")
 FLOW_PLAN_ANNUAL_ID = os.getenv("FLOW_PLAN_ANNUAL_ID", "")
-
-print("[FlowConfig]", "BASE:", FLOW_BASE_URL, "APIKEY:", (FLOW_API_KEY[:8] + '...') if FLOW_API_KEY else 'None', "PLAN_M:", FLOW_PLAN_MONTHLY_ID)
 
 Plan = Literal["monthly", "annual"]
 
