@@ -30,6 +30,26 @@ def _now() -> datetime:
     return datetime.utcnow()
 
 
+def _parse_flow_datetime(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"]
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(value, fmt)
+            return _iso(dt)
+        except ValueError:
+            continue
+    try:
+        dt = datetime.fromisoformat(value)
+        return _iso(dt)
+    except ValueError:
+        return None
+
+
 def start_trial(user_id: str, days: int = TRIAL_DAYS_DEFAULT) -> dict:
     now = _now()
     expires = now + timedelta(days=days)
@@ -75,6 +95,10 @@ def activate_paid(
     flow_subscription_id: Optional[str] = None,
     provider_plan_id: Optional[str] = None,
     flow_customer_id: Optional[str] = None,
+    started_at_override: Optional[str] = None,
+    expires_at_override: Optional[str] = None,
+    trial_started_override: Optional[str] = None,
+    trial_expires_override: Optional[str] = None,
 ) -> dict:
     if plan not in PLAN_PERIOD_DAYS:
         raise ValueError("plan invalido")
@@ -88,10 +112,10 @@ def activate_paid(
         "user_id": user_id,
         "plan": plan,
         "status": "active",
-        "started_at": _iso(now),
-        "expires_at": _iso(expires),
-        "trial_started_at": existing.get("trial_started_at"),
-        "trial_expires_at": existing.get("trial_expires_at"),
+        "started_at": started_at_override or _iso(now),
+        "expires_at": expires_at_override or _iso(expires),
+        "trial_started_at": trial_started_override or existing.get("trial_started_at"),
+        "trial_expires_at": trial_expires_override or existing.get("trial_expires_at"),
         "flow_subscription_id": flow_subscription_id or existing.get("flow_subscription_id"),
         "flow_customer_id": flow_customer_id or existing.get("flow_customer_id"),
         "provider_plan_id": provider_plan_id or existing.get("provider_plan_id"),
@@ -137,12 +161,20 @@ def create_flow_subscription_for_user(
     flow_subscription_id = _extract_flow_id(response, "subscriptionId", "id")
     if not flow_subscription_id:
         raise RuntimeError("Flow no devolvio subscriptionId")
+    trial_start = _parse_flow_datetime(response.get("trial_start"))
+    trial_end = _parse_flow_datetime(response.get("trial_end"))
+    period_start = _parse_flow_datetime(response.get("period_start"))
+    period_end = _parse_flow_datetime(response.get("period_end"))
     activate_paid(
         user_id,
         plan,
         flow_subscription_id=flow_subscription_id,
         provider_plan_id=plan_id,
         flow_customer_id=customer_id,
+        started_at_override=period_start,
+        expires_at_override=period_end,
+        trial_started_override=trial_start or period_start,
+        trial_expires_override=trial_end or period_end,
     )
     return response
 

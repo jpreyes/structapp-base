@@ -20,8 +20,6 @@ FLOW_CONFIRM_URL = os.getenv("FLOW_CONFIRM_URL", "")
 FLOW_PLAN_MONTHLY_ID = os.getenv("FLOW_PLAN_MONTHLY_ID", "")
 FLOW_PLAN_ANNUAL_ID = os.getenv("FLOW_PLAN_ANNUAL_ID", "")
 
-print("[FlowConfig]", "BASE:", FLOW_BASE_URL, "APIKEY:", (FLOW_API_KEY[:8] + '...') if FLOW_API_KEY else 'None', "PLAN_M:", FLOW_PLAN_MONTHLY_ID)
-
 Plan = Literal["monthly", "annual"]
 
 PLAN_PRICES_CLP = {
