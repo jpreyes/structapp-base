@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 
-from services.subscription_service import activate_paid
+from services.subscription_service import activate_paid, create_flow_subscription_for_user
 
 router = APIRouter()
 
@@ -24,13 +24,27 @@ async def flow_webhook(request: Request):
         return {"ok": False}
 
     if payment_status in ("paid", "success", "authorized", "charged"):
-        activate_paid(
-            user_id,
-            plan,  # type: ignore[arg-type]
-            flow_subscription_id=flow_subscription_id,
-            provider_plan_id=provider_plan_id,
-            flow_customer_id=flow_customer_id,
-        )
+        if flow_subscription_id:
+            activate_paid(
+                user_id,
+                plan,  # type: ignore[arg-type]
+                flow_subscription_id=flow_subscription_id,
+                provider_plan_id=provider_plan_id,
+                flow_customer_id=flow_customer_id,
+            )
+        else:
+            email = payload.get("customerEmail") or payload.get("email")
+            full_name = payload.get("customerName") or payload.get("name")
+            if email:
+                try:
+                    create_flow_subscription_for_user(
+                        user_id,
+                        plan,  # type: ignore[arg-type]
+                        email=email,
+                        full_name=full_name,
+                    )
+                except Exception:
+                    pass
 
     # Responder 200 siempre para que Flow no reintente indefinidamente
     return {"ok": True}

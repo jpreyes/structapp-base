@@ -155,6 +155,9 @@ def create_flow_subscription_for_user(
     email: str,
     full_name: Optional[str] = None,
 ) -> dict:
+    existing = ensure_subscription_record(user_id)
+    if existing.get("flow_subscription_id"):
+        return existing
     customer_id = ensure_flow_customer(user_id, email, full_name)
     plan_id = get_flow_plan_id(plan)
     response = create_flow_subscription(plan_id=plan_id, customer_id=customer_id)

@@ -58,13 +58,13 @@ def _flow_post(path: str, payload: dict) -> dict:
     return resp.json()
 
 
-def _build_payload(user_id: str, plan: Plan, amount: int) -> dict:
+def _build_payload(user_id: str, plan: Plan, amount: int, *, email: Optional[str] = None, full_name: Optional[str] = None) -> dict:
     order_id = f"sub-{user_id}-{int(time.time())}"
     payload = {
         "commerceOrder": order_id,
         "subject": f"Suscripcion{plan}",
         "amount": str(amount),
-        "email": f"user-{user_id}@example.com",
+        "email": email or f"user-{user_id}@example.com",
         "urlConfirmation": FLOW_CONFIRM_URL,
         "urlReturn": FLOW_RETURN_URL or FLOW_CONFIRM_URL,
         "paymentMethod": FLOW_PAYMENT_METHOD,
@@ -76,13 +76,13 @@ def _build_payload(user_id: str, plan: Plan, amount: int) -> dict:
     return payload
 
 
-def create_checkout_link(user_id: str, plan: Plan) -> str:
+def create_checkout_link(user_id: str, plan: Plan, *, email: Optional[str] = None, full_name: Optional[str] = None) -> str:
     amount = PLAN_PRICES_CLP[plan]
     if not _is_configured():
         return f"https://flow.local/checkout?plan={plan}&amount={amount}&user_id={user_id}"
 
     endpoint = FLOW_BASE_URL.rstrip("/") + "/payment/create"
-    payload = _build_payload(user_id, plan, amount)
+    payload = _build_payload(user_id, plan, amount, email=email, full_name=full_name)
     payload["apiKey"] = FLOW_API_KEY
     payload["s"] = _sign(payload, FLOW_SECRET_KEY)
 

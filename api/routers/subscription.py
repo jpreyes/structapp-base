@@ -18,9 +18,14 @@ class PlanSelectionRequest(BaseModel):
 
 
 @router.post("/flow/checkout")
-async def flow_checkout(payload: PlanSelectionRequest, user_id: UserIdDep):
+async def flow_checkout(payload: PlanSelectionRequest, user_id: UserIdDep, user: CurrentUserDep):
+    email = getattr(user, "email", None) if user else None
+    metadata = getattr(user, "user_metadata", {}) or {}
+    full_name = metadata.get("full_name") or metadata.get("name")
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El usuario no tiene email disponible")
     try:
-        url = create_checkout_link(user_id, payload.plan)  # type: ignore[arg-type]
+        url = create_checkout_link(user_id, payload.plan, email=email, full_name=full_name)  # type: ignore[arg-type]
         return {"checkoutUrl": url}
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
