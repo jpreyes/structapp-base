@@ -7,7 +7,7 @@ from typing import Literal, Dict, Optional
 import requests
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+load_dotenv()
 
 FLOW_BASE_URL = os.getenv("FLOW_BASE_URL", "")
 FLOW_API_KEY = os.getenv("FLOW_API_KEY", "")
@@ -58,13 +58,13 @@ def _flow_post(path: str, payload: dict) -> dict:
     return resp.json()
 
 
-def _build_payload(user_id: str, plan: Plan, amount: int, *, email: Optional[str] = None, full_name: Optional[str] = None) -> dict:
+def _build_payload(user_id: str, plan: Plan, amount: int) -> dict:
     order_id = f"sub-{user_id}-{int(time.time())}"
     payload = {
         "commerceOrder": order_id,
         "subject": f"Suscripcion{plan}",
         "amount": str(amount),
-        "email": email or f"user-{user_id}@example.com",
+        "email": f"user-{user_id}@example.com",
         "urlConfirmation": FLOW_CONFIRM_URL,
         "urlReturn": FLOW_RETURN_URL or FLOW_CONFIRM_URL,
         "paymentMethod": FLOW_PAYMENT_METHOD,
@@ -76,13 +76,13 @@ def _build_payload(user_id: str, plan: Plan, amount: int, *, email: Optional[str
     return payload
 
 
-def create_checkout_link(user_id: str, plan: Plan, *, email: Optional[str] = None, full_name: Optional[str] = None) -> str:
+def create_checkout_link(user_id: str, plan: Plan) -> str:
     amount = PLAN_PRICES_CLP[plan]
     if not _is_configured():
         return f"https://flow.local/checkout?plan={plan}&amount={amount}&user_id={user_id}"
 
     endpoint = FLOW_BASE_URL.rstrip("/") + "/payment/create"
-    payload = _build_payload(user_id, plan, amount, email=email, full_name=full_name)
+    payload = _build_payload(user_id, plan, amount)
     payload["apiKey"] = FLOW_API_KEY
     payload["s"] = _sign(payload, FLOW_SECRET_KEY)
 
