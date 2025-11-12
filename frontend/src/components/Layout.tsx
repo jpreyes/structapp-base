@@ -47,6 +47,9 @@ type NavItem =
       isSection: true;
     };
 
+const isSectionItem = (item: NavItem): item is Extract<NavItem, { isSection: true }> =>
+  item.isSection === true;
+
 const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -107,7 +110,7 @@ const Layout = () => {
         {navItems
           .filter((item) => (item.showWhenLoggedOut ? !token : true))
           .map((item) => {
-            if (item.isSection) {
+            if (isSectionItem(item)) {
               if (item.requiresAuth && !token) {
                 return null;
               }
