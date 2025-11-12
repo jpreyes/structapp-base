@@ -1185,7 +1185,7 @@ const ProjectDocumentationPage = () => {
       field: "created_at",
       headerName: "Fecha",
       width: 150,
-      valueFormatter: (value) => (value ? dayjs(value).format("DD/MM/YYYY HH:mm") : "â€”"),
+      valueFormatter: (params) => (params.value ? dayjs(params.value).format("DD/MM/YYYY HH:mm") : "â€”"),
     },
     { field: "summary", headerName: "Resumen", flex: 1, minWidth: 250 },
     {
