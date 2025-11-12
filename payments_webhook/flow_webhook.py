@@ -1,23 +1,50 @@
-﻿from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request
 
-from services.subscription_service import activate_paid
+from services.subscription_service import activate_paid, create_flow_subscription_for_user
 
 router = APIRouter()
 
 
 @router.post("/flow")
 async def flow_webhook(request: Request):
-    # Flow enviará datos del pago. Ajusta los campos según documentación real.
     payload = await request.json()
-    # Ejemplos de campos esperados: user_id, plan, status
-    user_id = payload.get("user_id") or payload.get("optional") or payload.get("commerceOrder", "").split("-")[1]
-    plan = payload.get("plan") or payload.get("optional")
-    payment_status = payload.get("status", "paid")
+
+    commerce_order = payload.get("commerceOrder", "")
+    order_parts = commerce_order.split("-")
+    inferred_user_id = order_parts[1] if len(order_parts) >= 3 else None
+
+    user_id = payload.get("user_id") or payload.get("optionalUserId") or inferred_user_id
+    plan = (payload.get("plan") or payload.get("optional") or "").lower()
+    payment_status = str(payload.get("status", "paid")).lower()
+    flow_subscription_id = payload.get("subscriptionId") or payload.get("subscription_id")
+    flow_customer_id = payload.get("customerId") or payload.get("customer_id")
+    provider_plan_id = payload.get("planId") or payload.get("plan_id")
 
     if not user_id or plan not in ("monthly", "annual"):
         return {"ok": False}
 
-    if str(payment_status).lower() in ("paid", "success", "authorized"):
-        activate_paid(user_id, plan)  # Actualiza suscripción en tu BD
+    if payment_status in ("paid", "success", "authorized", "charged"):
+        if flow_subscription_id:
+            activate_paid(
+                user_id,
+                plan,  # type: ignore[arg-type]
+                flow_subscription_id=flow_subscription_id,
+                provider_plan_id=provider_plan_id,
+                flow_customer_id=flow_customer_id,
+            )
+        else:
+            email = payload.get("customerEmail") or payload.get("email")
+            full_name = payload.get("customerName") or payload.get("name")
+            if email:
+                try:
+                    create_flow_subscription_for_user(
+                        user_id,
+                        plan,  # type: ignore[arg-type]
+                        email=email,
+                        full_name=full_name,
+                    )
+                except Exception:
+                    pass
+
     # Responder 200 siempre para que Flow no reintente indefinidamente
     return {"ok": True}

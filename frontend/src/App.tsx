@@ -16,6 +16,7 @@ import ProjectDesignBasesPage from "./pages/ProjectDesignBasesPage";
 function App() {
   return (
     <Routes>
+      <Route path="/login" element={<LoginPage />} />
       <Route element={<Layout />}>
         <Route element={<RequireAuth />}>
           <Route path="/" element={<DashboardPage />} />
@@ -27,7 +28,6 @@ function App() {
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
         </Route>
-        <Route path="/login" element={<LoginPage />} />
         <Route path="/subscribe" element={<SubscriptionPage />} />
       </Route>
     </Routes>

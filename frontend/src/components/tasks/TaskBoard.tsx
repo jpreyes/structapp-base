@@ -40,8 +40,9 @@ const KanbanColumn = ({ status, children }: { status: string; children: ReactNod
         backgroundColor: "background.paper",
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        overflow: "visible",
         boxShadow: isOver ? 6 : "none",
+        zIndex: isOver ? 20 : 1,
       }}
     >
       {children}

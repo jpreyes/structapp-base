@@ -37,7 +37,7 @@ import apiClient from "../api/client";
 import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
 import { useProjects } from "../hooks/useProjects";
 import { useSession } from "../store/useSession";
-import { useConcreteColumn, ConcreteColumnResponse } from "../hooks/useStructuralCalcs";
+import { useConcreteColumn } from "../hooks/useStructuralCalcs";
 
 interface LiveLoadResponse {
   buildingType: string;
@@ -294,6 +294,7 @@ const ProjectDesignBasesPage = () => {
 
   // Mutation para pilar de hormigÃ³n armado
   const concreteColumnMutation = useConcreteColumn();
+  const concreteColumnResult = concreteColumnMutation.data?.results;
 
   // Mutation para descripciÃ³n del edificio
   const buildingDescriptionMutation = useMutation({
@@ -457,8 +458,8 @@ const ProjectDesignBasesPage = () => {
 
     // Agregar cÃ¡lculos estructurales si existen
     const structural: Record<string, unknown> = {};
-    if (concreteColumnMutation.data) {
-      structural.concreteColumn = concreteColumnMutation.data;
+    if (concreteColumnResult) {
+      structural.concreteColumn = concreteColumnResult;
     }
     if (Object.keys(structural).length > 0) {
       payload.structural = structural;
@@ -1597,8 +1598,13 @@ const ProjectDesignBasesPage = () => {
             <Grid item xs={12}>
               <Button
                 variant="contained"
-                onClick={() =>
+                onClick={() => {
+                  if (!projectId || !user?.id) {
+                    return;
+                  }
                   concreteColumnMutation.mutate({
+                    projectId,
+                    userId: user.id,
                     axialLoad: Number(ccAxialLoad),
                     momentX: Number(ccMomentX),
                     momentY: Number(ccMomentY),
@@ -1609,9 +1615,13 @@ const ProjectDesignBasesPage = () => {
                     length: Number(ccLength),
                     fc: Number(ccFc),
                     fy: Number(ccFy),
-                  })
+                  });
+                }}
+                disabled={
+                  concreteColumnMutation.isPending ||
+                  !projectId ||
+                  !user?.id
                 }
-                disabled={concreteColumnMutation.isPending}
               >
                 DiseÃ±ar Pilar
               </Button>
@@ -1624,7 +1634,7 @@ const ProjectDesignBasesPage = () => {
             </Alert>
           )}
 
-          {concreteColumnMutation.data && (
+          {concreteColumnResult && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="subtitle1" gutterBottom>
                 Resultados del DiseÃ±o
@@ -1635,15 +1645,15 @@ const ProjectDesignBasesPage = () => {
                     Capacidad Axial
                   </Typography>
                   <Typography variant="body1">
-                    {concreteColumnMutation.data.axialCapacity?.toFixed(2) ?? 'N/A'} kN
+                    {concreteColumnResult.axialCapacity?.toFixed(2) ?? 'N/A'} kN
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" color="text.secondary">
                     Ratio de UtilizaciÃ³n
                   </Typography>
-                  <Typography variant="body1" color={(concreteColumnMutation.data.axialCapacityRatio ?? 0) > 1 ? "error" : "success.main"}>
-                    {((concreteColumnMutation.data.axialCapacityRatio ?? 0) * 100).toFixed(1)}%
+                  <Typography variant="body1" color={(concreteColumnResult.axialCapacityRatio ?? 0) > 1 ? "error" : "success.main"}>
+                    {((concreteColumnResult.axialCapacityRatio ?? 0) * 100).toFixed(1)}%
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1651,7 +1661,7 @@ const ProjectDesignBasesPage = () => {
                     Refuerzo Longitudinal
                   </Typography>
                   <Typography variant="body1">
-                    {concreteColumnMutation.data.longitudinalSteel?.numBars ?? 'N/A'} Ï†{concreteColumnMutation.data.longitudinalSteel?.barDiameter ?? 'N/A'} ({concreteColumnMutation.data.longitudinalSteel?.totalArea?.toFixed(0) ?? 'N/A'} mmÂ²)
+                    {concreteColumnResult.longitudinalSteel?.numBars ?? 'N/A'} Ï†{concreteColumnResult.longitudinalSteel?.barDiameter ?? 'N/A'} ({concreteColumnResult.longitudinalSteel?.totalArea?.toFixed(0) ?? 'N/A'} mmÂ²)
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1659,7 +1669,7 @@ const ProjectDesignBasesPage = () => {
                     Estribos
                   </Typography>
                   <Typography variant="body1">
-                    Ï†{concreteColumnMutation.data.transverseSteel?.diameter ?? 'N/A'} @ {concreteColumnMutation.data.transverseSteel?.spacing ?? 'N/A'} mm
+                    Ï†{concreteColumnResult.transverseSteel?.diameter ?? 'N/A'} @ {concreteColumnResult.transverseSteel?.spacing ?? 'N/A'} mm
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1667,7 +1677,7 @@ const ProjectDesignBasesPage = () => {
                     Esbeltez
                   </Typography>
                   <Typography variant="body1">
-                    {concreteColumnMutation.data.slendernessRatio?.toFixed(2) ?? 'N/A'} {concreteColumnMutation.data.isSlender && "(Esbelto)"}
+                    {concreteColumnResult.slendernessRatio?.toFixed(2) ?? 'N/A'} {concreteColumnResult.isSlender && "(Esbelto)"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1675,7 +1685,7 @@ const ProjectDesignBasesPage = () => {
                     Factor de MagnificaciÃ³n
                   </Typography>
                   <Typography variant="body1">
-                    {concreteColumnMutation.data.magnificationFactor?.toFixed(3) ?? 'N/A'}
+                    {concreteColumnResult.magnificationFactor?.toFixed(3) ?? 'N/A'}
                   </Typography>
                 </Grid>
               </Grid>

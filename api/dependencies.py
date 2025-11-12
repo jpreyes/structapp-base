@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, status
 
@@ -12,7 +12,7 @@ def get_supabase():
 SupabaseClientDep = Annotated[object, Depends(get_supabase)]
 
 
-async def get_user_id(authorization: Annotated[str | None, Header()] = None) -> str:
+async def get_current_user(authorization: Annotated[str | None, Header()] = None):
     if not authorization:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authorization header")
     token = authorization.replace("Bearer ", "")
@@ -23,7 +23,14 @@ async def get_user_id(authorization: Annotated[str | None, Header()] = None) -> 
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     if not session.user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
-    return str(session.user.id)
+    return session.user
+
+
+CurrentUserDep = Annotated[Any, Depends(get_current_user)]
+
+
+async def get_user_id(user = Depends(get_current_user)) -> str:
+    return str(user.id)
 
 
 UserIdDep = Annotated[str, Depends(get_user_id)]
