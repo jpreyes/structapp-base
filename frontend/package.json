@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:clean": "npm run clean:cache && vite --force",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && node ./node_modules/vite/bin/vite.js build",
     "preview": "vite preview",
     "clean:cache": "rm -rf node_modules/.vite || del /s /q node_modules\\.vite 2>nul || echo Caché limpiada"
   },
