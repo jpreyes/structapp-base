@@ -1,6 +1,7 @@
 import {
   AppBar,
   Box,
+  Button,
   Divider,
   Drawer,
   IconButton,
@@ -11,7 +12,7 @@ import {
   Toolbar,
   Typography,
   FormControlLabel,
-  Switch
+  Switch,
 } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/SpaceDashboardRounded";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -55,6 +56,8 @@ const Layout = () => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const token = useSession((state) => state.token);
+  const setToken = useSession((state) => state.setToken);
+  const setUser = useSession((state) => state.setUser);
 
   const navItems: NavItem[] = useMemo(
     () => [
@@ -111,9 +114,6 @@ const Layout = () => {
           .filter((item) => (item.showWhenLoggedOut ? !token : true))
           .map((item) => {
             if (isSectionItem(item)) {
-              if (item.requiresAuth && !token) {
-                return null;
-              }
               return (
                 <ListItemText
                   key={`section-${item.label}`}
@@ -188,12 +188,24 @@ const Layout = () => {
             StructApp
           </Typography>
           <Box sx={{ flexGrow: 1 }} />
+          <Button
+            color="inherit"
+            onClick={() => {
+              if (token) {
+                setToken(null);
+                setUser(undefined);
+                navigate("/login");
+              } else {
+                navigate("/login");
+              }
+            }}
+            sx={{ mr: 2 }}
+          >
+            {token ? "Cerrar sesión" : "Iniciar sesión"}
+          </Button>
           <FormControlLabel
             control={
-              <Switch
-                color="default"
-                onChange={() => useThemeStore.getState().toggle()}
-              />
+              <Switch color="default" onChange={() => useThemeStore.getState().toggle()} />
             }
             label="Tema"
           />
