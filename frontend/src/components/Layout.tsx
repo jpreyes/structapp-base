@@ -24,11 +24,28 @@ import ArchitectureIcon from "@mui/icons-material/Architecture";
 import LoginIcon from "@mui/icons-material/Login";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useThemeStore } from "../store/useTheme";
-import { useMemo, useState } from "react";
+import { useMemo, useState, ReactNode } from "react";
 
 import { useSession } from "../store/useSession";
 
 const drawerWidth = 240;
+
+type NavItem =
+  | {
+      label: string;
+      path?: string;
+      icon?: ReactNode;
+      requiresAuth?: boolean;
+      indent?: boolean;
+      showWhenLoggedOut?: boolean;
+      isSection?: false;
+    }
+  | {
+      label: string;
+      requiresAuth?: boolean;
+      showWhenLoggedOut?: boolean;
+      isSection: true;
+    };
 
 const Layout = () => {
   const navigate = useNavigate();
@@ -36,10 +53,17 @@ const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const token = useSession((state) => state.token);
 
-  const navItems = useMemo(
+  const navItems: NavItem[] = useMemo(
     () => [
       { label: "Dashboard", icon: <DashboardIcon />, path: "/", requiresAuth: true },
-      { label: "Proyectos", icon: <FolderIcon />, path: "/projects", requiresAuth: true },
+      { label: "Proyectos", isSection: true, requiresAuth: true },
+      {
+        label: "Listado",
+        icon: <FolderIcon />,
+        path: "/projects",
+        requiresAuth: true,
+        indent: true,
+      },
       {
         label: "Cálculos de proyecto",
         icon: <CalculateIcon />,
@@ -80,17 +104,28 @@ const Layout = () => {
       </Box>
       <Divider />
       <List>
-        <ListItemButton
-          selected={location.pathname === "/subscribe"}
-          onClick={() => navigate("/subscribe")}
-          sx={{ mt: 1 }}
-        >
-          <ListItemIcon><PaymentIcon /></ListItemIcon>
-          <ListItemText primary="Suscripción" />
-        </ListItemButton>
         {navItems
           .filter((item) => (item.showWhenLoggedOut ? !token : true))
           .map((item) => {
+            if (item.isSection) {
+              if (item.requiresAuth && !token) {
+                return null;
+              }
+              return (
+                <ListItemText
+                  key={`section-${item.label}`}
+                  primary={
+                    <Typography
+                      variant="overline"
+                      color="text.secondary"
+                      sx={{ pl: 2, pt: 2, pb: 0.5, display: "block" }}
+                    >
+                      {item.label}
+                    </Typography>
+                  }
+                />
+              );
+            }
             const selected =
               location.pathname === item.path ||
               (item.path !== "/" && location.pathname.startsWith(`${item.path}/`));
@@ -115,6 +150,22 @@ const Layout = () => {
           })}
       </List>
       <Box sx={{ flexGrow: 1 }} />
+      <Divider />
+      <List>
+        <ListItemButton
+          selected={location.pathname === "/subscribe"}
+          onClick={() => {
+            navigate("/subscribe");
+            setMobileOpen(false);
+          }}
+          sx={{ mt: 1 }}
+        >
+          <ListItemIcon>
+            <PaymentIcon />
+          </ListItemIcon>
+          <ListItemText primary="Suscripción" />
+        </ListItemButton>
+      </List>
     </Box>
   );
 
