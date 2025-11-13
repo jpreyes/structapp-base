@@ -12,6 +12,8 @@ import ProjectCalculationsPage from "./pages/ProjectCalculationsPage";
 import ProjectDocumentationPage from "./pages/ProjectDocumentationPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import ProjectDesignBasesPage from "./pages/ProjectDesignBasesPage";
+import ProjectInspectionsPage from "./pages/ProjectInspectionsPage";
+import ProjectWorkspacePage from "./pages/ProjectWorkspacePage";
 
 function App() {
   return (
@@ -21,10 +23,18 @@ function App() {
         <Route element={<RequireAuth />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+          <Route path="/projects/:projectId/*" element={<ProjectWorkspacePage />}>
+            <Route index element={<ProjectDetailPage />} />
+            <Route path="overview" element={<ProjectDetailPage />} />
+            <Route path="calculations" element={<ProjectCalculationsPage />} />
+            <Route path="bases" element={<ProjectDesignBasesPage />} />
+            <Route path="inspections" element={<ProjectInspectionsPage />} />
+            <Route path="documentation" element={<ProjectDocumentationPage />} />
+          </Route>
           <Route path="/projects/calculations" element={<ProjectCalculationsPage />} />
           <Route path="/projects/bases" element={<ProjectDesignBasesPage />} />
           <Route path="/projects/documentation" element={<ProjectDocumentationPage />} />
+          <Route path="/projects/inspections" element={<ProjectInspectionsPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
         </Route>

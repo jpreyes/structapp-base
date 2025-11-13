@@ -18,6 +18,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import HistoryIcon from "@mui/icons-material/History";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import { useParams } from "react-router-dom";
 
 import { useProjects } from "../hooks/useProjects";
 import { useSession } from "../store/useSession";
@@ -253,6 +254,7 @@ const defaultFootingForm: FootingForm = {
 
 const ProjectCalculationsPage = () => {
   const { data: projects } = useProjects();
+  const { projectId: routeProjectId } = useParams<{ projectId?: string }>();
   const sessionProjectId = useSession((state) => state.projectId);
   const setProjectInSession = useSession((state) => state.setProject);
   const user = useSession((state) => state.user);
@@ -289,6 +291,13 @@ const ProjectCalculationsPage = () => {
   const currentType = typeMap[selectedType] ?? calculationTypes[0];
 
   const { data: runs = [], isFetching: runsLoading } = useCalculationRuns(selectedProjectId);
+
+  useEffect(() => {
+    if (routeProjectId) {
+      setSelectedProjectId(routeProjectId);
+      setProjectInSession(routeProjectId);
+    }
+  }, [routeProjectId, setProjectInSession]);
 
   useEffect(() => {
     if (!selectedProjectId && projectOptions.length) {

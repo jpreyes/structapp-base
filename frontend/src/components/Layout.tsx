@@ -22,6 +22,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ArchitectureIcon from "@mui/icons-material/Architecture";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 import LoginIcon from "@mui/icons-material/Login";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useThemeStore } from "../store/useTheme";
@@ -88,6 +89,13 @@ const Layout = () => {
         label: "Documentación",
         icon: <DescriptionIcon />,
         path: "/projects/documentation",
+        requiresAuth: true,
+        indent: true,
+      },
+      {
+        label: "Inspecciones y ensayos",
+        icon: <FactCheckIcon />,
+        path: "/projects/inspections",
         requiresAuth: true,
         indent: true,
       },

@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import auth, projects, tasks, payments, calculations, design_bases, structural_calcs, subscription
+from api.routers import auth, projects, tasks, payments, calculations, design_bases, structural_calcs, subscription, inspections
 from payments_webhook.flow_webhook import router as flow_router
 
 app = FastAPI(title="StructApp API", version="0.1.0")
@@ -27,6 +27,7 @@ app.include_router(calculations.router, prefix="/calculations", tags=["calculati
 app.include_router(design_bases.router, prefix="/design-bases", tags=["design-bases"])
 app.include_router(subscription.router, prefix="/subscription", tags=["subscription"])
 app.include_router(structural_calcs.router, prefix="/structural-calcs", tags=["structural-calcs"])
+app.include_router(inspections.router, tags=["inspections"])
 app.include_router(flow_router, prefix="/payments-webhook", tags=["payments-webhook"])
 
 
