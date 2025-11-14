@@ -42,7 +42,7 @@ const KanbanColumn = ({ status, children }: { status: string; children: ReactNod
         flexDirection: "column",
         overflow: "visible",
         boxShadow: isOver ? 6 : "none",
-        zIndex: isOver ? 20 : 1,
+        zIndex: 1,
       }}
     >
       {children}

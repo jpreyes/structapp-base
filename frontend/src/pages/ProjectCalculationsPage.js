@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import HistoryIcon from "@mui/icons-material/History";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import { useParams } from "react-router-dom";
 import { useProjects } from "../hooks/useProjects";
 import { useSession } from "../store/useSession";
 import { useCalculationRuns } from "../hooks/useCalculationRuns";
@@ -133,6 +134,7 @@ const defaultFootingForm = {
 };
 const ProjectCalculationsPage = () => {
     const { data: projects } = useProjects();
+    const { projectId: routeProjectId } = useParams();
     const sessionProjectId = useSession((state) => state.projectId);
     const setProjectInSession = useSession((state) => state.setProject);
     const user = useSession((state) => state.user);
@@ -153,6 +155,12 @@ const ProjectCalculationsPage = () => {
     const typeMap = useMemo(() => Object.fromEntries(calculationTypes.map((item) => [item.value, item])), []);
     const currentType = typeMap[selectedType] ?? calculationTypes[0];
     const { data: runs = [], isFetching: runsLoading } = useCalculationRuns(selectedProjectId);
+    useEffect(() => {
+        if (routeProjectId) {
+            setSelectedProjectId(routeProjectId);
+            setProjectInSession(routeProjectId);
+        }
+    }, [routeProjectId, setProjectInSession]);
     useEffect(() => {
         if (!selectedProjectId && projectOptions.length) {
             const initial = sessionProjectId ?? projectOptions[0].id;

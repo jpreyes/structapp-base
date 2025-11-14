@@ -14,6 +14,7 @@ import SubscriptionPage from "./pages/SubscriptionPage";
 import ProjectDesignBasesPage from "./pages/ProjectDesignBasesPage";
 import ProjectInspectionsPage from "./pages/ProjectInspectionsPage";
 import ProjectWorkspacePage from "./pages/ProjectWorkspacePage";
+import InspectionDetailPage from "./pages/InspectionDetailPage";
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
             <Route path="calculations" element={<ProjectCalculationsPage />} />
             <Route path="bases" element={<ProjectDesignBasesPage />} />
             <Route path="inspections" element={<ProjectInspectionsPage />} />
+            <Route path="inspections/:inspectionId" element={<InspectionDetailPage />} />
             <Route path="documentation" element={<ProjectDocumentationPage />} />
           </Route>
           <Route path="/projects/calculations" element={<ProjectCalculationsPage />} />

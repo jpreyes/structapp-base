@@ -5,6 +5,7 @@ import { DamageSeverity } from "../constants/inspectionCatalog";
 export interface InspectionDocument {
   id: string;
   project_id: string;
+  inspection_id: string;
   title: string;
   category: "informe" | "fotografia" | "ensayo" | "otro";
   issued_at?: string | null;
@@ -16,6 +17,7 @@ export interface InspectionDocument {
 export interface ProjectInspectionDamage {
   id: string;
   project_id: string;
+  inspection_id: string;
   structure?: string | null;
   location?: string | null;
   damage_type: string;
@@ -45,6 +47,7 @@ export interface ProjectInspection {
 export interface ProjectInspectionTest {
   id: string;
   project_id: string;
+  inspection_id: string;
   test_type: string;
   method?: string | null;
   standard?: string | null;
@@ -65,37 +68,47 @@ export const useProjectInspections = (projectId?: string) =>
     },
   });
 
-export const useProjectInspectionDamages = (projectId?: string) =>
+const appendInspectionQuery = (inspectionId?: string) => {
+  if (!inspectionId) return "";
+  const params = new URLSearchParams();
+  params.append("inspection_id", inspectionId);
+  return `?${params.toString()}`;
+};
+
+export const useProjectInspectionDamages = (projectId?: string, inspectionId?: string) =>
   useQuery<ProjectInspectionDamage[]>({
-    queryKey: ["project-inspections-damages", projectId],
+    queryKey: ["project-inspections-damages", projectId, inspectionId],
     enabled: Boolean(projectId),
     queryFn: async () => {
+      const query = appendInspectionQuery(inspectionId);
       const { data } = await apiClient.get<ProjectInspectionDamage[]>(
-        `/projects/${projectId}/inspection-damages`
+        `/projects/${projectId}/inspection-damages${query}`
       );
       return data;
     },
   });
 
-export const useProjectInspectionTests = (projectId?: string) =>
+export const useProjectInspectionTests = (projectId?: string, inspectionId?: string) =>
   useQuery<ProjectInspectionTest[]>({
-    queryKey: ["project-inspections-tests", projectId],
+    queryKey: ["project-inspections-tests", projectId, inspectionId],
     enabled: Boolean(projectId),
     queryFn: async () => {
+      const query = appendInspectionQuery(inspectionId);
       const { data } = await apiClient.get<ProjectInspectionTest[]>(
-        `/projects/${projectId}/inspection-tests`
+        `/projects/${projectId}/inspection-tests${query}`
       );
       return data;
     },
   });
 
-export const useProjectInspectionDocuments = (projectId?: string) =>
+export const useProjectInspectionDocuments = (projectId?: string, inspectionId?: string) =>
   useQuery<InspectionDocument[]>({
-    queryKey: ["project-inspections-documents", projectId],
+    queryKey: ["project-inspections-documents", projectId, inspectionId],
     enabled: Boolean(projectId),
     queryFn: async () => {
+      const query = appendInspectionQuery(inspectionId);
       const { data } = await apiClient.get<InspectionDocument[]>(
-        `/projects/${projectId}/inspection-documents`
+        `/projects/${projectId}/inspection-documents${query}`
       );
       return data;
     },

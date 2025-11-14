@@ -27,6 +27,7 @@ create policy "project_inspections_access"
 create table if not exists public.project_inspection_damages (
     id uuid primary key default uuid_generate_v4(),
     project_id uuid not null references public.projects(id) on delete cascade,
+    inspection_id uuid not null references public.project_inspections(id) on delete cascade,
     structure text not null,
     location text,
     damage_type text not null,
@@ -39,6 +40,7 @@ create table if not exists public.project_inspection_damages (
 );
 
 create index if not exists idx_project_inspection_damages_project on public.project_inspection_damages(project_id, severity desc);
+create index if not exists idx_project_inspection_damages_inspection on public.project_inspection_damages(inspection_id);
 
 alter table public.project_inspection_damages enable row level security;
 
@@ -51,6 +53,7 @@ create policy "inspection_damages_access"
 create table if not exists public.project_inspection_tests (
     id uuid primary key default uuid_generate_v4(),
     project_id uuid not null references public.projects(id) on delete cascade,
+    inspection_id uuid not null references public.project_inspections(id) on delete cascade,
     test_type text not null,
     method text,
     standard text,
@@ -63,6 +66,7 @@ create table if not exists public.project_inspection_tests (
 );
 
 create index if not exists idx_project_inspection_tests_project on public.project_inspection_tests(project_id, executed_at desc);
+create index if not exists idx_project_inspection_tests_inspection on public.project_inspection_tests(inspection_id);
 
 alter table public.project_inspection_tests enable row level security;
 
@@ -75,6 +79,7 @@ create policy "inspection_tests_access"
 create table if not exists public.project_inspection_documents (
     id uuid primary key default uuid_generate_v4(),
     project_id uuid not null references public.projects(id) on delete cascade,
+    inspection_id uuid not null references public.project_inspections(id) on delete cascade,
     title text not null,
     category text not null check (category in ('informe','fotografia','ensayo','otro')),
     issued_at date not null,
@@ -85,6 +90,7 @@ create table if not exists public.project_inspection_documents (
 );
 
 create index if not exists idx_project_inspection_documents_project on public.project_inspection_documents(project_id, issued_at desc);
+create index if not exists idx_project_inspection_documents_inspection on public.project_inspection_documents(inspection_id);
 
 alter table public.project_inspection_documents enable row level security;
 

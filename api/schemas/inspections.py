@@ -31,6 +31,7 @@ class InspectionResponse(InspectionBase):
 
 class DamageBase(BaseModel):
     project_id: str
+    inspection_id: str
     structure: str
     location: str | None = None
     damage_type: str
@@ -49,11 +50,26 @@ class DamageCreate(DamageBase):
 
 class DamageResponse(DamageBase):
     id: str
+    inspection_id: str | None = None
     created_at: datetime | None = None
+
+
+class DamageUpdate(BaseModel):
+    structure: str | None = None
+    location: str | None = None
+    damage_type: str | None = None
+    damage_cause: str | None = None
+    severity: Literal["Leve", "Media", "Alta", "Muy Alta"] | None = None
+    extent: str | None = None
+    comments: str | None = None
+    damage_photo_url: str | None = None
+
+    model_config = ConfigDict(extra="allow")
 
 
 class TestBase(BaseModel):
     project_id: str
+    inspection_id: str
     test_type: str
     method: str | None = None
     standard: str | None = None
@@ -72,11 +88,26 @@ class TestCreate(TestBase):
 
 class TestResponse(TestBase):
     id: str
+    inspection_id: str | None = None
     created_at: datetime | None = None
+
+
+class TestUpdate(BaseModel):
+    test_type: str | None = None
+    method: str | None = None
+    standard: str | None = None
+    executed_at: date | None = None
+    laboratory: str | None = None
+    sample_location: str | None = None
+    result_summary: str | None = None
+    attachment_url: str | None = None
+
+    model_config = ConfigDict(extra="allow")
 
 
 class DocumentBase(BaseModel):
     project_id: str
+    inspection_id: str
     title: str
     category: Literal["informe", "fotografia", "ensayo", "otro"]
     issued_at: date
@@ -93,4 +124,16 @@ class DocumentCreate(DocumentBase):
 
 class DocumentResponse(DocumentBase):
     id: str
+    inspection_id: str | None = None
     created_at: datetime | None = None
+
+
+class DocumentUpdate(BaseModel):
+    title: str | None = None
+    category: Literal["informe", "fotografia", "ensayo", "otro"] | None = None
+    issued_at: date | None = None
+    issued_by: str | None = None
+    url: str | None = None
+    notes: str | None = None
+
+    model_config = ConfigDict(extra="allow")

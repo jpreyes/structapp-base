@@ -67,6 +67,7 @@ def test_get_damages(monkeypatch):
         {
             "id": "dmg-1",
             "project_id": "proj-1",
+            "inspection_id": "insp-1",
             "structure": "Columna C1",
             "location": "Eje 1-A",
             "damage_type": "Fisura longitudinal en vigas",
@@ -78,7 +79,10 @@ def test_get_damages(monkeypatch):
             "created_at": None,
         }
     ]
-    monkeypatch.setattr("api.routers.inspections.list_project_inspection_damages", lambda project_id: sample)
+    monkeypatch.setattr(
+        "api.routers.inspections.list_project_inspection_damages",
+        lambda project_id, inspection_id=None: sample,
+    )
 
     response = client.get("/projects/proj-1/inspection-damages", headers=_auth_headers())
 
@@ -91,6 +95,7 @@ def test_get_tests(monkeypatch):
         {
             "id": "test-1",
             "project_id": "proj-1",
+            "inspection_id": "insp-1",
             "test_type": "Esclerometría",
             "method": "ASTM C805",
             "standard": "ASTM C805",
@@ -102,7 +107,10 @@ def test_get_tests(monkeypatch):
             "created_at": None,
         }
     ]
-    monkeypatch.setattr("api.routers.inspections.list_project_inspection_tests", lambda project_id: sample)
+    monkeypatch.setattr(
+        "api.routers.inspections.list_project_inspection_tests",
+        lambda project_id, inspection_id=None: sample,
+    )
 
     response = client.get("/projects/proj-1/inspection-tests", headers=_auth_headers())
 
@@ -113,6 +121,7 @@ def test_get_tests(monkeypatch):
 def test_create_document(monkeypatch):
     payload = {
         "project_id": "proj-1",
+        "inspection_id": "insp-1",
         "title": "Informe de ensayos",
         "category": "informe",
         "issued_at": "2024-11-01",
@@ -121,9 +130,160 @@ def test_create_document(monkeypatch):
         "notes": "Resultados dentro de norma",
     }
     expected = {"id": "doc-1", **payload}
-    monkeypatch.setattr("api.routers.inspections.create_project_inspection_document", lambda data: expected)
+    monkeypatch.setattr(
+        "api.routers.inspections.create_project_inspection_document", lambda data: expected
+    )
 
     response = client.post("/inspection-documents", json=payload, headers=_auth_headers())
 
     assert response.status_code == 201
     assert response.json()["title"] == payload["title"]
+
+
+def test_delete_inspection(monkeypatch):
+    captured: dict[str, str] = {}
+    monkeypatch.setattr(
+        "api.routers.inspections.delete_project_inspection",
+        lambda inspection_id: captured.setdefault("inspection_id", inspection_id),
+    )
+
+    response = client.delete("/inspections/insp-1", headers=_auth_headers())
+
+    assert response.status_code == 204
+    assert captured.get("inspection_id") == "insp-1"
+
+
+def test_delete_damage(monkeypatch):
+    captured: dict[str, str] = {}
+    monkeypatch.setattr(
+        "api.routers.inspections.delete_project_inspection_damage",
+        lambda damage_id: captured.setdefault("damage_id", damage_id),
+    )
+
+    response = client.delete("/inspection-damages/dmg-1", headers=_auth_headers())
+
+    assert response.status_code == 204
+    assert captured.get("damage_id") == "dmg-1"
+
+
+def test_delete_test(monkeypatch):
+    captured: dict[str, str] = {}
+    monkeypatch.setattr(
+        "api.routers.inspections.delete_project_inspection_test",
+        lambda test_id: captured.setdefault("test_id", test_id),
+    )
+
+    response = client.delete("/inspection-tests/test-1", headers=_auth_headers())
+
+    assert response.status_code == 204
+    assert captured.get("test_id") == "test-1"
+
+
+def test_delete_document(monkeypatch):
+    captured: dict[str, str] = {}
+    monkeypatch.setattr(
+        "api.routers.inspections.delete_project_inspection_document",
+        lambda document_id: captured.setdefault("document_id", document_id),
+    )
+
+    response = client.delete("/inspection-documents/doc-1", headers=_auth_headers())
+
+    assert response.status_code == 204
+    assert captured.get("document_id") == "doc-1"
+
+
+def test_update_damage(monkeypatch):
+    payload = {
+        "structure": "Actualizada",
+        "damage_type": "Neue",
+        "damage_cause": "Sobrecarga gravitacional sostenida",
+        "severity": "Alta",
+        "extent": "20 cm",
+        "comments": "Se actualizó",
+    }
+    expected = {
+        "id": "dmg-1",
+        "project_id": "proj-1",
+        "inspection_id": "insp-1",
+        "structure": payload["structure"],
+        "location": "Eje 1",
+        "damage_type": payload["damage_type"],
+        "damage_cause": payload["damage_cause"],
+        "severity": payload["severity"],
+        "extent": payload["extent"],
+        "comments": payload["comments"],
+        "damage_photo_url": None,
+        "created_at": None,
+    }
+    monkeypatch.setattr(
+        "api.routers.inspections.update_project_inspection_damage",
+        lambda damage_id, data: expected,
+    )
+
+    response = client.patch("/inspection-damages/dmg-1", json=payload, headers=_auth_headers())
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "dmg-1"
+
+
+def test_update_test(monkeypatch):
+    payload = {
+        "test_type": "Nuevo tipo",
+        "result_summary": "Actualizado",
+        "executed_at": "2024-11-02",
+        "method": "Método X",
+        "standard": "Norma Y",
+    }
+    expected = {
+        "id": "test-1",
+        "project_id": "proj-1",
+        "inspection_id": "insp-1",
+        "test_type": payload["test_type"],
+        "method": payload["method"],
+        "standard": payload["standard"],
+        "executed_at": payload["executed_at"],
+        "laboratory": "Lab-02",
+        "sample_location": "Columna C2",
+        "result_summary": payload["result_summary"],
+        "attachment_url": None,
+        "created_at": None,
+    }
+    monkeypatch.setattr(
+        "api.routers.inspections.update_project_inspection_test",
+        lambda test_id, data: expected,
+    )
+
+    response = client.patch("/inspection-tests/test-1", json=payload, headers=_auth_headers())
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "test-1"
+
+
+def test_update_document(monkeypatch):
+    payload = {
+        "title": "Informe modificado",
+        "notes": "Nuevas notas",
+        "issued_at": "2024-11-05",
+        "category": "informe",
+    }
+    expected = {
+        "id": "doc-1",
+        "project_id": "proj-1",
+        "inspection_id": "insp-1",
+        "title": payload["title"],
+        "category": payload["category"],
+        "issued_at": payload["issued_at"],
+        "issued_by": "Lab-01",
+        "url": "https://example.com/new.pdf",
+        "notes": payload["notes"],
+        "created_at": None,
+    }
+    monkeypatch.setattr(
+        "api.routers.inspections.update_project_inspection_document",
+        lambda document_id, data: expected,
+    )
+
+    response = client.patch("/inspection-documents/doc-1", json=payload, headers=_auth_headers())
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "doc-1"

@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { AppBar, Box, Divider, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography, FormControlLabel, Switch } from "@mui/material";
+import { AppBar, Box, Button, Divider, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography, FormControlLabel, Switch, } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/SpaceDashboardRounded";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import FolderIcon from "@mui/icons-material/Folder";
@@ -8,20 +8,31 @@ import MenuIcon from "@mui/icons-material/Menu";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ArchitectureIcon from "@mui/icons-material/Architecture";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 import LoginIcon from "@mui/icons-material/Login";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useThemeStore } from "../store/useTheme";
 import { useMemo, useState } from "react";
 import { useSession } from "../store/useSession";
 const drawerWidth = 240;
+const isSectionItem = (item) => item.isSection === true;
 const Layout = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [mobileOpen, setMobileOpen] = useState(false);
     const token = useSession((state) => state.token);
+    const setToken = useSession((state) => state.setToken);
+    const setUser = useSession((state) => state.setUser);
     const navItems = useMemo(() => [
         { label: "Dashboard", icon: _jsx(DashboardIcon, {}), path: "/", requiresAuth: true },
-        { label: "Proyectos", icon: _jsx(FolderIcon, {}), path: "/projects", requiresAuth: true },
+        { label: "Proyectos", isSection: true, requiresAuth: true },
+        {
+            label: "Listado",
+            icon: _jsx(FolderIcon, {}),
+            path: "/projects",
+            requiresAuth: true,
+            indent: true,
+        },
         {
             label: "Cálculos de proyecto",
             icon: _jsx(CalculateIcon, {}),
@@ -43,24 +54,46 @@ const Layout = () => {
             requiresAuth: true,
             indent: true,
         },
+        {
+            label: "Inspecciones y ensayos",
+            icon: _jsx(FactCheckIcon, {}),
+            path: "/projects/inspections",
+            requiresAuth: true,
+            indent: true,
+        },
         { label: "Tareas", icon: _jsx(AssignmentIcon, {}), path: "/tasks", requiresAuth: true },
         { label: "Finanzas", icon: _jsx(PaymentIcon, {}), path: "/payments", requiresAuth: true },
         { label: "Login", icon: _jsx(LoginIcon, {}), path: "/login", showWhenLoggedOut: true },
     ], []);
-    const drawerContent = (_jsxs(Box, { sx: { display: "flex", flexDirection: "column", height: "100%" }, children: [_jsxs(Box, { sx: { p: 2 }, children: [_jsx(Typography, { variant: "h6", fontWeight: 600, children: "StructApp" }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: "Gestion estructural" })] }), _jsx(Divider, {}), _jsxs(List, { children: [_jsxs(ListItemButton, { selected: location.pathname === "/subscribe", onClick: () => navigate("/subscribe"), sx: { mt: 1 }, children: [_jsx(ListItemIcon, { children: _jsx(PaymentIcon, {}) }), _jsx(ListItemText, { primary: "Suscripci\u00F3n" })] }), navItems
-                        .filter((item) => (item.showWhenLoggedOut ? !token : true))
-                        .map((item) => {
-                        const selected = location.pathname === item.path ||
-                            (item.path !== "/" && location.pathname.startsWith(`${item.path}/`));
-                        return (_jsxs(ListItemButton, { selected: selected, disabled: item.requiresAuth && !token, onClick: () => {
-                                if (!item.path) {
-                                    return;
+    const drawerContent = (_jsxs(Box, { sx: { display: "flex", flexDirection: "column", height: "100%" }, children: [_jsxs(Box, { sx: { p: 2 }, children: [_jsx(Typography, { variant: "h6", fontWeight: 600, children: "StructApp" }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: "Gestion estructural" })] }), _jsx(Divider, {}), _jsx(List, { children: navItems
+                    .filter((item) => (item.showWhenLoggedOut ? !token : true))
+                    .map((item) => {
+                    if (isSectionItem(item)) {
+                        return (_jsx(ListItemText, { primary: _jsx(Typography, { variant: "overline", color: "text.secondary", sx: { pl: 2, pt: 2, pb: 0.5, display: "block" }, children: item.label }) }, `section-${item.label}`));
+                    }
+                    const selected = location.pathname === item.path ||
+                        (item.path !== "/" && location.pathname.startsWith(`${item.path}/`));
+                    return (_jsxs(ListItemButton, { selected: selected, disabled: item.requiresAuth && !token, onClick: () => {
+                            if (!item.path) {
+                                return;
+                            }
+                            navigate(item.path);
+                            setMobileOpen(false);
+                        }, sx: { pl: item.indent ? 4 : 2 }, children: [_jsx(ListItemIcon, { children: item.icon }), _jsx(ListItemText, { primary: item.label })] }, item.path));
+                }) }), _jsx(Box, { sx: { flexGrow: 1 } }), _jsx(Divider, {}), _jsx(List, { children: _jsxs(ListItemButton, { selected: location.pathname === "/subscribe", onClick: () => {
+                        navigate("/subscribe");
+                        setMobileOpen(false);
+                    }, sx: { mt: 1 }, children: [_jsx(ListItemIcon, { children: _jsx(PaymentIcon, {}) }), _jsx(ListItemText, { primary: "Suscripci\u00F3n" })] }) })] }));
+    return (_jsxs(Box, { sx: { display: "flex" }, children: [_jsx(AppBar, { position: "fixed", sx: { zIndex: (theme) => theme.zIndex.drawer + 1 }, children: _jsxs(Toolbar, { children: [_jsx(IconButton, { color: "inherit", edge: "start", onClick: () => setMobileOpen(!mobileOpen), sx: { mr: 2, display: { sm: "none" } }, children: _jsx(MenuIcon, {}) }), _jsx(Typography, { variant: "h6", noWrap: true, component: "div", children: "StructApp" }), _jsx(Box, { sx: { flexGrow: 1 } }), _jsx(Button, { color: "inherit", onClick: () => {
+                                if (token) {
+                                    setToken(null);
+                                    setUser(undefined);
+                                    navigate("/login");
                                 }
-                                navigate(item.path);
-                                setMobileOpen(false);
-                            }, sx: { pl: item.indent ? 4 : 2 }, children: [_jsx(ListItemIcon, { children: item.icon }), _jsx(ListItemText, { primary: item.label })] }, item.path));
-                    })] }), _jsx(Box, { sx: { flexGrow: 1 } })] }));
-    return (_jsxs(Box, { sx: { display: "flex" }, children: [_jsx(AppBar, { position: "fixed", sx: { zIndex: (theme) => theme.zIndex.drawer + 1 }, children: _jsxs(Toolbar, { children: [_jsx(IconButton, { color: "inherit", edge: "start", onClick: () => setMobileOpen(!mobileOpen), sx: { mr: 2, display: { sm: "none" } }, children: _jsx(MenuIcon, {}) }), _jsx(Typography, { variant: "h6", noWrap: true, component: "div", children: "StructApp" }), _jsx(Box, { sx: { flexGrow: 1 } }), _jsx(FormControlLabel, { control: _jsx(Switch, { color: "default", onChange: () => useThemeStore.getState().toggle() }), label: "Tema" })] }) }), _jsxs(Box, { component: "nav", sx: { width: { sm: drawerWidth }, flexShrink: { sm: 0 } }, children: [_jsx(Drawer, { variant: "temporary", open: mobileOpen, onClose: () => setMobileOpen(false), ModalProps: { keepMounted: true }, sx: {
+                                else {
+                                    navigate("/login");
+                                }
+                            }, sx: { mr: 2 }, children: token ? "Cerrar sesión" : "Iniciar sesión" }), _jsx(FormControlLabel, { control: _jsx(Switch, { color: "default", onChange: () => useThemeStore.getState().toggle() }), label: "Tema" })] }) }), _jsxs(Box, { component: "nav", sx: { width: { sm: drawerWidth }, flexShrink: { sm: 0 } }, children: [_jsx(Drawer, { variant: "temporary", open: mobileOpen, onClose: () => setMobileOpen(false), ModalProps: { keepMounted: true }, sx: {
                             display: { xs: "block", sm: "none" },
                             "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
                         }, children: drawerContent }), _jsx(Drawer, { variant: "permanent", sx: {

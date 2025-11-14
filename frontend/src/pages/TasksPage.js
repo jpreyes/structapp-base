@@ -109,7 +109,11 @@ const TasksPage = () => {
             return;
         const queryKey = ["tasks", effectiveProjectId];
         const previous = queryClient.getQueryData(queryKey);
-        queryClient.setQueryData(queryKey, (current = []) => current.map((item) => (item.id === task.id ? { ...item, status } : item)));
+        const updatedTask = { ...task, status };
+        queryClient.setQueryData(queryKey, (current = []) => {
+            const remaining = current.filter((item) => item.id !== task.id);
+            return [updatedTask, ...remaining];
+        });
         updateTaskMutation.mutate({
             taskId: task.id,
             patch: { status },

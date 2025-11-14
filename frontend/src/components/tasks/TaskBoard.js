@@ -23,8 +23,9 @@ const KanbanColumn = ({ status, children }) => {
             backgroundColor: "background.paper",
             display: "flex",
             flexDirection: "column",
-            overflow: "hidden",
+            overflow: "visible",
             boxShadow: isOver ? 6 : "none",
+            zIndex: isOver ? 20 : 1,
         }, children: children }));
 };
 const KanbanTaskCard = ({ task, onEdit, onDelete, }) => {
