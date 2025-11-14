@@ -40,6 +40,18 @@ def create_project_inspection(payload: dict):
     )
 
 
+def get_project_inspection(inspection_id: str):
+    result = (
+        supa()
+        .table("project_inspections")
+        .select("*")
+        .eq("id", inspection_id)
+        .single()
+        .execute()
+    )
+    return result.data
+
+
 def list_project_inspection_damages(project_id: str, inspection_id: str | None = None):
     query = (
         supa()
@@ -50,7 +62,28 @@ def list_project_inspection_damages(project_id: str, inspection_id: str | None =
     )
     if inspection_id:
         query = query.eq("inspection_id", inspection_id)
-    return query.execute().data
+    damages = query.execute().data
+    if not damages:
+        return damages
+    damage_ids = [damage["id"] for damage in damages if damage.get("id")]
+    photos = (
+        supa()
+        .table("project_inspection_damage_photos")
+        .select("*")
+        .in_("damage_id", damage_ids)
+        .execute()
+        .data
+    )
+    photo_map: dict[str, list[dict[str, str]]] = {}
+    for photo in photos or []:
+        damage_id = photo.get("damage_id")
+        url = photo.get("photo_url")
+        pid = photo.get("id")
+        if damage_id and url:
+            photo_map.setdefault(damage_id, []).append({"id": pid, "photo_url": url})
+    for damage in damages:
+        damage["photos"] = photo_map.get(damage.get("id") or "", [])
+    return damages
 
 
 def create_project_inspection_damage(payload: dict):
@@ -156,3 +189,39 @@ def update_project_inspection_document(document_id: str, payload: dict):
         .execute()
         .data[0]
     )
+def get_project_inspection_damage(damage_id: str):
+    result = (
+        supa()
+        .table("project_inspection_damages")
+        .select("*")
+        .eq("id", damage_id)
+        .single()
+        .execute()
+    )
+    return result.data
+
+
+def list_project_inspection_damage_photos(damage_id: str):
+    result = (
+        supa()
+        .table("project_inspection_damage_photos")
+        .select("*")
+        .eq("damage_id", damage_id)
+        .order("created_at", desc=False)
+        .execute()
+    )
+    return result.data
+
+
+def create_project_inspection_damage_photo(payload: dict):
+    return (
+        supa()
+        .table("project_inspection_damage_photos")
+        .insert(_serialize_payload(payload))
+        .execute()
+        .data[0]
+    )
+
+
+def delete_project_inspection_damage_photo(photo_id: str):
+    supa().table("project_inspection_damage_photos").delete().eq("id", photo_id).execute()

@@ -29,6 +29,10 @@ class InspectionResponse(InspectionBase):
     updated_at: datetime | None = None
 
 
+class PhotoUploadResponse(BaseModel):
+    url: str
+
+
 class DamageBase(BaseModel):
     project_id: str
     inspection_id: str
@@ -52,6 +56,15 @@ class DamageResponse(DamageBase):
     id: str
     inspection_id: str | None = None
     created_at: datetime | None = None
+
+
+class DamagePhotoResponse(BaseModel):
+    id: str
+    damage_id: str
+    photo_url: str
+    created_at: datetime | None = None
+
+    model_config = ConfigDict(extra="allow")
 
 
 class DamageUpdate(BaseModel):
