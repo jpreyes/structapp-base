@@ -27,6 +27,10 @@ export interface ProjectInspectionDamage {
         photo_url?: string | null;
         comments?: string | null;
     }[];
+    deterministic_score?: number | null;
+    llm_score?: number | null;
+    llm_reason?: string | null;
+    score_updated_at?: string | null;
     damage_date?: string | null;
 }
 export interface ProjectInspection {
@@ -42,6 +46,10 @@ export interface ProjectInspection {
     summary: string;
     photos?: string[];
     documents?: InspectionDocument[];
+    deterministic_score?: number | null;
+    llm_score?: number | null;
+    llm_reason?: string | null;
+    score_updated_at?: string | null;
 }
 export interface ProjectInspectionTest {
     id: string;

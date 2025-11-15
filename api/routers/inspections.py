@@ -13,12 +13,14 @@ from api.schemas.inspections import (
     DocumentUpdate,
     InspectionCreate,
     InspectionResponse,
+    InspectionScoreResponse,
     PhotoUploadResponse,
     TestCreate,
     TestResponse,
     TestUpdate,
 )
 from services.inspection_archive_service import create_inspection_archive, generate_inspection_pdf
+from services.inspection_scoring import calculate_inspection_deterministic_score, evaluate_inspection_with_llm
 from services.inspections_service import (
     create_project_inspection,
     create_project_inspection_damage,
@@ -197,6 +199,24 @@ async def delete_inspection(inspection_id: str, user_id: UserIdDep):
         delete_project_inspection(inspection_id)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+
+
+@router.get("/inspections/{inspection_id}/scores", response_model=InspectionScoreResponse)
+async def get_inspection_scores(inspection_id: str, user_id: UserIdDep):
+    inspection = get_project_inspection(inspection_id)
+    if not inspection:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspección no encontrada")
+    project_id = inspection["project_id"]
+    damages = list_project_inspection_damages(project_id, inspection_id)
+    deterministic = calculate_inspection_deterministic_score(damages)
+    llm_result = evaluate_inspection_with_llm(inspection, damages)
+    return InspectionScoreResponse(
+        inspection_id=inspection_id,
+        deterministic_score=deterministic,
+        llm_score=llm_result.get("llm_score"),
+        llm_reason=llm_result.get("reason"),
+        llm_payload=llm_result.get("payload"),
+    )
 
 
 @router.delete("/inspection-damages/{damage_id}", status_code=status.HTTP_204_NO_CONTENT)

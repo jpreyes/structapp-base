@@ -296,20 +296,20 @@ const ProjectInspectionsPage = () => {
                     }
                     secondary={
                       <Stack spacing={1}>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" component="div">
                           {inspection.location} · {dayjs(inspection.inspection_date).format("DD/MM/YYYY")} · Inspector: {" "}
                           {inspection.inspector}
                         </Typography>
-                        <Typography variant="body2">{inspection.summary}</Typography>
+                        <Typography variant="body2" component="div">
+                          {inspection.summary}
+                        </Typography>
                         <Stack direction="row" spacing={1} flexWrap="wrap">
                           {(inspection.photos ?? []).map((url) => (
                             <Chip
                               key={url}
                               label="Foto"
-                              component="a"
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
+                              component="span"
+                              onClick={() => window.open(url, "_blank", "noopener")}
                               clickable
                               variant="outlined"
                               size="small"
@@ -318,6 +318,8 @@ const ProjectInspectionsPage = () => {
                         </Stack>
                       </Stack>
                     }
+                    primaryTypographyProps={{ component: "div" }}
+                    secondaryTypographyProps={{ component: "div" }}
                   />
                 </ListItemButton>
               </ListItem>

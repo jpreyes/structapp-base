@@ -112,6 +112,11 @@ create table if not exists public.project_inspections (
     photos jsonb not null default '[]'::jsonb,
     exposure text,
     accessibility text,
+    deterministic_score numeric(5,2),
+    llm_score numeric(5,2),
+    llm_reason text,
+    llm_payload jsonb,
+    score_updated_at timestamptz,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
@@ -131,6 +136,11 @@ create table if not exists public.project_inspection_damages (
     extent text,
     comments text,
     damage_photo_url text,
+    deterministic_score numeric(5,2),
+    llm_score numeric(5,2),
+    llm_reason text,
+    llm_payload jsonb,
+    score_updated_at timestamptz,
     created_at timestamptz not null default now()
 );
 create index if not exists idx_project_inspection_damages_project on public.project_inspection_damages(project_id, severity desc);

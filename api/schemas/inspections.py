@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +27,21 @@ class InspectionResponse(InspectionBase):
     id: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    deterministic_score: float | None = None
+    llm_score: float | None = None
+    llm_reason: str | None = None
+    llm_payload: dict[str, Any] | None = None
+    score_updated_at: datetime | None = None
+
+
+class InspectionScoreResponse(BaseModel):
+    inspection_id: str
+    deterministic_score: float
+    llm_score: float | None = None
+    llm_reason: str | None = None
+    llm_payload: Any | None = None
+
+    model_config = ConfigDict(extra="allow")
 
 
 class PhotoUploadResponse(BaseModel):
@@ -56,6 +71,11 @@ class DamageResponse(DamageBase):
     id: str
     inspection_id: str | None = None
     created_at: datetime | None = None
+    deterministic_score: float | None = None
+    llm_score: float | None = None
+    llm_reason: str | None = None
+    llm_payload: dict[str, Any] | None = None
+    score_updated_at: datetime | None = None
 
 
 class DamagePhotoResponse(BaseModel):

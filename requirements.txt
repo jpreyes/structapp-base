@@ -22,4 +22,5 @@ matplotlib==3.10.6
 beautifulsoup4==4.13.5
 requests==2.32.4
 websockets==13.1
+openai==1.109.1
 pytest==8.3.3

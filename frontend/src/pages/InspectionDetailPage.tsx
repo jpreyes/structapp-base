@@ -128,12 +128,41 @@ const severityColor = (severity: string) => {
     case "Alta":
     case "Muy Alta":
       return "error";
-    default:
-      return "default";
+  default:
+    return "default";
   }
 };
 
 const confirmDeletion = (message: string) => window.confirm(message);
+
+const formatScoreValue = (value?: number | null) =>
+  value !== undefined && value !== null ? value.toFixed(2) : "—";
+
+const formatLLMScoreValue = (value?: number | null) =>
+  value !== undefined && value !== null ? value.toFixed(2) : "Pendiente";
+
+const renderLLMPayload = (payload?: { score?: number; reason?: string } | null) => {
+  if (!payload) return null;
+  const formatted = JSON.stringify(payload, null, 2);
+  return (
+    <Box
+      component="pre"
+      sx={{
+        fontSize: "0.75rem",
+        backgroundColor: "rgba(0,0,0,0.03)",
+        borderRadius: 1,
+        padding: 1,
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+      }}
+    >
+      {formatted}
+    </Box>
+  );
+};
+
+const formatScoreTimestamp = (value?: string | null) =>
+  value ? dayjs(value).format("DD/MM/YYYY HH:mm") : null;
 
 const InspectionDetailPage = () => {
   const { projectId, inspectionId } = useParams<{ projectId?: string; inspectionId?: string }>();
@@ -182,6 +211,8 @@ const InspectionDetailPage = () => {
   const [modalDamage, setModalDamage] = useState<ProjectInspectionDamage | null>(null);
   const [damageModalFiles, setDamageModalFiles] = useState<File[]>([]);
   const [damageModalUploading, setDamageModalUploading] = useState(false);
+  const [damageDialogFiles, setDamageDialogFiles] = useState<File[]>([]);
+  const [damageDialogUploading, setDamageDialogUploading] = useState(false);
   const [photoCommentValues, setPhotoCommentValues] = useState<Record<string, string>>({});
   const [testModalOpen, setTestModalOpen] = useState(false);
   const [modalTest, setModalTest] = useState<ProjectInspectionTest | null>(null);
@@ -195,6 +226,10 @@ const InspectionDetailPage = () => {
       }
     };
   }, [damagePhotoPreview]);
+
+  useEffect(() => {
+    setDamageDialogFiles([]);
+  }, [editingDamage?.id]);
 
   useEffect(() => {
     setPhotoCommentValues({});
@@ -414,6 +449,20 @@ const InspectionDetailPage = () => {
     } finally {
       setDamageModalUploading(false);
       setDamageModalFiles([]);
+      invalidateDetailQueries();
+    }
+  };
+
+  const handleDamageDialogUpload = async () => {
+    if (!editingDamage || !damageDialogFiles.length) return;
+    setDamageDialogUploading(true);
+    try {
+      for (const file of damageDialogFiles) {
+        await uploadDamagePhoto(editingDamage.id, file);
+      }
+    } finally {
+      setDamageDialogUploading(false);
+      setDamageDialogFiles([]);
       invalidateDetailQueries();
     }
   };
@@ -727,6 +776,37 @@ const InspectionDetailPage = () => {
         </Stack>
       </Stack>
 
+      <Card variant="outlined">
+        <CardContent sx={{ pt: 1, pb: 1 }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={3}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Stack spacing={0.5}>
+              <Typography variant="subtitle2">Calificación técnica</Typography>
+              <Typography variant="h5">{formatScoreValue(inspection.deterministic_score)}</Typography>
+              {inspection.score_updated_at && (
+                <Typography variant="caption" color="text.secondary">
+                  Actualizado {formatScoreTimestamp(inspection.score_updated_at)}
+                </Typography>
+              )}
+            </Stack>
+            <Stack spacing={0.5}>
+              <Typography variant="subtitle2">LLM</Typography>
+              <Typography variant="h5">{formatLLMScoreValue(inspection.llm_score)}</Typography>
+              {inspection.llm_reason && (
+                <Typography variant="caption" color="text.secondary">
+                  {inspection.llm_reason}
+                </Typography>
+              )}
+              {renderLLMPayload(inspection.llm_payload)}
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent>
           <Typography variant="subtitle1">Resumen de hallazgos</Typography>
@@ -775,7 +855,7 @@ const InspectionDetailPage = () => {
                   <TableCell>Causa</TableCell>
                   <TableCell>Gravedad</TableCell>
                   <TableCell>Extensión</TableCell>
-                  <TableCell>Foto</TableCell>
+                  <TableCell>Score · Fotos</TableCell>
                   <TableCell align="right">Acciones</TableCell>
                 </TableRow>
               </TableHead>
@@ -807,20 +887,39 @@ const InspectionDetailPage = () => {
                     </TableCell>
                     <TableCell>{damage.extent || "Sin dato"}</TableCell>
                     <TableCell>
-                    {(damage.photos ?? []).length > 0 ? (
-                      <Button
-                        component="a"
-                        href={damage.photos[0]?.photo_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        size="small"
-                        startIcon={<AttachmentIcon />}
-                      >
-                        Ver
-                      </Button>
-                    ) : (
-                      "—"
-                    )}
+                      <Stack spacing={0.5}>
+                        <Typography variant="body2">
+                          Score: {formatScoreValue(damage.deterministic_score)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          LLM: {formatLLMScoreValue(damage.llm_score)}
+                        </Typography>
+                        {damage.llm_reason && (
+                          <Typography variant="caption" color="text.secondary">
+                            {damage.llm_reason}
+                          </Typography>
+                        )}
+                        {damage.score_updated_at && (
+                          <Typography variant="caption" color="text.secondary">
+                            Actualizado {formatScoreTimestamp(damage.score_updated_at)}
+                          </Typography>
+                        )}
+                        {renderLLMPayload(damage.llm_payload)}
+                        {(damage.photos ?? []).length > 0 ? (
+                          <Button
+                            component="a"
+                            href={damage.photos[0]?.photo_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            size="small"
+                            startIcon={<AttachmentIcon />}
+                          >
+                            Ver
+                          </Button>
+                        ) : (
+                          "—"
+                        )}
+                      </Stack>
                     </TableCell>
                     <TableCell align="right">
                     <IconButton
@@ -1119,6 +1218,43 @@ const InspectionDetailPage = () => {
               value={damageForm.comments}
               onChange={(event) => setDamageForm((prev) => ({ ...prev, comments: event.target.value }))}
             />
+            {editingDamage ? (
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <Button component="label" variant="outlined" size="small">
+                    Seleccionar fotos
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      hidden
+                      onChange={(event) => {
+                        const files = event.target.files;
+                        if (!files?.length) return;
+                        setDamageDialogFiles(Array.from(files));
+                      }}
+                    />
+                  </Button>
+                  <Typography variant="body2" color="text.secondary">
+                    {damageDialogFiles.length
+                      ? `${damageDialogFiles.length} archivo(s) listo(s) para subir`
+                      : "Selecciona imágenes para añadir"}
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={handleDamageDialogUpload}
+                    disabled={!damageDialogFiles.length || damageDialogUploading}
+                  >
+                    {damageDialogUploading ? "Subiendo..." : "Subir fotos"}
+                  </Button>
+                </Stack>
+              </Stack>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Guarda el daño para poder adjuntar fotografías adicionales.
+              </Typography>
+            )}
             {editingDamageWithPhotos && renderDamagePhotos(editingDamageWithPhotos)}
             <TextField
               label="URL de fotografía"

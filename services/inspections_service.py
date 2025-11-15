@@ -1,7 +1,15 @@
 from datetime import date, datetime
+import logging
 from typing import Any, Mapping
 
-from supa.client import supa
+from core.config import SUPABASE_SERVICE_KEY
+from supa.client import supa, supa_service
+
+from services.inspection_scoring import (
+    calculate_inspection_deterministic_score,
+    evaluate_inspection_with_llm,
+    score_damage_record,
+)
 
 
 def _serialize_payload(payload: Mapping[str, Any]) -> dict:
@@ -31,13 +39,15 @@ def list_project_inspections(project_id: str):
 
 
 def create_project_inspection(payload: dict):
-    return (
+    result = (
         supa()
         .table("project_inspections")
         .insert(_serialize_payload(payload))
         .execute()
         .data[0]
     )
+    _update_inspection_scores(result["id"])
+    return result
 
 
 def get_project_inspection(inspection_id: str):
@@ -90,13 +100,15 @@ def list_project_inspection_damages(project_id: str, inspection_id: str | None =
 
 
 def create_project_inspection_damage(payload: dict):
-    return (
+    result = (
         supa()
         .table("project_inspection_damages")
         .insert(_serialize_payload(payload))
         .execute()
         .data[0]
     )
+    _update_damage_and_inspection_scores(result["id"])
+    return result
 
 
 def list_project_inspection_tests(project_id: str, inspection_id: str | None = None):
@@ -150,7 +162,11 @@ def delete_project_inspection(inspection_id: str):
 
 
 def delete_project_inspection_damage(damage_id: str):
+    damage = get_project_inspection_damage(damage_id)
+    if not damage:
+        return
     supa().table("project_inspection_damages").delete().eq("id", damage_id).execute()
+    _update_inspection_scores(damage["inspection_id"])
 
 
 def delete_project_inspection_test(test_id: str):
@@ -162,7 +178,7 @@ def delete_project_inspection_document(document_id: str):
 
 
 def update_project_inspection_damage(damage_id: str, payload: dict):
-    return (
+    updated = (
         supa()
         .table("project_inspection_damages")
         .update(_serialize_payload(payload))
@@ -170,6 +186,8 @@ def update_project_inspection_damage(damage_id: str, payload: dict):
         .execute()
         .data[0]
     )
+    _update_damage_and_inspection_scores(damage_id)
+    return updated
 
 
 def update_project_inspection_test(test_id: str, payload: dict):
@@ -240,3 +258,57 @@ def update_project_inspection_damage_photo(photo_id: str, payload: dict):
     )
     data = result.data
     return data[0] if data else None
+
+
+def _safe_update(table: str, payload: dict[str, Any], condition: dict[str, Any]):
+    client = supa_service() if SUPABASE_SERVICE_KEY else supa()
+    key, value = next(iter(condition.items()))
+    try:
+        client.table(table).update(payload).eq(key, value).execute()
+    except Exception as exc:
+        logger = logging.getLogger(__name__)
+        logger.warning("Score update failed for %s: %s", table, exc)
+
+
+def _format_timestamp(value: datetime | None) -> str | None:
+    return value.isoformat() if value else None
+
+
+def _update_damage_and_inspection_scores(damage_id: str):
+    damage = get_project_inspection_damage(damage_id)
+    if not damage:
+        return
+    scoring = score_damage_record(damage)
+    _safe_update(
+        "project_inspection_damages",
+        {
+            "deterministic_score": scoring["deterministic_score"],
+            "llm_score": scoring["llm_score"],
+            "llm_reason": scoring["llm_reason"],
+            "llm_payload": scoring["llm_payload"],
+            "score_updated_at": _format_timestamp(datetime.utcnow()),
+        },
+        {"id": damage_id},
+    )
+    _update_inspection_scores(damage["inspection_id"])
+
+
+def _update_inspection_scores(inspection_id: str):
+    inspection = get_project_inspection(inspection_id)
+    if not inspection:
+        return
+    project_id = inspection["project_id"]
+    damages = list_project_inspection_damages(project_id, inspection_id)
+    deterministic = calculate_inspection_deterministic_score(damages)
+    llm_result = evaluate_inspection_with_llm(inspection, damages)
+    _safe_update(
+        "project_inspections",
+        {
+            "deterministic_score": deterministic,
+            "llm_score": llm_result.get("llm_score"),
+            "llm_reason": llm_result.get("reason"),
+            "llm_payload": llm_result.get("payload"),
+            "score_updated_at": _format_timestamp(datetime.utcnow()),
+        },
+        {"id": inspection_id},
+    )

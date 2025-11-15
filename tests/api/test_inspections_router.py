@@ -32,6 +32,11 @@ def test_get_project_inspections_returns_payload(monkeypatch):
             "photos": [],
             "created_at": None,
             "updated_at": None,
+            "deterministic_score": None,
+            "llm_score": None,
+            "llm_reason": None,
+            "llm_payload": None,
+            "score_updated_at": None,
         }
     ]
     monkeypatch.setattr("api.routers.inspections.list_project_inspections", lambda project_id: sample)
@@ -76,6 +81,11 @@ def test_get_damages(monkeypatch):
             "extent": "15 cm",
             "comments": "",
             "damage_photo_url": None,
+            "deterministic_score": None,
+            "llm_score": None,
+            "llm_reason": None,
+            "llm_payload": None,
+            "score_updated_at": None,
             "created_at": None,
         }
     ]
