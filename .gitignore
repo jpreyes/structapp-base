@@ -26,3 +26,4 @@ __pycache__/
 *.spec
 Complemento inspección.txt
 uploads/
+.env
