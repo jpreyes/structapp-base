@@ -30,7 +30,7 @@ import AddIcon from "@mui/icons-material/Add";
 import AttachmentIcon from "@mui/icons-material/Attachment";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
-import InfoIcon from "@mui/icons-material/Info";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -61,6 +61,7 @@ type DamageFormState = {
 type DamagePhoto = {
   id?: string | null;
   photo_url?: string | null;
+  comments?: string | null;
 };
 
 type TestFormState = {
@@ -181,6 +182,11 @@ const InspectionDetailPage = () => {
   const [modalDamage, setModalDamage] = useState<ProjectInspectionDamage | null>(null);
   const [damageModalFiles, setDamageModalFiles] = useState<File[]>([]);
   const [damageModalUploading, setDamageModalUploading] = useState(false);
+  const [photoCommentValues, setPhotoCommentValues] = useState<Record<string, string>>({});
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [modalTest, setModalTest] = useState<ProjectInspectionTest | null>(null);
+  const [documentModalOpen, setDocumentModalOpen] = useState(false);
+  const [modalDocument, setModalDocument] = useState<InspectionDocument | null>(null);
 
   useEffect(() => {
     return () => {
@@ -190,6 +196,10 @@ const InspectionDetailPage = () => {
     };
   }, [damagePhotoPreview]);
 
+  useEffect(() => {
+    setPhotoCommentValues({});
+  }, [modalDamage?.id, editingDamage?.id]);
+
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testForm, setTestForm] = useState<TestFormState>(defaultTestForm);
   const [editingTest, setEditingTest] = useState<ProjectInspectionTest | null>(null);
@@ -197,6 +207,13 @@ const InspectionDetailPage = () => {
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [documentForm, setDocumentForm] = useState<DocumentFormState>(defaultDocumentForm);
   const [editingDocument, setEditingDocument] = useState<InspectionDocument | null>(null);
+
+  const editingDamageWithPhotos = editingDamage
+    ? damages.find((damage) => damage.id === editingDamage.id) ?? editingDamage
+    : null;
+  const modalDamageWithPhotos = modalDamage
+    ? damages.find((damage) => damage.id === modalDamage.id) ?? modalDamage
+    : null;
 
   const createDamageMutation = useMutation({
     mutationFn: async (payload: DamageFormState) => {
@@ -360,6 +377,25 @@ const InspectionDetailPage = () => {
     setDamageModalOpen(true);
   };
 
+  const openTestModal = (test: ProjectInspectionTest) => {
+    setModalTest(test);
+    setTestModalOpen(true);
+  };
+
+  const closeTestModal = () => {
+    setTestModalOpen(false);
+    setModalTest(null);
+  };
+
+  const openDocumentModal = (doc: InspectionDocument) => {
+    setModalDocument(doc);
+    setDocumentModalOpen(true);
+  };
+
+  const closeDocumentModal = () => {
+    setDocumentModalOpen(false);
+    setModalDocument(null);
+  };
   const closeDamageModal = () => {
     setDamageModalOpen(false);
     setModalDamage(null);
@@ -382,10 +418,127 @@ const InspectionDetailPage = () => {
     }
   };
 
-  const handleDamagePhotoDelete = async (photoId?: string) => {
-    if (!modalDamage || !photoId) return;
-    await deleteDamagePhoto(modalDamage.id, photoId);
+  const handleDamagePhotoDelete = async (damageId?: string, photoId?: string) => {
+    if (!damageId || !photoId) return;
+    await deleteDamagePhoto(damageId, photoId);
     invalidateDetailQueries();
+  };
+
+  const updatePhotoCommentLocalState = (damageId: string, photoId: string, comment: string | null) => {
+    const applyUpdate = (photos?: DamagePhoto[]) =>
+      photos?.map((photo) => (photo.id === photoId ? { ...photo, comments: comment } : photo));
+    setEditingDamage((prev) =>
+      prev && prev.id === damageId ? { ...prev, photos: applyUpdate(prev.photos) ?? prev.photos } : prev
+    );
+    setModalDamage((prev) =>
+      prev && prev.id === damageId ? { ...prev, photos: applyUpdate(prev.photos) ?? prev.photos } : prev
+    );
+  };
+
+  const handleDamagePhotoCommentChange = async (damageId?: string, photoId?: string, comment?: string) => {
+    if (!damageId || !photoId) return;
+    await updateDamagePhotoComment(damageId, photoId, comment ?? "");
+    updatePhotoCommentLocalState(damageId, photoId, comment ?? "");
+    setPhotoCommentValues((prev) => ({ ...prev, [photoId]: comment ?? "" }));
+    invalidateDetailQueries();
+  };
+
+  const renderDamagePhotos = (
+    damage: ProjectInspectionDamage | null,
+    options?: { label?: string; showDelete?: boolean }
+  ) => {
+    if (!damage) return null;
+    const photos = damage.photos ?? [];
+    return (
+      <Stack spacing={1} sx={{ width: 1 }}>
+        <Typography variant="subtitle1" component="div">
+          {options?.label ?? "Fotos registradas"}
+        </Typography>
+        <Stack spacing={1}>
+          {photos.length === 0 ? (
+            <Typography variant="body2" component="div" color="text.secondary">
+              Sin fotografías anexas.
+            </Typography>
+          ) : (
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              {photos.map((photo) => {
+                const photoId = photo.id;
+                const commentValue =
+                  photoId && photoCommentValues[photoId] !== undefined
+                    ? photoCommentValues[photoId]
+                    : photo.comments ?? "";
+                return (
+                  <Stack key={photoId ?? photo.photo_url} spacing={1} sx={{ width: 150 }}>
+                    <Box
+                      sx={{
+                        position: "relative",
+                        width: "100%",
+                        height: 90,
+                        borderRadius: 1,
+                        overflow: "hidden",
+                        border: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={photo.photo_url ?? ""}
+                        alt="Foto de daño"
+                        sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                      {options?.showDelete && photoId && (
+                        <IconButton
+                          size="small"
+                          sx={{
+                            position: "absolute",
+                            top: 4,
+                            right: 4,
+                            backgroundColor: "rgba(255,255,255,0.85)",
+                          }}
+                          onClick={() => handleDamagePhotoDelete(damage.id, photoId)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
+                      <TextField
+                        size="small"
+                        label="Comentario"
+                        value={commentValue}
+                        onChange={(event) => {
+                          if (photoId) {
+                            setPhotoCommentValues((prev) => ({
+                              ...prev,
+                              [photoId]: event.target.value,
+                            }));
+                          }
+                        }}
+                        onBlur={(event) => {
+                          if (photoId) {
+                            handleDamagePhotoCommentChange(damage.id, photoId, event.target.value);
+                          }
+                        }}
+                      />
+                    {photo.photo_url && (
+                      <Button
+                        size="small"
+                        component="a"
+                        href={photo.photo_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        startIcon={<AttachmentIcon />}
+                      >
+                        Ver
+                      </Button>
+                    )}
+                  </Stack>
+                );
+              })}
+            </Stack>
+          )}
+        </Stack>
+      </Stack>
+    );
   };
 
   const openTestDialog = (test?: ProjectInspectionTest) => {
@@ -505,6 +658,12 @@ const InspectionDetailPage = () => {
 
   const deleteDamagePhoto = async (damageId: string, photoId: string) => {
     await apiClient.delete(`/inspection-damages/${damageId}/photos/${photoId}`);
+  };
+
+  const updateDamagePhotoComment = async (damageId: string, photoId: string, comment: string) => {
+    await apiClient.patch<DamagePhoto>(`/inspection-damages/${damageId}/photos/${photoId}`, {
+      comments: comment,
+    });
   };
 
   return (
@@ -669,7 +828,7 @@ const InspectionDetailPage = () => {
                       aria-label="Ver detalles del daño"
                       onClick={() => openDamageModal(damage)}
                     >
-                      <InfoIcon fontSize="small" />
+                      <VisibilityIcon fontSize="small" />
                     </IconButton>
                     <IconButton
                       size="small"
@@ -722,6 +881,9 @@ const InspectionDetailPage = () => {
                   divider
                   secondaryAction={
                     <Stack direction="row" spacing={1}>
+                      <IconButton edge="end" size="small" aria-label="Ver ensayo" onClick={() => openTestModal(test)}>
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
                       <IconButton edge="end" size="small" aria-label="Editar ensayo" onClick={() => openTestDialog(test)}>
                         <EditIcon fontSize="small" />
                       </IconButton>
@@ -801,6 +963,14 @@ const InspectionDetailPage = () => {
                   divider
                   secondaryAction={
                     <Stack direction="row" spacing={1}>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        aria-label="Ver documento"
+                        onClick={() => openDocumentModal(doc)}
+                      >
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
                       <IconButton
                         edge="end"
                         size="small"
@@ -949,6 +1119,7 @@ const InspectionDetailPage = () => {
               value={damageForm.comments}
               onChange={(event) => setDamageForm((prev) => ({ ...prev, comments: event.target.value }))}
             />
+            {editingDamageWithPhotos && renderDamagePhotos(editingDamageWithPhotos)}
             <TextField
               label="URL de fotografía"
               value={damageForm.damage_photo_url}
@@ -972,6 +1143,139 @@ const InspectionDetailPage = () => {
               Guardar
             </Button>
           </DialogActions>
+      </Dialog>
+
+      <Dialog open={testModalOpen} onClose={closeTestModal} maxWidth="md" fullWidth>
+        <DialogTitle>Detalle de ensayo</DialogTitle>
+        <DialogContent dividers>
+          {modalTest ? (
+            <Stack spacing={2}>
+              <Typography variant="h6" component="div">
+                {modalTest.test_type}
+              </Typography>
+              <Typography variant="body2" component="div">
+                Método: {modalTest.method || "—"} · Norma: {modalTest.standard || "—"}
+              </Typography>
+              <Typography variant="body2" component="div">
+                Laboratorio: {modalTest.laboratory || "—"} · Fecha: {dayjs(modalTest.executed_at).format("DD/MM/YYYY")}
+              </Typography>
+              <Typography variant="body2" component="div">
+                Muestra: {modalTest.sample_location || "—"}
+              </Typography>
+              <Typography variant="body2" component="div">
+                Resultados: {modalTest.result_summary}
+              </Typography>
+              {modalTest.attachment_url && (
+                <Button
+                  component="a"
+                  href={modalTest.attachment_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  startIcon={<AttachmentIcon />}
+                >
+                  Informe
+                </Button>
+              )}
+            </Stack>
+          ) : (
+            <Typography>No hay ensayo seleccionado.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeTestModal}>Cerrar</Button>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              if (modalTest) {
+                openTestDialog(modalTest);
+                closeTestModal();
+              }
+            }}
+          >
+            Editar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              if (modalTest) {
+                deleteTestMutation.mutate(modalTest.id);
+                closeTestModal();
+              }
+            }}
+            disabled={!modalTest}
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={documentModalOpen} onClose={closeDocumentModal} maxWidth="md" fullWidth>
+        <DialogTitle>Detalle de documentación</DialogTitle>
+        <DialogContent dividers>
+          {modalDocument ? (
+            <Stack spacing={2}>
+              <Typography variant="h6" component="div">
+                {modalDocument.title}
+              </Typography>
+              <Typography variant="body2" component="div">
+                Categoría: {modalDocument.category}
+              </Typography>
+              <Typography variant="body2" component="div">
+                Fecha de emisión:{" "}
+                {modalDocument.issued_at ? dayjs(modalDocument.issued_at).format("DD/MM/YYYY") : "No indicada"}
+              </Typography>
+              <Typography variant="body2" component="div">
+                Emitido por: {modalDocument.issued_by || "No indicado"}
+              </Typography>
+              {modalDocument.notes && (
+                <Typography variant="body2" component="div">
+                  Notas: {modalDocument.notes}
+                </Typography>
+              )}
+              {modalDocument.url && (
+                <Button
+                  component="a"
+                  href={modalDocument.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  startIcon={<AttachmentIcon />}
+                >
+                  Abrir documento
+                </Button>
+              )}
+            </Stack>
+          ) : (
+            <Typography>No hay documentación seleccionada.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDocumentModal}>Cerrar</Button>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              if (modalDocument) {
+                openDocumentDialog(modalDocument);
+                closeDocumentModal();
+              }
+            }}
+          >
+            Editar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              if (modalDocument) {
+                deleteDocumentMutation.mutate(modalDocument.id);
+                closeDocumentModal();
+              }
+            }}
+            disabled={!modalDocument}
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Dialog
@@ -1028,49 +1332,7 @@ const InspectionDetailPage = () => {
                   {damageModalUploading ? "Subiendo..." : "Subir fotos"}
                 </Button>
               </Stack>
-              <Typography variant="subtitle1" component="div">
-                Fotos guardadas
-              </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                {(modalDamage.photos ?? []).length === 0 && (
-                  <Typography variant="body2" color="text.secondary" component="div">
-                    Sin fotografías anexas.
-                  </Typography>
-                )}
-                {(modalDamage.photos ?? []).map((photo) => (
-                  <Box
-                    key={photo.id ?? photo.photo_url}
-                    sx={{
-                      position: "relative",
-                      width: 120,
-                      height: 90,
-                      borderRadius: 1,
-                      overflow: "hidden",
-                      border: "1px solid",
-                      borderColor: "divider",
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src={photo.photo_url ?? ""}
-                      alt="Foto de daño"
-                      sx={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                    <IconButton
-                      size="small"
-                      sx={{
-                        position: "absolute",
-                        top: 4,
-                        right: 4,
-                        backgroundColor: "rgba(255,255,255,0.85)",
-                      }}
-                      onClick={() => handleDamagePhotoDelete(photo.id)}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                ))}
-              </Stack>
+              {renderDamagePhotos(modalDamageWithPhotos, { label: "Fotos guardadas", showDelete: true })}
             </Stack>
           ) : (
             <Typography>No se encontró el daño seleccionado.</Typography>

@@ -25,6 +25,7 @@ export interface ProjectInspectionDamage {
     photos?: {
         id?: string | null;
         photo_url?: string | null;
+        comments?: string | null;
     }[];
     damage_date?: string | null;
 }

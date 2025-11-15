@@ -5,6 +5,7 @@ from api.dependencies import UserIdDep
 from api.schemas.inspections import (
     DamageCreate,
     DamagePhotoResponse,
+    DamagePhotoUpdate,
     DamageResponse,
     DamageUpdate,
     DocumentCreate,
@@ -38,6 +39,7 @@ from services.inspections_service import (
     update_project_inspection_test,
     update_project_inspection_damage,
     update_project_inspection_document,
+    update_project_inspection_damage_photo,
 )
 from services.media_service import compress_and_store_inspection_photo
 
@@ -120,6 +122,25 @@ async def delete_damage_photo(damage_id: str, photo_id: str, user_id: UserIdDep)
         delete_project_inspection_damage_photo(photo_id)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+
+
+@router.patch("/inspection-damages/{damage_id}/photos/{photo_id}", response_model=DamagePhotoResponse)
+async def update_damage_photo(
+    damage_id: str,
+    photo_id: str,
+    payload: DamagePhotoUpdate,
+    user_id: UserIdDep,
+):
+    damage = get_project_inspection_damage(damage_id)
+    if not damage:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Daño no encontrado")
+    try:
+        photo = update_project_inspection_damage_photo(photo_id, payload.model_dump(exclude_none=True))
+        if not photo:
+            raise ValueError("Foto no encontrada")
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+    return photo
 
 
 @router.get("/projects/{project_id}/inspection-tests", response_model=list[TestResponse])

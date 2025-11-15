@@ -4,6 +4,7 @@ create table if not exists public.project_inspection_damage_photos (
     inspection_id uuid not null references public.project_inspections(id) on delete cascade,
     damage_id uuid not null references public.project_inspection_damages(id) on delete cascade,
     photo_url text not null,
+    comments text,
     created_at timestamptz not null default now()
 );
 create index if not exists idx_project_inspection_damage_photos_damage on public.project_inspection_damage_photos(damage_id, created_at desc);

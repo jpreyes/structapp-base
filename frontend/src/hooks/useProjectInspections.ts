@@ -26,7 +26,7 @@ export interface ProjectInspectionDamage {
   extent?: string | null;
   comments?: string | null;
   damage_photo_url?: string | null;
-  photos?: { id?: string | null; photo_url?: string | null }[];
+  photos?: { id?: string | null; photo_url?: string | null; comments?: string | null }[];
   damage_date?: string | null;
 }
 

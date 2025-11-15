@@ -79,8 +79,11 @@ def list_project_inspection_damages(project_id: str, inspection_id: str | None =
         damage_id = photo.get("damage_id")
         url = photo.get("photo_url")
         pid = photo.get("id")
+        comments = photo.get("comments")
         if damage_id and url:
-            photo_map.setdefault(damage_id, []).append({"id": pid, "photo_url": url})
+            photo_map.setdefault(damage_id, []).append(
+                {"id": pid, "photo_url": url, "comments": comments}
+            )
     for damage in damages:
         damage["photos"] = photo_map.get(damage.get("id") or "", [])
     return damages
@@ -225,3 +228,15 @@ def create_project_inspection_damage_photo(payload: dict):
 
 def delete_project_inspection_damage_photo(photo_id: str):
     supa().table("project_inspection_damage_photos").delete().eq("id", photo_id).execute()
+
+
+def update_project_inspection_damage_photo(photo_id: str, payload: dict):
+    result = (
+        supa()
+        .table("project_inspection_damage_photos")
+        .update(_serialize_payload(payload))
+        .eq("id", photo_id)
+        .execute()
+    )
+    data = result.data
+    return data[0] if data else None

@@ -25,4 +25,4 @@ __pycache__/
 *.manifest
 *.spec
 Complemento inspección.txt
-.env
+uploads/

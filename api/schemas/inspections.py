@@ -63,6 +63,13 @@ class DamagePhotoResponse(BaseModel):
     damage_id: str
     photo_url: str
     created_at: datetime | None = None
+    comments: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
+class DamagePhotoUpdate(BaseModel):
+    comments: str | None = None
 
     model_config = ConfigDict(extra="allow")
 
