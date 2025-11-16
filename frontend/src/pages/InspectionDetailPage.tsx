@@ -141,28 +141,50 @@ const formatScoreValue = (value?: number | null) =>
 const formatLLMScoreValue = (value?: number | null) =>
   value !== undefined && value !== null ? value.toFixed(2) : "Pendiente";
 
-const renderLLMPayload = (payload?: { score?: number; reason?: string } | null) => {
-  if (!payload) return null;
-  const formatted = JSON.stringify(payload, null, 2);
-  return (
-    <Box
-      component="pre"
-      sx={{
-        fontSize: "0.75rem",
-        backgroundColor: "rgba(0,0,0,0.03)",
-        borderRadius: 1,
-        padding: 1,
-        whiteSpace: "pre-wrap",
-        wordBreak: "break-word",
-      }}
-    >
-      {formatted}
-    </Box>
-  );
-};
-
 const formatScoreTimestamp = (value?: string | null) =>
   value ? dayjs(value).format("DD/MM/YYYY HH:mm") : null;
+
+const LLMPayloadViewer = ({
+  payload,
+  title,
+}: {
+  payload?: { score?: number; reason?: string } | null;
+  title?: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  if (!payload) {
+    return null;
+  }
+  const formatted = JSON.stringify(payload, null, 2);
+  return (
+    <>
+      <Button size="small" variant="text" onClick={() => setOpen(true)}>
+        Ver detalles del modelo
+      </Button>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{title ?? "Detalle del modelo"}</DialogTitle>
+        <DialogContent>
+          <Box
+            component="pre"
+            sx={{
+              fontSize: "0.8rem",
+              backgroundColor: "rgba(0,0,0,0.04)",
+              borderRadius: 1,
+              padding: 1,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          >
+            {formatted}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+};
 
 const InspectionDetailPage = () => {
   const { projectId, inspectionId } = useParams<{ projectId?: string; inspectionId?: string }>();
@@ -554,6 +576,8 @@ const InspectionDetailPage = () => {
                         size="small"
                         label="Comentario"
                         value={commentValue}
+                        id={photoId ? `damage-photo-comment-${photoId}` : undefined}
+                        name="damagePhotoComment"
                         onChange={(event) => {
                           if (photoId) {
                             setPhotoCommentValues((prev) => ({
@@ -801,7 +825,10 @@ const InspectionDetailPage = () => {
                   {inspection.llm_reason}
                 </Typography>
               )}
-              {renderLLMPayload(inspection.llm_payload)}
+              <LLMPayloadViewer
+                payload={inspection.llm_payload}
+                title="Detalle del modelo LLM para la inspección"
+              />
             </Stack>
           </Stack>
         </CardContent>
@@ -904,7 +931,10 @@ const InspectionDetailPage = () => {
                             Actualizado {formatScoreTimestamp(damage.score_updated_at)}
                           </Typography>
                         )}
-                        {renderLLMPayload(damage.llm_payload)}
+                        <LLMPayloadViewer
+                          payload={damage.llm_payload}
+                          title={`Detalle LLM de ${damage.structure || "daño"}`}
+                        />
                         {(damage.photos ?? []).length > 0 ? (
                           <Button
                             component="a"
@@ -1139,17 +1169,23 @@ const InspectionDetailPage = () => {
               label="Estructura / elemento"
               value={damageForm.structure}
               onChange={(event) => setDamageForm((prev) => ({ ...prev, structure: event.target.value }))}
+              id="damage-structure"
+              name="damageStructure"
             />
             <TextField
               label="Ubicación"
               value={damageForm.location}
               onChange={(event) => setDamageForm((prev) => ({ ...prev, location: event.target.value }))}
+              id="damage-location"
+              name="damageLocation"
             />
             <TextField
               select
               label="Tipo de daño"
               value={damageForm.damage_type}
               onChange={(event) => setDamageForm((prev) => ({ ...prev, damage_type: event.target.value }))}
+              id="damage-type"
+              name="damageType"
             >
               {DAMAGE_TYPES.map((type) => (
                 <MenuItem key={type} value={type}>
@@ -1162,6 +1198,8 @@ const InspectionDetailPage = () => {
               label="Causa probable"
               value={damageForm.damage_cause}
               onChange={(event) => setDamageForm((prev) => ({ ...prev, damage_cause: event.target.value }))}
+              id="damage-cause"
+              name="damageCause"
             >
               {DAMAGE_CAUSES.map((cause) => (
                 <MenuItem key={cause} value={cause}>
@@ -1176,6 +1214,8 @@ const InspectionDetailPage = () => {
               onChange={(event) =>
                 setDamageForm((prev) => ({ ...prev, severity: event.target.value as DamageFormState["severity"] }))
               }
+              id="damage-severity"
+              name="damageSeverity"
             >
               {DAMAGE_SEVERITIES.map((severity) => (
                 <MenuItem key={severity} value={severity}>
@@ -1210,6 +1250,8 @@ const InspectionDetailPage = () => {
               label="Extensión / magnitud"
               value={damageForm.extent}
               onChange={(event) => setDamageForm((prev) => ({ ...prev, extent: event.target.value }))}
+              id="damage-extent"
+              name="damageExtent"
             />
             <TextField
               label="Comentarios"
@@ -1217,6 +1259,8 @@ const InspectionDetailPage = () => {
               minRows={2}
               value={damageForm.comments}
               onChange={(event) => setDamageForm((prev) => ({ ...prev, comments: event.target.value }))}
+              id="damage-comments"
+              name="damageComments"
             />
             {editingDamage ? (
               <Stack spacing={1}>
@@ -1260,6 +1304,8 @@ const InspectionDetailPage = () => {
               label="URL de fotografía"
               value={damageForm.damage_photo_url}
               onChange={(event) => setDamageForm((prev) => ({ ...prev, damage_photo_url: event.target.value }))}
+              id="damage-photo-url"
+              name="damagePhotoUrl"
             />
           </Stack>
         </DialogContent>
@@ -1510,16 +1556,22 @@ const InspectionDetailPage = () => {
             <TextField
               label="Tipo de ensayo"
               value={testForm.test_type}
+              id="test-type"
+              name="testType"
               onChange={(event) => setTestForm((prev) => ({ ...prev, test_type: event.target.value }))}
             />
             <TextField
               label="Método / técnica"
               value={testForm.method}
+              id="test-method"
+              name="testMethod"
               onChange={(event) => setTestForm((prev) => ({ ...prev, method: event.target.value }))}
             />
             <TextField
               label="Norma aplicada"
               value={testForm.standard}
+              id="test-standard"
+              name="testStandard"
               onChange={(event) => setTestForm((prev) => ({ ...prev, standard: event.target.value }))}
             />
             <Stack direction="row" spacing={2}>
@@ -1529,18 +1581,24 @@ const InspectionDetailPage = () => {
                 InputLabelProps={{ shrink: true }}
                 fullWidth
                 value={testForm.executed_at}
+                id="test-date"
+                name="testDate"
                 onChange={(event) => setTestForm((prev) => ({ ...prev, executed_at: event.target.value }))}
               />
               <TextField
                 label="Laboratorio"
                 fullWidth
                 value={testForm.laboratory}
+                id="test-laboratory"
+                name="testLaboratory"
                 onChange={(event) => setTestForm((prev) => ({ ...prev, laboratory: event.target.value }))}
               />
             </Stack>
             <TextField
               label="Ubicación / muestra"
               value={testForm.sample_location}
+              id="test-sample"
+              name="testSample"
               onChange={(event) => setTestForm((prev) => ({ ...prev, sample_location: event.target.value }))}
             />
             <TextField
@@ -1548,11 +1606,15 @@ const InspectionDetailPage = () => {
               multiline
               minRows={3}
               value={testForm.result_summary}
+              id="test-summary"
+              name="testSummary"
               onChange={(event) => setTestForm((prev) => ({ ...prev, result_summary: event.target.value }))}
             />
             <TextField
               label="URL de informe"
               value={testForm.attachment_url}
+              id="test-attachment"
+              name="testAttachment"
               onChange={(event) => setTestForm((prev) => ({ ...prev, attachment_url: event.target.value }))}
             />
           </Stack>
@@ -1583,12 +1645,16 @@ const InspectionDetailPage = () => {
             <TextField
               label="Título"
               value={documentForm.title}
+              id="document-title"
+              name="documentTitle"
               onChange={(event) => setDocumentForm((prev) => ({ ...prev, title: event.target.value }))}
             />
             <TextField
               select
               label="Categoría"
               value={documentForm.category}
+              id="document-category"
+              name="documentCategory"
               onChange={(event) =>
                 setDocumentForm((prev) => ({
                   ...prev,
@@ -1608,18 +1674,24 @@ const InspectionDetailPage = () => {
                 InputLabelProps={{ shrink: true }}
                 fullWidth
                 value={documentForm.issued_at}
+                id="document-date"
+                name="documentDate"
                 onChange={(event) => setDocumentForm((prev) => ({ ...prev, issued_at: event.target.value }))}
               />
               <TextField
                 label="Emitido por"
                 fullWidth
                 value={documentForm.issued_by}
+                id="document-issued-by"
+                name="documentIssuedBy"
                 onChange={(event) => setDocumentForm((prev) => ({ ...prev, issued_by: event.target.value }))}
               />
             </Stack>
             <TextField
               label="URL"
               value={documentForm.url}
+              id="document-url"
+              name="documentUrl"
               onChange={(event) => setDocumentForm((prev) => ({ ...prev, url: event.target.value }))}
             />
             <TextField
@@ -1627,6 +1699,8 @@ const InspectionDetailPage = () => {
               multiline
               minRows={2}
               value={documentForm.notes}
+              id="document-notes"
+              name="documentNotes"
               onChange={(event) => setDocumentForm((prev) => ({ ...prev, notes: event.target.value }))}
             />
           </Stack>

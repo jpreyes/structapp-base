@@ -1,5 +1,17 @@
 create extension if not exists "uuid-ossp";
-create table if not exists public.profiles (user_id uuid primary key references auth.users(id) on delete cascade, plan text not null default 'basic', created_at timestamptz not null default now());
+create table if not exists public.profiles (
+    user_id uuid primary key references auth.users(id) on delete cascade,
+    plan text not null default 'basic',
+    approved boolean not null default false,
+    approval_token text,
+    approval_requested_at timestamptz not null default now(),
+    approved_at timestamptz,
+    full_name text,
+    profession text,
+    avatar_url text,
+    project_limit integer default 3,
+    created_at timestamptz not null default now()
+);
 create table if not exists public.projects (id uuid primary key default uuid_generate_v4(), name text not null, status text not null default 'draft', created_by uuid not null references auth.users(id), start_date date, end_date date, mandante text, budget numeric(14,2), payment_status text not null default 'not_invoiced', is_archived boolean not null default false, archived_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
 create table if not exists public.calc_runs (
     id uuid primary key default uuid_generate_v4(),

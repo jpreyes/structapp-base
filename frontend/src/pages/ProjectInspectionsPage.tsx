@@ -193,6 +193,8 @@ const ProjectInspectionsPage = () => {
             setSelectedProjectId(event.target.value);
             setProject(event.target.value);
           }}
+          id="inspection-project-select"
+          name="inspectionProject"
         >
           {(projects ?? []).map((project) => (
             <MenuItem key={project.id} value={project.id}>
@@ -336,11 +338,15 @@ const ProjectInspectionsPage = () => {
               label="Estructura / elemento"
               value={inspectionForm.structure_name}
               onChange={(event) => setInspectionForm((prev) => ({ ...prev, structure_name: event.target.value }))}
+              id="inspection-structure"
+              name="inspectionStructure"
             />
             <TextField
               label="Ubicación"
               value={inspectionForm.location}
               onChange={(event) => setInspectionForm((prev) => ({ ...prev, location: event.target.value }))}
+              id="inspection-location"
+              name="inspectionLocation"
             />
             <Stack direction="row" spacing={2}>
               <TextField
@@ -350,12 +356,16 @@ const ProjectInspectionsPage = () => {
                 fullWidth
                 value={inspectionForm.inspection_date}
                 onChange={(event) => setInspectionForm((prev) => ({ ...prev, inspection_date: event.target.value }))}
+                id="inspection-date"
+                name="inspectionDate"
               />
               <TextField
                 label="Inspector"
                 fullWidth
                 value={inspectionForm.inspector}
                 onChange={(event) => setInspectionForm((prev) => ({ ...prev, inspector: event.target.value }))}
+                id="inspection-inspector"
+                name="inspectionInspector"
               />
             </Stack>
             <TextField
@@ -368,6 +378,8 @@ const ProjectInspectionsPage = () => {
                   overall_condition: event.target.value as InspectionFormState["overall_condition"],
                 }))
               }
+              id="inspection-condition"
+              name="inspectionCondition"
             >
               {conditionOptions.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
@@ -381,6 +393,8 @@ const ProjectInspectionsPage = () => {
               minRows={3}
               value={inspectionForm.summary}
               onChange={(event) => setInspectionForm((prev) => ({ ...prev, summary: event.target.value }))}
+              id="inspection-summary"
+              name="inspectionSummary"
             />
             <TextField
               label="URLs de fotografías (una por línea)"
@@ -388,6 +402,8 @@ const ProjectInspectionsPage = () => {
               minRows={3}
               value={inspectionForm.photos}
               onChange={(event) => setInspectionForm((prev) => ({ ...prev, photos: event.target.value }))}
+              id="inspection-photos"
+              name="inspectionPhotos"
             />
           </Stack>
         </DialogContent>

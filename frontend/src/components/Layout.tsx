@@ -18,6 +18,7 @@ import DashboardIcon from "@mui/icons-material/SpaceDashboardRounded";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import FolderIcon from "@mui/icons-material/Folder";
 import PaymentIcon from "@mui/icons-material/Payments";
+import SettingsIcon from "@mui/icons-material/Settings";
 import MenuIcon from "@mui/icons-material/Menu";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import DescriptionIcon from "@mui/icons-material/Description";
@@ -101,6 +102,7 @@ const Layout = () => {
       },
       { label: "Tareas", icon: <AssignmentIcon />, path: "/tasks", requiresAuth: true },
       { label: "Finanzas", icon: <PaymentIcon />, path: "/payments", requiresAuth: true },
+      { label: "Configuración", icon: <SettingsIcon />, path: "/settings", requiresAuth: true },
       { label: "Login", icon: <LoginIcon />, path: "/login", showWhenLoggedOut: true },
     ],
     []

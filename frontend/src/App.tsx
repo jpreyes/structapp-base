@@ -10,6 +10,7 @@ import RequireAuth from "./components/RequireAuth";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import ProjectCalculationsPage from "./pages/ProjectCalculationsPage";
 import ProjectDocumentationPage from "./pages/ProjectDocumentationPage";
+import SettingsPage from "./pages/SettingsPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import ProjectDesignBasesPage from "./pages/ProjectDesignBasesPage";
 import ProjectInspectionsPage from "./pages/ProjectInspectionsPage";
@@ -39,6 +40,7 @@ function App() {
           <Route path="/projects/inspections" element={<ProjectInspectionsPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="/subscribe" element={<SubscriptionPage />} />
       </Route>

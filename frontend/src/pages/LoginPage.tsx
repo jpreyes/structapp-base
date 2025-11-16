@@ -21,6 +21,8 @@ const LoginPage = () => {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const setToken = useSession((state) => state.setToken);
@@ -43,6 +45,8 @@ const LoginPage = () => {
       } else if (mode === "register") {
         setInfoMessage("Cuenta creada. Revisa tu correo y luego inicia sesión.");
         setMode("login");
+        setConfirmEmail("");
+        setConfirmPassword("");
       }
     },
     onError: (err: any) => {
@@ -55,6 +59,16 @@ const LoginPage = () => {
     event.preventDefault();
     setError(null);
     setInfoMessage(null);
+    if (mode === "register") {
+      if (email !== confirmEmail) {
+        setError("Los correos deben coincidir.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError("Las contraseñas deben coincidir.");
+        return;
+      }
+    }
     authMutation.mutate();
   };
 
@@ -69,7 +83,14 @@ const LoginPage = () => {
           <ToggleButtonGroup
             value={mode}
             exclusive
-            onChange={(_, value) => value && setMode(value as Mode)}
+            onChange={(_, value) => {
+              if (!value) return;
+              setMode(value as Mode);
+              if (value === "login") {
+                setConfirmEmail("");
+                setConfirmPassword("");
+              }
+            }}
             sx={{ mb: 3 }}
             fullWidth
           >
@@ -86,6 +107,15 @@ const LoginPage = () => {
                 onChange={(event) => setEmail(event.target.value)}
                 required
               />
+              {mode === "register" && (
+                <TextField
+                  type="email"
+                  label="Confirmar email"
+                  value={confirmEmail}
+                  onChange={(event) => setConfirmEmail(event.target.value)}
+                  required
+                />
+              )}
               <TextField
                 type="password"
                 label="Contraseña"
@@ -93,6 +123,15 @@ const LoginPage = () => {
                 onChange={(event) => setPassword(event.target.value)}
                 required
               />
+              {mode === "register" && (
+                <TextField
+                  type="password"
+                  label="Confirmar contraseña"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  required
+                />
+              )}
               {error && (
                 <Typography color="error" variant="body2">
                   {error}
