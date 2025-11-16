@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from api.schemas.structural_calcs import (
     ConcreteBeamResponse,
     ConcreteColumnResponse,
@@ -104,7 +104,8 @@ class SeismicRequest(BaseModel):
     r0: float = Field(..., gt=0)
     stories: List[SeismicStory]
 
-    @validator("stories")
+    @field_validator("stories")
+    @classmethod
     def validate_stories(cls, value: List[SeismicStory]) -> List[SeismicStory]:
         if not value:
             raise ValueError("Debe indicar al menos un nivel.")

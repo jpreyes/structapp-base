@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from api.schemas.payments import PaymentResponse
 from api.schemas.tasks import TaskResponse
@@ -35,8 +35,7 @@ class ProjectResponse(ProjectBase):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectPaymentTotals(BaseModel):
