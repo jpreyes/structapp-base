@@ -3,23 +3,13 @@ from datetime import datetime, timezone
 import httpx
 
 from core.config import SUPABASE_ANON_KEY, SUPABASE_URL
-from supa.client import supa, supa_service
+from supa.client import supa
 
 
 def register(email: str, password: str) -> dict:
     res = supa().auth.sign_up({"email": email, "password": password})
     if res.user is None:
         raise ValueError("No se pudo crear la cuenta (activa email/password en Supabase).")
-
-    supa_service().table("profiles").upsert(
-        {
-            "user_id": res.user.id,
-            "plan": "basic",
-            "approved": False,
-            "approval_requested_at": datetime.now(timezone.utc).isoformat(),
-            "project_limit": 3,
-        }
-    ).execute()
 
     return {
         "id": res.user.id,
