@@ -118,9 +118,10 @@ const SettingsPage = () => {
       setPassword("");
       setConfirmPassword("");
       setMessage("Perfil actualizado.");
-      setUser((previous) =>
-        previous ? { ...previous, email: data.email, plan: data.plan } : previous
-      );
+      const currentUser = useSession.getState().user;
+      if (currentUser) {
+        setUser({ ...currentUser, email: data.email, plan: data.plan });
+      }
     } catch (err: any) {
       const detail = err?.response?.data?.detail ?? "No pudimos actualizar el perfil.";
       setError(detail);
