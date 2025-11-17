@@ -18,10 +18,12 @@ import DashboardIcon from "@mui/icons-material/SpaceDashboardRounded";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import FolderIcon from "@mui/icons-material/Folder";
 import PaymentIcon from "@mui/icons-material/Payments";
+import SettingsIcon from "@mui/icons-material/Settings";
 import MenuIcon from "@mui/icons-material/Menu";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ArchitectureIcon from "@mui/icons-material/Architecture";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 import LoginIcon from "@mui/icons-material/Login";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useThemeStore } from "../store/useTheme";
@@ -91,8 +93,16 @@ const Layout = () => {
         requiresAuth: true,
         indent: true,
       },
+      {
+        label: "Inspecciones y ensayos",
+        icon: <FactCheckIcon />,
+        path: "/projects/inspections",
+        requiresAuth: true,
+        indent: true,
+      },
       { label: "Tareas", icon: <AssignmentIcon />, path: "/tasks", requiresAuth: true },
       { label: "Finanzas", icon: <PaymentIcon />, path: "/payments", requiresAuth: true },
+      { label: "Configuración", icon: <SettingsIcon />, path: "/settings", requiresAuth: true },
       { label: "Login", icon: <LoginIcon />, path: "/login", showWhenLoggedOut: true },
     ],
     []
@@ -154,21 +164,6 @@ const Layout = () => {
       </List>
       <Box sx={{ flexGrow: 1 }} />
       <Divider />
-      <List>
-        <ListItemButton
-          selected={location.pathname === "/subscribe"}
-          onClick={() => {
-            navigate("/subscribe");
-            setMobileOpen(false);
-          }}
-          sx={{ mt: 1 }}
-        >
-          <ListItemIcon>
-            <PaymentIcon />
-          </ListItemIcon>
-          <ListItemText primary="Suscripción" />
-        </ListItemButton>
-      </List>
     </Box>
   );
 

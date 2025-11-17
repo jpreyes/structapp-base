@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, IconButton, List, ListItem, ListItemButton, ListItemText, MenuItem, Snackbar, Stack, TextField, Typography, } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -11,6 +11,7 @@ import HistoryIcon from "@mui/icons-material/History";
 import DownloadIcon from "@mui/icons-material/Download";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useMutation } from "@tanstack/react-query";
+import { useParams } from "react-router-dom";
 import apiClient from "../api/client";
 import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
 import { useProjects } from "../hooks/useProjects";
@@ -29,6 +30,8 @@ const getErrorMessage = (error) => {
 const ProjectDesignBasesPage = () => {
     const { data: options, isLoading: optionsLoading, isError } = useDesignBaseOptions();
     const user = useSession((state) => state.user);
+    const setProjectInSession = useSession((state) => state.setProject);
+    const { projectId: routeProjectId } = useParams();
     const [buildingType, setBuildingType] = useState("");
     const [usage, setUsage] = useState("");
     const [elementType, setElementType] = useState("");
@@ -98,6 +101,17 @@ const ProjectDesignBasesPage = () => {
     const [savedBases, setSavedBases] = useState([]);
     // Cargar lista de proyectos
     const { data: projects = [], isLoading: projectsLoading } = useProjects();
+    useEffect(() => {
+        if (routeProjectId && routeProjectId !== projectId) {
+            setProjectId(routeProjectId);
+        }
+    }, [routeProjectId, projectId]);
+    useEffect(() => {
+        if (projectId) {
+            localStorage.setItem("activeProjectId", projectId);
+            setProjectInSession(projectId);
+        }
+    }, [projectId, setProjectInSession]);
     // Estado para generar documento Word y historial
     const [generateDocDialogOpen, setGenerateDocDialogOpen] = useState(false);
     const [docProjectName, setDocProjectName] = useState("");
@@ -573,7 +587,6 @@ const ProjectDesignBasesPage = () => {
     }
     return (_jsxs(Box, { sx: { display: "flex", flexDirection: "column", gap: 3 }, children: [_jsxs(Box, { sx: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [_jsx(Typography, { variant: "h5", gutterBottom: true, children: "Bases de c\u00C3\u00A1lculo y cargas de dise\u00C3\u00B1o" }), _jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", children: [_jsx(TextField, { select: true, label: "Proyecto", size: "small", value: projectId, onChange: (e) => {
                                     setProjectId(e.target.value);
-                                    localStorage.setItem("activeProjectId", e.target.value);
                                 }, disabled: projectsLoading, sx: { width: 300 }, children: projects.map((project) => (_jsx(MenuItem, { value: project.id, children: project.name }, project.id))) }), _jsx(Button, { variant: "outlined", startIcon: _jsx(FolderOpenIcon, {}), onClick: handleLoadList, disabled: !projectId, children: "Cargar" }), _jsx(Button, { variant: "contained", startIcon: _jsx(SaveIcon, {}), onClick: () => setSaveDialogOpen(true), disabled: !hasAnyResult || !projectId, children: "Guardar" }), _jsx(Button, { variant: "contained", color: "success", startIcon: _jsx(DescriptionIcon, {}), onClick: () => setGenerateDocDialogOpen(true), disabled: !hasAnyResult || !projectId, children: "Generar Word" }), _jsx(Button, { variant: "outlined", startIcon: _jsx(HistoryIcon, {}), onClick: handleViewHistory, disabled: !projectId, children: "Historial" })] })] }), _jsx(Card, { sx: { mb: 3 }, children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "h6", gutterBottom: true, children: "Descripci\u00C3\u00B3n del Edificio" }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, children: _jsx(TextField, { label: "Descripci\u00C3\u00B3n General", value: buildingDescription, onChange: (e) => setBuildingDescription(e.target.value), fullWidth: true, multiline: true, rows: 3, placeholder: "Ej: Edificio de oficinas de 5 pisos con estructura de hormig\u00C3\u00B3n armado..." }) }), _jsx(Grid, { item: true, xs: 12, md: 6, children: _jsx(TextField, { label: "Ubicaci\u00C3\u00B3n", value: buildingLocation, onChange: (e) => setBuildingLocation(e.target.value), fullWidth: true, placeholder: "Ej: Av. Principal 123, Santiago" }) }), _jsx(Grid, { item: true, xs: 12, md: 3, children: _jsx(TextField, { label: "\u00C3\u0081rea Total (m\u00C2\u00B2)", value: buildingArea, onChange: (e) => setBuildingArea(e.target.value), fullWidth: true, placeholder: "Ej: 1250" }) }), _jsx(Grid, { item: true, xs: 12, md: 3, children: _jsx(TextField, { label: "Altura Total (m)", value: buildingHeight, onChange: (e) => setBuildingHeight(e.target.value), fullWidth: true, placeholder: "Ej: 18.5" }) }), _jsxs(Grid, { item: true, xs: 12, children: [_jsx(Button, { variant: "contained", startIcon: _jsx(SaveIcon, {}), onClick: () => buildingDescriptionMutation.mutate(), disabled: !projectId ||
                                                 !user?.id ||
                                                 (!buildingDescription && !buildingLocation && !buildingArea && !buildingHeight) ||

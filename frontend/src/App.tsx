@@ -10,8 +10,12 @@ import RequireAuth from "./components/RequireAuth";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import ProjectCalculationsPage from "./pages/ProjectCalculationsPage";
 import ProjectDocumentationPage from "./pages/ProjectDocumentationPage";
+import SettingsPage from "./pages/SettingsPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import ProjectDesignBasesPage from "./pages/ProjectDesignBasesPage";
+import ProjectInspectionsPage from "./pages/ProjectInspectionsPage";
+import ProjectWorkspacePage from "./pages/ProjectWorkspacePage";
+import InspectionDetailPage from "./pages/InspectionDetailPage";
 
 function App() {
   return (
@@ -21,14 +25,23 @@ function App() {
         <Route element={<RequireAuth />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+          <Route path="/projects/:projectId/*" element={<ProjectWorkspacePage />}>
+            <Route index element={<ProjectDetailPage />} />
+            <Route path="overview" element={<ProjectDetailPage />} />
+            <Route path="calculations" element={<ProjectCalculationsPage />} />
+            <Route path="bases" element={<ProjectDesignBasesPage />} />
+            <Route path="inspections" element={<ProjectInspectionsPage />} />
+            <Route path="inspections/:inspectionId" element={<InspectionDetailPage />} />
+            <Route path="documentation" element={<ProjectDocumentationPage />} />
+          </Route>
           <Route path="/projects/calculations" element={<ProjectCalculationsPage />} />
           <Route path="/projects/bases" element={<ProjectDesignBasesPage />} />
           <Route path="/projects/documentation" element={<ProjectDocumentationPage />} />
+          <Route path="/projects/inspections" element={<ProjectInspectionsPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
-        <Route path="/subscribe" element={<SubscriptionPage />} />
       </Route>
     </Routes>
   );

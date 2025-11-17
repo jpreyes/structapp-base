@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 
-from services.auth_service import login, register
+from api.dependencies import TokenDep, UserIdDep
+from services.auth_service import delete_user_account, login, register
 
 
 class RegisterPayload(BaseModel):
@@ -40,3 +41,15 @@ async def login_user(payload: LoginPayload):
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return user
+
+
+@router.delete("/me")
+async def delete_account(user_id: str = Depends(UserIdDep), user_token: str = Depends(TokenDep)):
+    try:
+        delete_user_account(user_id, user_token)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo eliminar la cuenta.",
+        )
+    return {"detail": "Cuenta eliminada correctamente"}

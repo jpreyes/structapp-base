@@ -32,6 +32,7 @@ import HistoryIcon from "@mui/icons-material/History";
 import DownloadIcon from "@mui/icons-material/Download";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useMutation } from "@tanstack/react-query";
+import { useParams } from "react-router-dom";
 
 import apiClient from "../api/client";
 import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
@@ -114,6 +115,8 @@ const getErrorMessage = (error: unknown): string | null => {
 const ProjectDesignBasesPage = () => {
   const { data: options, isLoading: optionsLoading, isError } = useDesignBaseOptions();
   const user = useSession((state) => state.user);
+  const setProjectInSession = useSession((state) => state.setProject);
+  const { projectId: routeProjectId } = useParams<{ projectId?: string }>();
 
   const [buildingType, setBuildingType] = useState<string>("");
   const [usage, setUsage] = useState<string>("");
@@ -194,6 +197,19 @@ const ProjectDesignBasesPage = () => {
 
   // Cargar lista de proyectos
   const { data: projects = [], isLoading: projectsLoading } = useProjects();
+
+  useEffect(() => {
+    if (routeProjectId && routeProjectId !== projectId) {
+      setProjectId(routeProjectId);
+    }
+  }, [routeProjectId, projectId]);
+
+  useEffect(() => {
+    if (projectId) {
+      localStorage.setItem("activeProjectId", projectId);
+      setProjectInSession(projectId);
+    }
+  }, [projectId, setProjectInSession]);
 
   // Estado para generar documento Word y historial
   const [generateDocDialogOpen, setGenerateDocDialogOpen] = useState(false);
@@ -755,7 +771,6 @@ const ProjectDesignBasesPage = () => {
             value={projectId}
             onChange={(e) => {
               setProjectId(e.target.value);
-              localStorage.setItem("activeProjectId", e.target.value);
             }}
             disabled={projectsLoading}
             sx={{ width: 300 }}

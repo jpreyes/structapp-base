@@ -12,7 +12,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import dayjs from "dayjs";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useProjects } from "../hooks/useProjects";
 import { useCalculationRuns } from "../hooks/useCalculationRuns";
 import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
@@ -98,6 +98,7 @@ const ProjectDocumentationPage = () => {
     const sessionProjectId = useSession((state) => state.projectId);
     const sessionUserId = useSession((state) => state.user?.id);
     const setProjectInSession = useSession((state) => state.setProject);
+    const { projectId: routeProjectId } = useParams();
     const [selectedProjectId, setSelectedProjectId] = useState(sessionProjectId);
     const [selectedCalculations, setSelectedCalculations] = useState(() => {
         const key = selectedProjectId ? `docSelection:${selectedProjectId}` : null;
@@ -129,6 +130,12 @@ const ProjectDocumentationPage = () => {
     }, []);
     const normalizeElementType = (typeId) => (typeId === "live_load_reduction" ? "reduction" : typeId);
     const { data: runs = [], isLoading: runsLoading } = useCalculationRuns(selectedProjectId);
+    useEffect(() => {
+        if (routeProjectId) {
+            setSelectedProjectId(routeProjectId);
+            setProjectInSession(routeProjectId);
+        }
+    }, [routeProjectId, setProjectInSession]);
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const setCriticalMutation = useSetCriticalElement();

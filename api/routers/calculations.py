@@ -68,7 +68,7 @@ class UpdateSeismicPayload(BaseModel):
     tx: float = Field(..., gt=0)
     ty: float = Field(..., gt=0)
     r0: float = Field(..., gt=0)
-    stories: List[UpdateSeismicStory] = Field(..., min_items=1)
+    stories: List[UpdateSeismicStory] = Field(..., min_length=1)
 
 
 class UpdateReductionPayload(BaseModel):
