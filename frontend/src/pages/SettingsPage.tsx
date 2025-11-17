@@ -32,6 +32,7 @@ type SettingsProfile = {
 
 const SettingsPage = () => {
   const setUser = useSession((state) => state.setUser);
+  const token = useSession((state) => state.token);
   const setToken = useSession((state) => state.setToken);
   const [profile, setProfile] = useState<SettingsProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,6 +59,9 @@ const SettingsPage = () => {
   }, [profile]);
 
   useEffect(() => {
+    if (!token) {
+      return;
+    }
     let mounted = true;
     const loadProfile = async () => {
       setLoading(true);
@@ -83,7 +87,7 @@ const SettingsPage = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [token]);
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
