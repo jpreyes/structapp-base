@@ -7,22 +7,15 @@ import {
   Stack,
   TextField,
   Typography,
-  ToggleButton,
-  ToggleButtonGroup,
 } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
 import { useSession } from "../store/useSession";
 
-type Mode = "login" | "register";
-
 const LoginPage = () => {
-  const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmEmail, setConfirmEmail] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const setToken = useSession((state) => state.setToken);
@@ -33,7 +26,7 @@ const LoginPage = () => {
 
   const authMutation = useMutation({
     mutationFn: async () => {
-      const endpoint = mode === "login" ? "/auth/login" : "/auth/register";
+      const endpoint = "/auth/login";
       const { data } = await apiClient.post(endpoint, { email, password });
       return data as { id: string; email: string; plan: string; session_token?: string | null };
     },
@@ -42,11 +35,6 @@ const LoginPage = () => {
       if (data.session_token) {
         setToken(data.session_token);
         navigate(from, { replace: true });
-      } else if (mode === "register") {
-        setInfoMessage("Cuenta creada. Revisa tu correo y luego inicia sesión.");
-        setMode("login");
-        setConfirmEmail("");
-        setConfirmPassword("");
       }
     },
     onError: (err: any) => {
@@ -59,16 +47,6 @@ const LoginPage = () => {
     event.preventDefault();
     setError(null);
     setInfoMessage(null);
-    if (mode === "register") {
-      if (email !== confirmEmail) {
-        setError("Los correos deben coincidir.");
-        return;
-      }
-      if (password !== confirmPassword) {
-        setError("Las contraseñas deben coincidir.");
-        return;
-      }
-    }
     authMutation.mutate();
   };
 
@@ -76,27 +54,9 @@ const LoginPage = () => {
     <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
       <Card sx={{ width: 420 }}>
         <CardContent>
-          <Typography variant="h5" gutterBottom>
-            {mode === "login" ? "Iniciar sesión" : "Crear cuenta"}
-          </Typography>
-
-          <ToggleButtonGroup
-            value={mode}
-            exclusive
-            onChange={(_, value) => {
-              if (!value) return;
-              setMode(value as Mode);
-              if (value === "login") {
-                setConfirmEmail("");
-                setConfirmPassword("");
-              }
-            }}
-            sx={{ mb: 3 }}
-            fullWidth
-          >
-            <ToggleButton value="login">Iniciar sesión</ToggleButton>
-            <ToggleButton value="register">Registrarme</ToggleButton>
-          </ToggleButtonGroup>
+            <Typography variant="h5" gutterBottom>
+              Iniciar sesión
+            </Typography>
 
           <form onSubmit={handleSubmit}>
             <Stack spacing={2}>
@@ -107,15 +67,6 @@ const LoginPage = () => {
                 onChange={(event) => setEmail(event.target.value)}
                 required
               />
-              {mode === "register" && (
-                <TextField
-                  type="email"
-                  label="Confirmar email"
-                  value={confirmEmail}
-                  onChange={(event) => setConfirmEmail(event.target.value)}
-                  required
-                />
-              )}
               <TextField
                 type="password"
                 label="Contraseña"
@@ -123,15 +74,6 @@ const LoginPage = () => {
                 onChange={(event) => setPassword(event.target.value)}
                 required
               />
-              {mode === "register" && (
-                <TextField
-                  type="password"
-                  label="Confirmar contraseña"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  required
-                />
-              )}
               {error && (
                 <Typography color="error" variant="body2">
                   {error}
@@ -148,7 +90,7 @@ const LoginPage = () => {
                 size="large"
                 disabled={authMutation.isPending}
               >
-                {mode === "login" ? "Entrar" : "Registrarme"}
+                Entrar
               </Button>
             </Stack>
           </form>
