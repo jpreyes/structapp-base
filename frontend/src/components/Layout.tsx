@@ -164,21 +164,6 @@ const Layout = () => {
       </List>
       <Box sx={{ flexGrow: 1 }} />
       <Divider />
-      <List>
-        <ListItemButton
-          selected={location.pathname === "/subscribe"}
-          onClick={() => {
-            navigate("/subscribe");
-            setMobileOpen(false);
-          }}
-          sx={{ mt: 1 }}
-        >
-          <ListItemIcon>
-            <PaymentIcon />
-          </ListItemIcon>
-          <ListItemText primary="Suscripción" />
-        </ListItemButton>
-      </List>
     </Box>
   );
 

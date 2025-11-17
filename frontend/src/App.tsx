@@ -42,7 +42,6 @@ function App() {
           <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
-        <Route path="/subscribe" element={<SubscriptionPage />} />
       </Route>
     </Routes>
   );
