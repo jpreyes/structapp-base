@@ -11,7 +11,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from api.routers import auth, projects, tasks, payments, calculations, design_bases, structural_calcs, subscription, inspections
+from api.routers import (
+    auth,
+    design_bases,
+    inspections,
+    payments,
+    projects,
+    structural_calcs,
+    subscription,
+    tasks,
+    calculations,
+)
+from api.routers import users
 from payments_webhook.flow_webhook import router as flow_router
 
 app = FastAPI(title="StructApp API", version="0.1.0")
@@ -39,6 +50,7 @@ app.include_router(subscription.router, prefix="/subscription", tags=["subscript
 app.include_router(structural_calcs.router, prefix="/structural-calcs", tags=["structural-calcs"])
 app.include_router(inspections.router, tags=["inspections"])
 app.include_router(flow_router, prefix="/payments-webhook", tags=["payments-webhook"])
+app.include_router(users.router, prefix="/users", tags=["users"])
 
 
 @app.get("/health")

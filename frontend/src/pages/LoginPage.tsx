@@ -7,18 +7,13 @@ import {
   Stack,
   TextField,
   Typography,
-  ToggleButton,
-  ToggleButtonGroup,
 } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
 import { useSession } from "../store/useSession";
 
-type Mode = "login" | "register";
-
 const LoginPage = () => {
-  const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +26,7 @@ const LoginPage = () => {
 
   const authMutation = useMutation({
     mutationFn: async () => {
-      const endpoint = mode === "login" ? "/auth/login" : "/auth/register";
+      const endpoint = "/auth/login";
       const { data } = await apiClient.post(endpoint, { email, password });
       return data as { id: string; email: string; plan: string; session_token?: string | null };
     },
@@ -40,9 +35,6 @@ const LoginPage = () => {
       if (data.session_token) {
         setToken(data.session_token);
         navigate(from, { replace: true });
-      } else if (mode === "register") {
-        setInfoMessage("Cuenta creada. Revisa tu correo y luego inicia sesión.");
-        setMode("login");
       }
     },
     onError: (err: any) => {
@@ -62,20 +54,9 @@ const LoginPage = () => {
     <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
       <Card sx={{ width: 420 }}>
         <CardContent>
-          <Typography variant="h5" gutterBottom>
-            {mode === "login" ? "Iniciar sesión" : "Crear cuenta"}
-          </Typography>
-
-          <ToggleButtonGroup
-            value={mode}
-            exclusive
-            onChange={(_, value) => value && setMode(value as Mode)}
-            sx={{ mb: 3 }}
-            fullWidth
-          >
-            <ToggleButton value="login">Iniciar sesión</ToggleButton>
-            <ToggleButton value="register">Registrarme</ToggleButton>
-          </ToggleButtonGroup>
+            <Typography variant="h5" gutterBottom>
+              Iniciar sesión
+            </Typography>
 
           <form onSubmit={handleSubmit}>
             <Stack spacing={2}>
@@ -109,7 +90,7 @@ const LoginPage = () => {
                 size="large"
                 disabled={authMutation.isPending}
               >
-                {mode === "login" ? "Entrar" : "Registrarme"}
+                Entrar
               </Button>
             </Stack>
           </form>

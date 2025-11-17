@@ -12,10 +12,15 @@ def get_supabase():
 SupabaseClientDep = Annotated[object, Depends(get_supabase)]
 
 
-async def get_current_user(authorization: Annotated[str | None, Header()] = None):
+async def get_current_token(authorization: Annotated[str | None, Header()] = None) -> str:
     if not authorization:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authorization header")
-    token = authorization.replace("Bearer ", "")
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization header must use Bearer token")
+    return authorization.split(" ", 1)[1]
+
+
+async def get_current_user(token: Annotated[str, Depends(get_current_token)]):
     client = supa()
     try:
         session = client.auth.get_user(token)
@@ -34,3 +39,5 @@ async def get_user_id(user = Depends(get_current_user)) -> str:
 
 
 UserIdDep = Annotated[str, Depends(get_user_id)]
+
+TokenDep = Annotated[str, Depends(get_current_token)]
