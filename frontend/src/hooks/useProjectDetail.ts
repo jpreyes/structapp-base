@@ -16,6 +16,7 @@ export interface ProjectDetail {
       facturado: number;
       pagado: number;
       saldo: number;
+      egresos: number;
     };
   };
   important_dates: {

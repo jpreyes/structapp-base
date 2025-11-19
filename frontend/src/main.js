@@ -20,3 +20,4 @@ function ThemedRoot() {
     return (_jsxs(ThemeProvider, { theme: theme(mode), children: [_jsx(CssBaseline, {}), _jsx(BrowserRouter, { children: _jsx(App, {}) })] }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(_jsx(React.StrictMode, { children: _jsx(QueryClientProvider, { client: queryClient, children: _jsx(ThemedRoot, {}) }) }));
+

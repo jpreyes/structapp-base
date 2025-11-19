@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -89,7 +89,7 @@ const SettingsPage = () => {
     };
   }, [token]);
 
-  const handleSave = async (event: React.FormEvent) => {
+  const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setMessage(null);

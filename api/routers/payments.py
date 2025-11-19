@@ -27,10 +27,15 @@ async def list_payments(project_id: str, user_id: UserIdDep):
 @router.post("/", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
 async def create_payment(payload: PaymentCreate, user_id: UserIdDep):
     try:
+        payload_data = payload.model_dump()
+        for field in ("event_date", "due_date"):
+            if field in payload_data and hasattr(payload_data[field], "isoformat"):
+                payload_data[field] = payload_data[field].isoformat()
+
         response = (
             supa()
             .table("project_payments")
-            .insert(payload.model_dump())
+            .insert(payload_data)
             .execute()
         )
     except Exception as exc:
@@ -44,8 +49,9 @@ async def create_payment(payload: PaymentCreate, user_id: UserIdDep):
 async def update_payment(payment_id: str, payload: PaymentUpdate, user_id: UserIdDep):
     try:
         patch = payload.model_dump(exclude_unset=True)
-        if "event_date" in patch and hasattr(patch["event_date"], "isoformat"):
-            patch["event_date"] = patch["event_date"].isoformat()
+        for field in ("event_date", "due_date"):
+            if field in patch and hasattr(patch[field], "isoformat"):
+                patch[field] = patch[field].isoformat()
         response = (
             supa()
             .table("project_payments")

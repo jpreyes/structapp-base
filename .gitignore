@@ -27,3 +27,6 @@ __pycache__/
 Complemento inspección.txt
 uploads/
 .env
+implementation_mapping.md
+SUPABASE_FRONTEND_INTEGRATION.md
+figma_snapshot/

@@ -32,8 +32,19 @@ const DashboardPage = () => {
     const totalTasks = tasks?.length ?? 0;
     const completedTasks = tasks?.filter((task) => task.status === "done").length ?? 0;
     const totalPaid = projects?.reduce((acc, project) => acc + (project.payments_pagado ?? 0), 0) ?? 0;
+    const totalEgresos = projects?.reduce((acc, project) => acc + (project.payments_egresos ?? 0), 0) ?? 0;
     const totalOutstanding = projects?.reduce((acc, project) => acc + (project.payments_saldo ?? 0), 0) ?? 0;
-    return { totalProjects, totalBudget, totalTasks, completedTasks, totalPaid, totalOutstanding };
+    const netPaid = totalPaid - totalEgresos;
+    return {
+      totalProjects,
+      totalBudget,
+      totalTasks,
+      completedTasks,
+      totalPaid,
+      totalEgresos,
+      totalOutstanding,
+      netPaid,
+    };
   }, [projects, tasks]);
 
   const events = useMemo(() => {
@@ -57,6 +68,17 @@ const DashboardPage = () => {
 
   const formatCurrency = (value: number | null | undefined) =>
     Number(value ?? 0).toLocaleString("es-CL");
+
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) {
+      return "sin fecha";
+    }
+    return new Date(value).toLocaleDateString("es-CL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -127,6 +149,30 @@ const DashboardPage = () => {
             </CardContent>
           </Card>
         </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="button" color="text.secondary">
+                Egresos totales CLP
+              </Typography>
+              <Typography variant="h5">
+                {metrics.totalEgresos.toLocaleString("es-CL")}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="button" color="text.secondary">
+                Pagado neto CLP
+              </Typography>
+              <Typography variant="h5">
+                {metrics.netPaid.toLocaleString("es-CL")}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       <Card>
@@ -140,9 +186,11 @@ const DashboardPage = () => {
                 <TableRow>
                   <TableCell>Proyecto</TableCell>
                   <TableCell>Estado</TableCell>
+                  <TableCell>Fecha término</TableCell>
                   <TableCell align="right">Presupuesto (CLP)</TableCell>
                   <TableCell align="right">Facturado (CLP)</TableCell>
                   <TableCell align="right">Pagado (CLP)</TableCell>
+                  <TableCell align="right">Egresos (CLP)</TableCell>
                   <TableCell align="right">Saldo (CLP)</TableCell>
                 </TableRow>
               </TableHead>
@@ -161,15 +209,17 @@ const DashboardPage = () => {
                     <TableCell sx={{ textTransform: "capitalize" }}>
                       {project.status?.replace("_", " ") ?? "sin estado"}
                     </TableCell>
+                    <TableCell>{formatDate(project.end_date)}</TableCell>
                     <TableCell align="right">{formatCurrency(project.budget)}</TableCell>
                     <TableCell align="right">{formatCurrency(project.payments_facturado)}</TableCell>
                     <TableCell align="right">{formatCurrency(project.payments_pagado)}</TableCell>
+                    <TableCell align="right">{formatCurrency(project.payments_egresos)}</TableCell>
                     <TableCell align="right">{formatCurrency(project.payments_saldo)}</TableCell>
                   </TableRow>
                 ))}
                 {(!projects || projects.length === 0) && (
-                  <TableRow>
-                    <TableCell colSpan={6}>
+                <TableRow>
+                  <TableCell colSpan={8}>
                       <Typography variant="body2" color="text.secondary">
                         Aún no hay proyectos registrados.
                       </Typography>
