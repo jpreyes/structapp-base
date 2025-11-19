@@ -69,6 +69,17 @@ const DashboardPage = () => {
   const formatCurrency = (value: number | null | undefined) =>
     Number(value ?? 0).toLocaleString("es-CL");
 
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) {
+      return "sin fecha";
+    }
+    return new Date(value).toLocaleDateString("es-CL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <Grid container spacing={2}>
@@ -175,6 +186,7 @@ const DashboardPage = () => {
                 <TableRow>
                   <TableCell>Proyecto</TableCell>
                   <TableCell>Estado</TableCell>
+                  <TableCell>Fecha término</TableCell>
                   <TableCell align="right">Presupuesto (CLP)</TableCell>
                   <TableCell align="right">Facturado (CLP)</TableCell>
                   <TableCell align="right">Pagado (CLP)</TableCell>
@@ -197,6 +209,7 @@ const DashboardPage = () => {
                     <TableCell sx={{ textTransform: "capitalize" }}>
                       {project.status?.replace("_", " ") ?? "sin estado"}
                     </TableCell>
+                    <TableCell>{formatDate(project.end_date)}</TableCell>
                     <TableCell align="right">{formatCurrency(project.budget)}</TableCell>
                     <TableCell align="right">{formatCurrency(project.payments_facturado)}</TableCell>
                     <TableCell align="right">{formatCurrency(project.payments_pagado)}</TableCell>
@@ -206,7 +219,7 @@ const DashboardPage = () => {
                 ))}
                 {(!projects || projects.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={7}>
+                  <TableCell colSpan={8}>
                       <Typography variant="body2" color="text.secondary">
                         Aún no hay proyectos registrados.
                       </Typography>
