@@ -32,8 +32,19 @@ const DashboardPage = () => {
     const totalTasks = tasks?.length ?? 0;
     const completedTasks = tasks?.filter((task) => task.status === "done").length ?? 0;
     const totalPaid = projects?.reduce((acc, project) => acc + (project.payments_pagado ?? 0), 0) ?? 0;
+    const totalEgresos = projects?.reduce((acc, project) => acc + (project.payments_egresos ?? 0), 0) ?? 0;
     const totalOutstanding = projects?.reduce((acc, project) => acc + (project.payments_saldo ?? 0), 0) ?? 0;
-    return { totalProjects, totalBudget, totalTasks, completedTasks, totalPaid, totalOutstanding };
+    const netPaid = totalPaid - totalEgresos;
+    return {
+      totalProjects,
+      totalBudget,
+      totalTasks,
+      completedTasks,
+      totalPaid,
+      totalEgresos,
+      totalOutstanding,
+      netPaid,
+    };
   }, [projects, tasks]);
 
   const events = useMemo(() => {
@@ -127,6 +138,30 @@ const DashboardPage = () => {
             </CardContent>
           </Card>
         </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="button" color="text.secondary">
+                Egresos totales CLP
+              </Typography>
+              <Typography variant="h5">
+                {metrics.totalEgresos.toLocaleString("es-CL")}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="button" color="text.secondary">
+                Pagado neto CLP
+              </Typography>
+              <Typography variant="h5">
+                {metrics.netPaid.toLocaleString("es-CL")}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       <Card>
@@ -143,6 +178,7 @@ const DashboardPage = () => {
                   <TableCell align="right">Presupuesto (CLP)</TableCell>
                   <TableCell align="right">Facturado (CLP)</TableCell>
                   <TableCell align="right">Pagado (CLP)</TableCell>
+                  <TableCell align="right">Egresos (CLP)</TableCell>
                   <TableCell align="right">Saldo (CLP)</TableCell>
                 </TableRow>
               </TableHead>
@@ -164,12 +200,13 @@ const DashboardPage = () => {
                     <TableCell align="right">{formatCurrency(project.budget)}</TableCell>
                     <TableCell align="right">{formatCurrency(project.payments_facturado)}</TableCell>
                     <TableCell align="right">{formatCurrency(project.payments_pagado)}</TableCell>
+                    <TableCell align="right">{formatCurrency(project.payments_egresos)}</TableCell>
                     <TableCell align="right">{formatCurrency(project.payments_saldo)}</TableCell>
                   </TableRow>
                 ))}
                 {(!projects || projects.length === 0) && (
-                  <TableRow>
-                    <TableCell colSpan={6}>
+                <TableRow>
+                  <TableCell colSpan={7}>
                       <Typography variant="body2" color="text.secondary">
                         Aún no hay proyectos registrados.
                       </Typography>

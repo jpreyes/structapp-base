@@ -35,9 +35,20 @@ def fetch_projects(archived: bool | None = None):
     )
     payments = payments_query.execute().data
 
-    payment_totals: dict[str, dict[str, float]] = defaultdict(lambda: {"facturado": 0.0, "pagado": 0.0, "saldo": 0.0})
+    payment_totals: dict[str, dict[str, float]] = defaultdict(
+        lambda: {"facturado": 0.0, "pagado": 0.0, "saldo": 0.0, "egresos": 0.0}
+    )
     if payments:
-        grouped: dict[str, dict[str, float]] = defaultdict(lambda: {"invoice": 0.0, "advance": 0.0, "payment": 0.0, "credit_note": 0.0, "refund": 0.0})
+        grouped: dict[str, dict[str, float]] = defaultdict(
+            lambda: {
+                "invoice": 0.0,
+                "advance": 0.0,
+                "payment": 0.0,
+                "credit_note": 0.0,
+                "refund": 0.0,
+                "egreso": 0.0,
+            }
+        )
         for payment in payments:
             pid = payment["project_id"]
             kind = payment["kind"]
@@ -50,15 +61,25 @@ def fetch_projects(archived: bool | None = None):
             payment_total = sums.get("payment", 0.0)
             credit = sums.get("credit_note", 0.0)
             refund = sums.get("refund", 0.0)
+            egresos = sums.get("egreso", 0.0)
             facturado = max(invoice - credit, 0.0)
             pagado = max(payment_total + advance - refund, 0.0)
             saldo = max(facturado - pagado, 0.0)
-            payment_totals[pid] = {"facturado": facturado, "pagado": pagado, "saldo": saldo}
+            payment_totals[pid] = {
+                "facturado": facturado,
+                "pagado": pagado,
+                "saldo": saldo,
+                "egresos": egresos,
+            }
 
     for project in projects:
-        totals = payment_totals.get(project["id"], {"facturado": 0.0, "pagado": 0.0, "saldo": 0.0})
+        totals = payment_totals.get(
+            project["id"],
+            {"facturado": 0.0, "pagado": 0.0, "saldo": 0.0, "egresos": 0.0},
+        )
         project["payments_facturado"] = totals["facturado"]
         project["payments_pagado"] = totals["pagado"]
+        project["payments_egresos"] = totals["egresos"]
         project["payments_saldo"] = totals["saldo"]
 
     return projects
@@ -92,6 +113,7 @@ def fetch_project_detail(project_id: str):
     payment_total = sum(float(item.get("amount") or 0) for item in payments if item.get("kind") == "payment")
     credit = sum(float(item.get("amount") or 0) for item in payments if item.get("kind") == "credit_note")
     refund = sum(float(item.get("amount") or 0) for item in payments if item.get("kind") == "refund")
+    egresos = sum(float(item.get("amount") or 0) for item in payments if item.get("kind") == "egreso")
 
     facturado = max(invoice - credit, 0.0)
     pagado = max(payment_total + advance - refund, 0.0)
@@ -99,6 +121,7 @@ def fetch_project_detail(project_id: str):
 
     project["payments_facturado"] = facturado
     project["payments_pagado"] = pagado
+    project["payments_egresos"] = egresos
     project["payments_saldo"] = saldo
 
     tasks = list_tasks(project_id)
@@ -137,6 +160,7 @@ def fetch_project_detail(project_id: str):
                 "facturado": facturado,
                 "pagado": pagado,
                 "saldo": saldo,
+                "egresos": egresos,
             },
         },
         "important_dates": important_dates,

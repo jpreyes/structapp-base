@@ -12,6 +12,7 @@ export interface Project {
   is_archived?: boolean;
   payments_facturado: number;
   payments_pagado: number;
+  payments_egresos: number;
   payments_saldo: number;
 }
 
