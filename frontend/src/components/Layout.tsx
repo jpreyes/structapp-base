@@ -4,15 +4,16 @@ import {
   Button,
   Divider,
   Drawer,
+  FormControlLabel,
   IconButton,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Stack,
+  Switch,
   Toolbar,
   Typography,
-  FormControlLabel,
-  Switch,
 } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/SpaceDashboardRounded";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -26,12 +27,13 @@ import ArchitectureIcon from "@mui/icons-material/Architecture";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 import LoginIcon from "@mui/icons-material/Login";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useThemeStore } from "../store/useTheme";
 import { useMemo, useState, ReactNode } from "react";
+import { useTheme } from "@mui/material/styles";
 
+import { useThemeStore } from "../store/useTheme";
 import { useSession } from "../store/useSession";
 
-const drawerWidth = 240;
+const drawerWidth = 280;
 
 type NavItem =
   | {
@@ -56,10 +58,12 @@ const isSectionItem = (item: NavItem): item is Extract<NavItem, { isSection: tru
 const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const token = useSession((state) => state.token);
   const setToken = useSession((state) => state.setToken);
   const setUser = useSession((state) => state.setUser);
+  const themeMode = useThemeStore((state) => state.mode);
 
   const navItems: NavItem[] = useMemo(
     () => [
@@ -109,17 +113,43 @@ const Layout = () => {
   );
 
   const drawerContent = (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <Box sx={{ p: 2 }}>
-        <Typography variant="h6" fontWeight={600}>
-          StructApp
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Gestion estructural
-        </Typography>
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", p: 2, gap: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5,
+          px: 1,
+          py: 1.5,
+          borderRadius: 2,
+          border: `1px solid ${theme.palette.divider}`,
+          background: theme.palette.mode === "light" ? "#ffffff" : theme.palette.background.paper,
+        }}
+      >
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            display: "grid",
+            placeItems: "center",
+            borderRadius: 2,
+            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+            color: "#fff",
+          }}
+        >
+          <ArchitectureIcon fontSize="small" />
+        </Box>
+        <Box>
+          <Typography variant="h6" fontWeight={700}>
+            StructApp
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Gestión estructural
+          </Typography>
+        </Box>
       </Box>
       <Divider />
-      <List>
+      <List disablePadding>
         {navItems
           .filter((item) => (item.showWhenLoggedOut ? !token : true))
           .map((item) => {
@@ -131,7 +161,7 @@ const Layout = () => {
                     <Typography
                       variant="overline"
                       color="text.secondary"
-                      sx={{ pl: 2, pt: 2, pb: 0.5, display: "block" }}
+                      sx={{ pl: 2, pt: 2, pb: 0.5, display: "block", letterSpacing: 0.4 }}
                     >
                       {item.label}
                     </Typography>
@@ -154,37 +184,60 @@ const Layout = () => {
                   navigate(item.path);
                   setMobileOpen(false);
                 }}
-                sx={{ pl: item.indent ? 4 : 2 }}
+                sx={{
+                  px: 1.5,
+                  py: 1,
+                  gap: 1,
+                  alignItems: "center",
+                  borderRadius: 2,
+                  position: "relative",
+                  border: selected ? `1px solid ${theme.palette.divider}` : "1px solid transparent",
+                  transition: "all 0.2s ease",
+                  pl: item.indent ? 4 : 2,
+                }}
               >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
+                <ListItemIcon
+                  sx={{
+                    minWidth: 40,
+                    color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.label}
+                  primaryTypographyProps={{
+                    fontWeight: selected ? 700 : 600,
+                    color: selected ? "primary.main" : undefined,
+                  }}
+                />
               </ListItemButton>
             );
           })}
       </List>
       <Box sx={{ flexGrow: 1 }} />
       <Divider />
-    </Box>
-  );
-
-  return (
-    <Box sx={{ display: "flex" }}>
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            edge="start"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            sx={{ mr: 2, display: { sm: "none" } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            StructApp
-          </Typography>
-          <Box sx={{ flexGrow: 1 }} />
+      <Box sx={{ p: 1 }}>
+        <Stack spacing={1.5}>
+          <Stack direction="row" alignItems="center" gap={1}>
+            <Switch
+              color="primary"
+              onChange={() => useThemeStore.getState().toggle()}
+              checked={themeMode === "dark"}
+            />
+            <Box>
+              <Typography variant="body2" fontWeight={700}>
+                Tema {themeMode === "light" ? "claro" : "oscuro"}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Cambia el contraste según la iluminación.
+              </Typography>
+            </Box>
+          </Stack>
           <Button
-            color="inherit"
+            variant={token ? "outlined" : "contained"}
+            color="primary"
+            fullWidth
             onClick={() => {
               if (token) {
                 setToken(null);
@@ -194,16 +247,69 @@ const Layout = () => {
                 navigate("/login");
               }
             }}
-            sx={{ mr: 2 }}
           >
             {token ? "Cerrar sesión" : "Iniciar sesión"}
           </Button>
-          <FormControlLabel
-            control={
-              <Switch color="default" onChange={() => useThemeStore.getState().toggle()} />
-            }
-            label="Tema"
-          />
+        </Stack>
+      </Box>
+    </Box>
+  );
+
+  return (
+    <Box sx={{ display: "flex", background: theme.palette.background.default }}>
+      <AppBar
+        position="fixed"
+        sx={{
+          zIndex: (muiTheme) => muiTheme.zIndex.drawer + 1,
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          ml: { sm: `${drawerWidth}px` },
+        }}
+      >
+        <Toolbar sx={{ minHeight: 72 }}>
+          <IconButton
+            color="inherit"
+            edge="start"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            sx={{ mr: 2, display: { sm: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+            <Typography variant="h6" noWrap component="div">
+              Panel estructural
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Controla proyectos, tareas y finanzas en un solo espacio.
+            </Typography>
+          </Box>
+          <Box sx={{ flexGrow: 1 }} />
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <FormControlLabel
+              control={
+                <Switch
+                  color="primary"
+                  onChange={() => useThemeStore.getState().toggle()}
+                  checked={themeMode === "dark"}
+                />
+              }
+              label="Tema"
+            />
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={() => {
+                if (token) {
+                  setToken(null);
+                  setUser(undefined);
+                  navigate("/login");
+                } else {
+                  navigate("/login");
+                }
+              }}
+            >
+              {token ? "Cerrar sesión" : "Iniciar sesión"}
+            </Button>
+          </Stack>
         </Toolbar>
       </AppBar>
       <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
@@ -230,7 +336,19 @@ const Layout = () => {
           {drawerContent}
         </Drawer>
       </Box>
-      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: { xs: 2.5, md: 4 },
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          background:
+            theme.palette.mode === "light"
+              ? "linear-gradient(180deg,#f7f9fd 0%,#eef2ff 60%,#f7f9fd 100%)"
+              : "none",
+          minHeight: "100vh",
+        }}
+      >
         <Toolbar />
         <Outlet />
       </Box>
