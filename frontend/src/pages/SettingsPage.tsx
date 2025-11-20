@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import apiClient from "../api/client";
 import { useSession } from "../store/useSession";
+import { useProjects } from "../hooks/useProjects";
 
 type SettingsProfile = {
   email: string;
@@ -36,6 +37,7 @@ const SettingsPage = () => {
   const setUser = useSession((state) => state.setUser);
   const token = useSession((state) => state.token);
   const setToken = useSession((state) => state.setToken);
+  const { data: projects } = useProjects();
   const [profile, setProfile] = useState<SettingsProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -170,6 +172,12 @@ const SettingsPage = () => {
     return (first + second).toUpperCase();
   }, [formState.fullName, profile]);
 
+  const projectCount = useMemo(() => {
+    const fromProfile = profile?.project_count ?? 0;
+    const fromList = projects?.length ?? 0;
+    return Math.max(fromProfile, fromList);
+  }, [profile?.project_count, projects]);
+
   const formatDate = (value?: string | null) =>
     value ? new Date(value).toLocaleDateString("es-CL") : "Sin fecha";
 
@@ -221,6 +229,11 @@ const SettingsPage = () => {
                   <Typography variant="body2" color="text.secondary">
                     {formState.email}
                   </Typography>
+                  {profile?.full_name && (
+                    <Typography variant="body2" color="text.secondary">
+                      {profile.full_name}
+                    </Typography>
+                  )}
                 </Box>
                 {planBadge}
                 <Divider />
@@ -263,7 +276,7 @@ const SettingsPage = () => {
                     Proyectos creados
                   </Typography>
                   <Typography variant="body1" fontWeight={700}>
-                    {profile?.project_count ?? 0}
+                    {projectCount}
                   </Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">

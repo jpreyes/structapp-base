@@ -58,22 +58,89 @@ const severityColor = (severity) => {
 };
 const confirmDeletion = (message) => window.confirm(message);
 const formatScoreValue = (value) => value !== undefined && value !== null ? value.toFixed(2) : "—";
-const formatLLMScoreValue = (value) => value !== undefined && value !== null ? value.toFixed(2) : "Pendiente";
+const formatLLMScoreValue = (value, hasReason) => {
+    if (value !== undefined && value !== null) {
+        return value.toFixed(2);
+    }
+    return hasReason ? "—" : "Pendiente";
+};
+const cleanLLMReason = (text) => {
+    if (!text)
+        return null;
+    const trimmed = text.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+    const tryParse = (value) => {
+        try {
+            const parsed = JSON.parse(value);
+            return typeof parsed.reason === "string" ? parsed.reason : null;
+        }
+        catch {
+            return null;
+        }
+    };
+    const parsedReason = tryParse(trimmed);
+    if (parsedReason) {
+        return parsedReason;
+    }
+    // Extraer "reason": "..." si viene como JSON mal formateado
+    const match = trimmed.match(/"reason"\s*:\s*"([^"]+)"/i);
+    if (match?.[1]) {
+        return match[1];
+    }
+    return trimmed.replace(/^{|}$/g, "");
+};
+const parseScoreFromText = (text) => {
+    if (!text)
+        return null;
+    const match = text.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i) || text.match(/score\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i);
+    return match ? Number(match[1]) : null;
+};
+const parseLLMPayload = (payload) => {
+    if (!payload)
+        return null;
+    if (typeof payload === "string") {
+        const cleaned = payload.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+        try {
+            return JSON.parse(cleaned);
+        }
+        catch {
+            // intentar extraer score de forma liberal
+            const match = cleaned.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i);
+            const reasonMatch = cleaned.match(/"reason"\s*:\s*"([^"]+)"/i);
+            if (match || reasonMatch) {
+                return {
+                    score: match ? Number(match[1]) : undefined,
+                    reason: reasonMatch ? reasonMatch[1] : undefined,
+                    raw: payload,
+                };
+            }
+            return { raw: payload };
+        }
+    }
+    return payload;
+};
+const extractLLMDetails = ({ payload, reason, score, }) => {
+    const parsed = parseLLMPayload(payload);
+    const parsedScore = score ??
+        (parsed && typeof parsed === "object" && "score" in parsed && parsed.score !== undefined
+            ? Number(parsed.score)
+            : parseScoreFromText(reason) ?? parseScoreFromText(typeof payload === "string" ? payload : null));
+    const parsedReason = cleanLLMReason(reason) ||
+        cleanLLMReason(parsed && typeof parsed === "object" && "reason" in parsed ? String(parsed.reason) : null);
+    return { score: parsedScore, reason: parsedReason, payload: parsed };
+};
 const formatScoreTimestamp = (value) => value ? dayjs(value).format("DD/MM/YYYY HH:mm") : null;
-const LLMPayloadViewer = ({ payload, title, }) => {
+const LLMPayloadViewer = ({ payload, reason, score, title, }) => {
     const [open, setOpen] = useState(false);
     if (!payload) {
         return null;
     }
-    const formatted = JSON.stringify(payload, null, 2);
-    return (_jsxs(_Fragment, { children: [_jsx(Button, { size: "small", variant: "text", onClick: () => setOpen(true), children: "Ver detalles del modelo" }), _jsxs(Dialog, { open: open, onClose: () => setOpen(false), maxWidth: "sm", fullWidth: true, children: [_jsx(DialogTitle, { children: title ?? "Detalle del modelo" }), _jsx(DialogContent, { children: _jsx(Box, { component: "pre", sx: {
-                                fontSize: "0.8rem",
-                                backgroundColor: "rgba(0,0,0,0.04)",
-                                borderRadius: 1,
-                                padding: 1,
-                                whiteSpace: "pre-wrap",
-                                wordBreak: "break-word",
-                            }, children: formatted }) }), _jsx(DialogActions, { children: _jsx(Button, { onClick: () => setOpen(false), children: "Cerrar" }) })] })] }));
+    const parsedPayload = parseLLMPayload(payload);
+    const { score: primaryScore, reason: cleanReason } = extractLLMDetails({ payload, reason, score });
+    return (_jsxs(_Fragment, { children: [_jsx(Button, { size: "small", variant: "text", onClick: () => setOpen(true), children: "Ver detalles del modelo" }), _jsxs(Dialog, { open: open, onClose: () => setOpen(false), maxWidth: "sm", fullWidth: true, children: [_jsx(DialogTitle, { children: title ?? "Detalle del modelo" }), _jsxs(DialogContent, { children: [primaryScore !== undefined && primaryScore !== null && (_jsxs(Typography, { variant: "h6", sx: { mb: 1 }, children: ["Score LLM: ", formatLLMScoreValue(primaryScore)] })), cleanReason && (_jsx(Typography, { variant: "body1", color: "text.secondary", sx: { mb: 2 }, children: cleanReason })), parsedPayload &&
+                                typeof parsedPayload === "object" &&
+                                Object.entries(parsedPayload)
+                                    .filter(([key]) => !["score", "reason"].includes(key))
+                                    .map(([key, value]) => (_jsxs(Box, { sx: { mb: 0.5 }, children: [_jsx(Typography, { variant: "caption", color: "text.secondary", sx: { textTransform: "capitalize" }, children: key.replace(/_/g, " ") }), _jsx(Typography, { variant: "body2", children: typeof value === "object" ? JSON.stringify(value, null, 2) : String(value) })] }, key))), (!parsedPayload || typeof parsedPayload !== "object") && !cleanReason && (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "No hay detalles adicionales del modelo." }))] }), _jsx(DialogActions, { children: _jsx(Button, { onClick: () => setOpen(false), children: "Cerrar" }) })] })] }));
 };
 const InspectionDetailPage = () => {
     const { projectId, inspectionId } = useParams();
@@ -92,6 +159,11 @@ const InspectionDetailPage = () => {
     };
     const { data: inspections = [], isLoading: inspectionsLoading } = useProjectInspections(projectId);
     const inspection = useMemo(() => inspections.find((item) => item.id === inspectionId), [inspections, inspectionId]);
+    const inspectionLLM = useMemo(() => extractLLMDetails({
+        payload: inspection?.llm_payload,
+        reason: inspection?.llm_reason,
+        score: inspection?.llm_score,
+    }), [inspection]);
     const { data: damages = [] } = useProjectInspectionDamages(projectId, inspectionId);
     const { data: tests = [] } = useProjectInspectionTests(projectId, inspectionId);
     const { data: documents = [] } = useProjectInspectionDocuments(projectId, inspectionId);
@@ -525,7 +597,14 @@ const InspectionDetailPage = () => {
                                             ? "success"
                                             : inspection.overall_condition === "critica"
                                                 ? "error"
-                                                : "warning", size: "small" }), _jsxs(Typography, { color: "text.secondary", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] })] })] }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [_jsx(Button, { component: RouterLink, to: `/projects/${projectId}/inspections`, variant: "outlined", children: "Volver al plan" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(reportUrl, `${inspectionId}-report.pdf`, "application/pdf"), disabled: !inspectionId || downloadingReport, children: downloadingReport ? "Descargando..." : "Descargar informe" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(archiveUrl, `${inspectionId}-archive.zip`, "application/zip"), disabled: !inspectionId || downloadingArchive, children: downloadingArchive ? "Descargando..." : "Descargar ZIP" })] })] }), _jsx(Card, { variant: "outlined", children: _jsx(CardContent, { sx: { pt: 1, pb: 1 }, children: _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 3, alignItems: "center", justifyContent: "space-between", children: [_jsxs(Stack, { spacing: 0.5, children: [_jsx(Typography, { variant: "subtitle2", children: "Calificaci\u00F3n t\u00E9cnica" }), _jsx(Typography, { variant: "h5", children: formatScoreValue(inspection.deterministic_score) }), inspection.score_updated_at && (_jsxs(Typography, { variant: "caption", color: "text.secondary", children: ["Actualizado ", formatScoreTimestamp(inspection.score_updated_at)] }))] }), _jsxs(Stack, { spacing: 0.5, children: [_jsx(Typography, { variant: "subtitle2", children: "LLM" }), _jsx(Typography, { variant: "h5", children: formatLLMScoreValue(inspection.llm_score) }), inspection.llm_reason && (_jsx(Typography, { variant: "caption", color: "text.secondary", children: inspection.llm_reason })), _jsx(LLMPayloadViewer, { payload: inspection.llm_payload, title: "Detalle del modelo LLM para la inspecci\u00F3n" })] })] }) }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "subtitle1", children: "Resumen de hallazgos" }), _jsx(Typography, { variant: "body1", sx: { mt: 1, mb: 2 }, children: inspection.summary || "No se registraron comentarios adicionales." }), (inspection.photos ?? []).length > 0 && (_jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((url) => (_jsx(Chip, { label: "Foto", component: "a", href: url, target: "_blank", rel: "noreferrer", clickable: true, variant: "outlined", size: "small" }, url))) }))] }) }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, children: _jsxs(Card, { children: [_jsxs(CardContent, { sx: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [_jsx(Typography, { variant: "h6", children: "Da\u00F1os registrados" }), _jsx(Button, { startIcon: _jsx(AddIcon, {}), variant: "contained", onClick: () => openDamageDialog(), disabled: !canMutate, children: "Registrar da\u00F1o" })] }), _jsxs(Table, { size: "small", children: [_jsx(TableHead, { children: _jsxs(TableRow, { children: [_jsx(TableCell, { children: "Estructura" }), _jsx(TableCell, { children: "Da\u00F1o" }), _jsx(TableCell, { children: "Causa" }), _jsx(TableCell, { children: "Gravedad" }), _jsx(TableCell, { children: "Extensi\u00F3n" }), _jsx(TableCell, { children: "Score \u00B7 Fotos" }), _jsx(TableCell, { align: "right", children: "Acciones" })] }) }), _jsxs(TableBody, { children: [damages.length === 0 && (_jsx(TableRow, { children: _jsx(TableCell, { colSpan: 7, align: "center", children: _jsx(Typography, { color: "text.secondary", children: "A\u00FAn no se registran da\u00F1os vinculados." }) }) })), damages.map((damage) => (_jsxs(TableRow, { hover: true, children: [_jsxs(TableCell, { children: [_jsx(Typography, { fontWeight: 600, children: damage.structure || "Sin dato" }), _jsx(Typography, { variant: "caption", color: "text.secondary", children: damage.location || "Ubicación no indicada" })] }), _jsx(TableCell, { children: damage.damage_type }), _jsx(TableCell, { children: damage.damage_cause }), _jsx(TableCell, { children: _jsx(Chip, { label: damage.severity, color: severityColor(damage.severity), size: "small", variant: damage.severity === "Leve" ? "outlined" : "filled" }) }), _jsx(TableCell, { children: damage.extent || "Sin dato" }), _jsx(TableCell, { children: _jsxs(Stack, { spacing: 0.5, children: [_jsxs(Typography, { variant: "body2", children: ["Score: ", formatScoreValue(damage.deterministic_score)] }), _jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["LLM: ", formatLLMScoreValue(damage.llm_score)] }), damage.llm_reason && (_jsx(Typography, { variant: "caption", color: "text.secondary", children: damage.llm_reason })), damage.score_updated_at && (_jsxs(Typography, { variant: "caption", color: "text.secondary", children: ["Actualizado ", formatScoreTimestamp(damage.score_updated_at)] })), _jsx(LLMPayloadViewer, { payload: damage.llm_payload, title: `Detalle LLM de ${damage.structure || "daño"}` }), (damage.photos ?? []).length > 0 ? (_jsx(Button, { component: "a", href: damage.photos[0]?.photo_url, target: "_blank", rel: "noreferrer", size: "small", startIcon: _jsx(AttachmentIcon, {}), children: "Ver" })) : ("—")] }) }), _jsxs(TableCell, { align: "right", children: [_jsx(IconButton, { size: "small", "aria-label": "Ver detalles del da\u00F1o", onClick: () => openDamageModal(damage), children: _jsx(VisibilityIcon, { fontSize: "small" }) }), _jsx(IconButton, { size: "small", "aria-label": "Editar da\u00F1o", onClick: () => openDamageDialog(damage), children: _jsx(EditIcon, { fontSize: "small" }) }), _jsx(IconButton, { size: "small", "aria-label": "Eliminar da\u00F1o", onClick: () => {
+                                                : "warning", size: "small" }), _jsxs(Typography, { color: "text.secondary", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] })] })] }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [_jsx(Button, { component: RouterLink, to: `/projects/${projectId}/inspections`, variant: "outlined", children: "Volver al plan" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(reportUrl, `${inspectionId}-report.pdf`, "application/pdf"), disabled: !inspectionId || downloadingReport, children: downloadingReport ? "Descargando..." : "Descargar informe" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(archiveUrl, `${inspectionId}-archive.zip`, "application/zip"), disabled: !inspectionId || downloadingArchive, children: downloadingArchive ? "Descargando..." : "Descargar ZIP" })] })] }), _jsx(Card, { variant: "outlined", children: _jsx(CardContent, { sx: { pt: 1, pb: 1 }, children: _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 3, alignItems: "center", justifyContent: "space-between", children: [_jsxs(Stack, { spacing: 0.5, children: [_jsx(Typography, { variant: "subtitle2", children: "Calificaci\u00F3n t\u00E9cnica" }), _jsx(Typography, { variant: "h5", children: formatScoreValue(inspection.deterministic_score) }), inspection.score_updated_at && (_jsxs(Typography, { variant: "caption", color: "text.secondary", children: ["Actualizado ", formatScoreTimestamp(inspection.score_updated_at)] }))] }), _jsxs(Stack, { spacing: 0.5, children: [_jsx(Typography, { variant: "subtitle2", children: "LLM" }), _jsx(Typography, { variant: "h5", children: formatLLMScoreValue(inspectionLLM.score, Boolean(inspectionLLM.reason)) }), inspectionLLM.reason && (_jsx(Typography, { variant: "body2", color: "text.secondary", children: inspectionLLM.reason })), _jsx(LLMPayloadViewer, { payload: inspectionLLM.payload, reason: inspectionLLM.reason, score: inspectionLLM.score, title: "Detalle del modelo LLM para la inspecci\u00F3n" })] })] }) }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "subtitle1", children: "Resumen de hallazgos" }), _jsx(Typography, { variant: "body1", sx: { mt: 1, mb: 2 }, children: inspection.summary || "No se registraron comentarios adicionales." }), (inspection.photos ?? []).length > 0 && (_jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((url) => (_jsx(Chip, { label: "Foto", component: "a", href: url, target: "_blank", rel: "noreferrer", clickable: true, variant: "outlined", size: "small" }, url))) }))] }) }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, children: _jsxs(Card, { children: [_jsxs(CardContent, { sx: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [_jsx(Typography, { variant: "h6", children: "Da\u00F1os registrados" }), _jsx(Button, { startIcon: _jsx(AddIcon, {}), variant: "contained", onClick: () => openDamageDialog(), disabled: !canMutate, children: "Registrar da\u00F1o" })] }), _jsxs(Table, { size: "small", children: [_jsx(TableHead, { children: _jsxs(TableRow, { children: [_jsx(TableCell, { children: "Estructura" }), _jsx(TableCell, { children: "Da\u00F1o" }), _jsx(TableCell, { children: "Causa" }), _jsx(TableCell, { children: "Gravedad" }), _jsx(TableCell, { children: "Extensi\u00F3n" }), _jsx(TableCell, { children: "Score \u00B7 Fotos" }), _jsx(TableCell, { align: "right", children: "Acciones" })] }) }), _jsxs(TableBody, { children: [damages.length === 0 && (_jsx(TableRow, { children: _jsx(TableCell, { colSpan: 7, align: "center", children: _jsx(Typography, { color: "text.secondary", children: "A\u00FAn no se registran da\u00F1os vinculados." }) }) })), damages.map((damage) => (_jsxs(TableRow, { hover: true, children: [_jsxs(TableCell, { children: [_jsx(Typography, { fontWeight: 600, children: damage.structure || "Sin dato" }), _jsx(Typography, { variant: "caption", color: "text.secondary", children: damage.location || "Ubicación no indicada" })] }), _jsx(TableCell, { children: damage.damage_type }), _jsx(TableCell, { children: damage.damage_cause }), _jsx(TableCell, { children: _jsx(Chip, { label: damage.severity, color: severityColor(damage.severity), size: "small", variant: damage.severity === "Leve" ? "outlined" : "filled" }) }), _jsx(TableCell, { children: damage.extent || "Sin dato" }), _jsx(TableCell, { children: _jsxs(Stack, { spacing: 0.5, children: [_jsxs(Typography, { variant: "body2", children: ["Score: ", formatScoreValue(damage.deterministic_score)] }), (() => {
+                                                                        const details = extractLLMDetails({
+                                                                            payload: damage.llm_payload,
+                                                                            reason: damage.llm_reason,
+                                                                            score: damage.llm_score,
+                                                                        });
+                                                                        return (_jsxs(Stack, { spacing: 0.3, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["LLM: ", formatLLMScoreValue(details.score, Boolean(details.reason))] }), details.reason && (_jsx(Typography, { variant: "body2", color: "text.secondary", children: details.reason }))] }));
+                                                                    })(), damage.score_updated_at && (_jsxs(Typography, { variant: "caption", color: "text.secondary", children: ["Actualizado ", formatScoreTimestamp(damage.score_updated_at)] })), _jsx(LLMPayloadViewer, { payload: damage.llm_payload, reason: damage.llm_reason, score: damage.llm_score, title: `Detalle LLM de ${damage.structure || "daño"}` }), (damage.photos ?? []).length > 0 ? (_jsx(Button, { component: "a", href: damage.photos[0]?.photo_url, target: "_blank", rel: "noreferrer", size: "small", startIcon: _jsx(AttachmentIcon, {}), children: "Ver" })) : ("—")] }) }), _jsxs(TableCell, { align: "right", children: [_jsx(IconButton, { size: "small", "aria-label": "Ver detalles del da\u00F1o", onClick: () => openDamageModal(damage), children: _jsx(VisibilityIcon, { fontSize: "small" }) }), _jsx(IconButton, { size: "small", "aria-label": "Editar da\u00F1o", onClick: () => openDamageDialog(damage), children: _jsx(EditIcon, { fontSize: "small" }) }), _jsx(IconButton, { size: "small", "aria-label": "Eliminar da\u00F1o", onClick: () => {
                                                                         if (confirmDeletion(`¿Eliminar el daño "${damage.damage_type}"?`)) {
                                                                             deleteDamageMutation.mutate(damage.id);
                                                                         }

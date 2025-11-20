@@ -138,24 +138,110 @@ const confirmDeletion = (message: string) => window.confirm(message);
 const formatScoreValue = (value?: number | null) =>
   value !== undefined && value !== null ? value.toFixed(2) : "—";
 
-const formatLLMScoreValue = (value?: number | null) =>
-  value !== undefined && value !== null ? value.toFixed(2) : "Pendiente";
+const formatLLMScoreValue = (value?: number | null, hasReason?: boolean) => {
+  if (value !== undefined && value !== null) {
+    return value.toFixed(2);
+  }
+  return hasReason ? "—" : "Pendiente";
+};
+
+const cleanLLMReason = (text?: string | null) => {
+  if (!text) return null;
+  const trimmed = text.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+  const tryParse = (value: string) => {
+    try {
+      const parsed = JSON.parse(value);
+      return typeof parsed.reason === "string" ? parsed.reason : null;
+    } catch {
+      return null;
+    }
+  };
+  const parsedReason = tryParse(trimmed);
+  if (parsedReason) {
+    return parsedReason;
+  }
+  // Extraer "reason": "..." si viene como JSON mal formateado
+  const match = trimmed.match(/"reason"\s*:\s*"([^"]+)"/i);
+  if (match?.[1]) {
+    return match[1];
+  }
+  return trimmed.replace(/^{|}$/g, "");
+};
+
+const parseScoreFromText = (text?: string | null): number | null => {
+  if (!text) return null;
+  const match = text.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i) || text.match(/score\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i);
+  return match ? Number(match[1]) : null;
+};
+
+const parseLLMPayload = (payload?: { score?: number; reason?: string } | string | null) => {
+  if (!payload) return null;
+  if (typeof payload === "string") {
+    const cleaned = payload.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      // intentar extraer score de forma liberal
+      const match = cleaned.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i);
+      const reasonMatch = cleaned.match(/"reason"\s*:\s*"([^"]+)"/i);
+      if (match || reasonMatch) {
+        return {
+          score: match ? Number(match[1]) : undefined,
+          reason: reasonMatch ? reasonMatch[1] : undefined,
+          raw: payload,
+        };
+      }
+      return { raw: payload };
+    }
+  }
+  return payload;
+};
+
+const extractLLMDetails = ({
+  payload,
+  reason,
+  score,
+}: {
+  payload?: { score?: number; reason?: string } | string | null;
+  reason?: string | null;
+  score?: number | null;
+}) => {
+  const parsed = parseLLMPayload(payload);
+  const parsedScore =
+    score ??
+    (parsed && typeof parsed === "object" && "score" in parsed && (parsed as any).score !== undefined
+      ? Number((parsed as any).score)
+      : parseScoreFromText(reason) ?? parseScoreFromText(typeof payload === "string" ? payload : null));
+  const parsedReason =
+    cleanLLMReason(reason) ||
+    cleanLLMReason(
+      parsed && typeof parsed === "object" && "reason" in parsed ? String((parsed as any).reason) : null
+    );
+  return { score: parsedScore, reason: parsedReason, payload: parsed };
+};
 
 const formatScoreTimestamp = (value?: string | null) =>
   value ? dayjs(value).format("DD/MM/YYYY HH:mm") : null;
 
 const LLMPayloadViewer = ({
   payload,
+  reason,
+  score,
   title,
 }: {
-  payload?: { score?: number; reason?: string } | null;
+  payload?: { score?: number; reason?: string } | string | null;
+  reason?: string | null;
+  score?: number | null;
   title?: string;
 }) => {
   const [open, setOpen] = useState(false);
   if (!payload) {
     return null;
   }
-  const formatted = JSON.stringify(payload, null, 2);
+
+  const parsedPayload = parseLLMPayload(payload);
+  const { score: primaryScore, reason: cleanReason } = extractLLMDetails({ payload, reason, score });
+
   return (
     <>
       <Button size="small" variant="text" onClick={() => setOpen(true)}>
@@ -164,19 +250,35 @@ const LLMPayloadViewer = ({
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{title ?? "Detalle del modelo"}</DialogTitle>
         <DialogContent>
-          <Box
-            component="pre"
-            sx={{
-              fontSize: "0.8rem",
-              backgroundColor: "rgba(0,0,0,0.04)",
-              borderRadius: 1,
-              padding: 1,
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            {formatted}
-          </Box>
+          {primaryScore !== undefined && primaryScore !== null && (
+            <Typography variant="h6" sx={{ mb: 1 }}>
+              Score LLM: {formatLLMScoreValue(primaryScore)}
+            </Typography>
+          )}
+          {cleanReason && (
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+              {cleanReason}
+            </Typography>
+          )}
+          {parsedPayload &&
+            typeof parsedPayload === "object" &&
+            Object.entries(parsedPayload)
+              .filter(([key]) => !["score", "reason"].includes(key))
+              .map(([key, value]) => (
+                <Box key={key} sx={{ mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: "capitalize" }}>
+                    {key.replace(/_/g, " ")}
+                  </Typography>
+                  <Typography variant="body2">
+                    {typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
+                  </Typography>
+                </Box>
+              ))}
+          {(!parsedPayload || typeof parsedPayload !== "object") && !cleanReason && (
+            <Typography variant="body2" color="text.secondary">
+              No hay detalles adicionales del modelo.
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cerrar</Button>
@@ -207,6 +309,15 @@ const InspectionDetailPage = () => {
   const inspection = useMemo(
     () => inspections.find((item) => item.id === inspectionId),
     [inspections, inspectionId]
+  );
+  const inspectionLLM = useMemo(
+    () =>
+      extractLLMDetails({
+        payload: inspection?.llm_payload,
+        reason: inspection?.llm_reason,
+        score: inspection?.llm_score,
+      }),
+    [inspection]
   );
 
   const { data: damages = [] } = useProjectInspectionDamages(projectId, inspectionId);
@@ -819,14 +930,16 @@ const InspectionDetailPage = () => {
             </Stack>
             <Stack spacing={0.5}>
               <Typography variant="subtitle2">LLM</Typography>
-              <Typography variant="h5">{formatLLMScoreValue(inspection.llm_score)}</Typography>
-              {inspection.llm_reason && (
-                <Typography variant="caption" color="text.secondary">
-                  {inspection.llm_reason}
+              <Typography variant="h5">{formatLLMScoreValue(inspectionLLM.score, Boolean(inspectionLLM.reason))}</Typography>
+              {inspectionLLM.reason && (
+                <Typography variant="body2" color="text.secondary">
+                  {inspectionLLM.reason}
                 </Typography>
               )}
               <LLMPayloadViewer
-                payload={inspection.llm_payload}
+                payload={inspectionLLM.payload}
+                reason={inspectionLLM.reason}
+                score={inspectionLLM.score}
                 title="Detalle del modelo LLM para la inspección"
               />
             </Stack>
@@ -918,14 +1031,25 @@ const InspectionDetailPage = () => {
                         <Typography variant="body2">
                           Score: {formatScoreValue(damage.deterministic_score)}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          LLM: {formatLLMScoreValue(damage.llm_score)}
-                        </Typography>
-                        {damage.llm_reason && (
-                          <Typography variant="caption" color="text.secondary">
-                            {damage.llm_reason}
-                          </Typography>
-                        )}
+                        {(() => {
+                          const details = extractLLMDetails({
+                            payload: damage.llm_payload,
+                            reason: damage.llm_reason,
+                            score: damage.llm_score,
+                          });
+                          return (
+                            <Stack spacing={0.3}>
+                              <Typography variant="body2" color="text.secondary">
+                                LLM: {formatLLMScoreValue(details.score, Boolean(details.reason))}
+                              </Typography>
+                              {details.reason && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {details.reason}
+                                </Typography>
+                              )}
+                            </Stack>
+                          );
+                        })()}
                         {damage.score_updated_at && (
                           <Typography variant="caption" color="text.secondary">
                             Actualizado {formatScoreTimestamp(damage.score_updated_at)}
@@ -933,6 +1057,8 @@ const InspectionDetailPage = () => {
                         )}
                         <LLMPayloadViewer
                           payload={damage.llm_payload}
+                          reason={damage.llm_reason}
+                          score={damage.llm_score}
                           title={`Detalle LLM de ${damage.structure || "daño"}`}
                         />
                         {(damage.photos ?? []).length > 0 ? (
