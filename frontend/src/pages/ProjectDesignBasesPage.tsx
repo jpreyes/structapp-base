@@ -38,7 +38,6 @@ import apiClient from "../api/client";
 import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
 import { useProjects } from "../hooks/useProjects";
 import { useSession } from "../store/useSession";
-import { useConcreteColumn } from "../hooks/useStructuralCalcs";
 
 interface LiveLoadResponse {
   buildingType: string;
@@ -177,17 +176,6 @@ const ProjectDesignBasesPage = () => {
   const [buildingHeight, setBuildingHeight] = useState<string>("");
 
   // Estados para pilar de hormigón armado
-  const [ccAxialLoad, setCcAxialLoad] = useState<string>("500");
-  const [ccMomentX, setCcMomentX] = useState<string>("50");
-  const [ccMomentY, setCcMomentY] = useState<string>("40");
-  const [ccShearX, setCcShearX] = useState<string>("30");
-  const [ccShearY, setCcShearY] = useState<string>("25");
-  const [ccWidth, setCcWidth] = useState<string>("40");
-  const [ccDepth, setCcDepth] = useState<string>("40");
-  const [ccLength, setCcLength] = useState<string>("3.0");
-  const [ccFc, setCcFc] = useState<string>("25");
-  const [ccFy, setCcFy] = useState<string>("420");
-
   // Estado para guardar/cargar bases de cálculo
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
@@ -307,10 +295,6 @@ const ProjectDesignBasesPage = () => {
       return data.results || data;
     },
   });
-
-  // Mutation para pilar de hormigón armado
-  const concreteColumnMutation = useConcreteColumn();
-  const concreteColumnResult = concreteColumnMutation.data?.results;
 
   // Mutation para descripción del edificio
   const buildingDescriptionMutation = useMutation({
@@ -470,15 +454,6 @@ const ProjectDesignBasesPage = () => {
         },
         result: seismicMutation.data,
       };
-    }
-
-    // Agregar cálculos estructurales si existen
-    const structural: Record<string, unknown> = {};
-    if (concreteColumnResult) {
-      structural.concreteColumn = concreteColumnResult;
-    }
-    if (Object.keys(structural).length > 0) {
-      payload.structural = structural;
     }
 
     return payload;
@@ -1513,202 +1488,6 @@ const ProjectDesignBasesPage = () => {
         </CardContent>
       </Card>
 
-      {/* Card para Pilar de Hormigón Armado (ACI318) */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Pilar de Hormigón Armado (ACI318)
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Carga Axial (kN)"
-                type="number"
-                value={ccAxialLoad}
-                onChange={(e) => setCcAxialLoad(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Momento X (kN·m)"
-                type="number"
-                value={ccMomentX}
-                onChange={(e) => setCcMomentX(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Momento Y (kN·m)"
-                type="number"
-                value={ccMomentY}
-                onChange={(e) => setCcMomentY(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Corte X (kN)"
-                type="number"
-                value={ccShearX}
-                onChange={(e) => setCcShearX(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Corte Y (kN)"
-                type="number"
-                value={ccShearY}
-                onChange={(e) => setCcShearY(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Ancho (cm)"
-                type="number"
-                value={ccWidth}
-                onChange={(e) => setCcWidth(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Profundidad (cm)"
-                type="number"
-                value={ccDepth}
-                onChange={(e) => setCcDepth(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Altura (m)"
-                type="number"
-                value={ccLength}
-                onChange={(e) => setCcLength(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="f'c (MPa)"
-                type="number"
-                value={ccFc}
-                onChange={(e) => setCcFc(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="fy (MPa)"
-                type="number"
-                value={ccFy}
-                onChange={(e) => setCcFy(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Button
-                variant="contained"
-                onClick={() => {
-                  if (!projectId || !user?.id) {
-                    return;
-                  }
-                  concreteColumnMutation.mutate({
-                    projectId,
-                    userId: user.id,
-                    axialLoad: Number(ccAxialLoad),
-                    momentX: Number(ccMomentX),
-                    momentY: Number(ccMomentY),
-                    shearX: Number(ccShearX),
-                    shearY: Number(ccShearY),
-                    width: Number(ccWidth),
-                    depth: Number(ccDepth),
-                    length: Number(ccLength),
-                    fc: Number(ccFc),
-                    fy: Number(ccFy),
-                  });
-                }}
-                disabled={
-                  concreteColumnMutation.isPending ||
-                  !projectId ||
-                  !user?.id
-                }
-              >
-                Diseñar Pilar
-              </Button>
-            </Grid>
-          </Grid>
-
-          {concreteColumnMutation.isError && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {getErrorMessage(concreteColumnMutation.error) || "Error al calcular el pilar"}
-            </Alert>
-          )}
-
-          {concreteColumnResult && (
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Resultados del Diseño
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Capacidad Axial
-                  </Typography>
-                  <Typography variant="body1">
-                    {concreteColumnResult.axialCapacity?.toFixed(2) ?? 'N/A'} kN
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Ratio de Utilización
-                  </Typography>
-                  <Typography variant="body1" color={(concreteColumnResult.axialCapacityRatio ?? 0) > 1 ? "error" : "success.main"}>
-                    {((concreteColumnResult.axialCapacityRatio ?? 0) * 100).toFixed(1)}%
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Refuerzo Longitudinal
-                  </Typography>
-                  <Typography variant="body1">
-                    {concreteColumnResult.longitudinalSteel?.numBars ?? 'N/A'} φ{concreteColumnResult.longitudinalSteel?.barDiameter ?? 'N/A'} ({concreteColumnResult.longitudinalSteel?.totalArea?.toFixed(0) ?? 'N/A'} mm²)
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Estribos
-                  </Typography>
-                  <Typography variant="body1">
-                    φ{concreteColumnResult.transverseSteel?.diameter ?? 'N/A'} @ {concreteColumnResult.transverseSteel?.spacing ?? 'N/A'} mm
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Esbeltez
-                  </Typography>
-                  <Typography variant="body1">
-                    {concreteColumnResult.slendernessRatio?.toFixed(2) ?? 'N/A'} {concreteColumnResult.isSlender && "(Esbelto)"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Factor de Magnificación
-                  </Typography>
-                  <Typography variant="body1">
-                    {concreteColumnResult.magnificationFactor?.toFixed(3) ?? 'N/A'}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Diálogo para guardar */}
       <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)}>
         <DialogTitle>Guardar base de cálculo</DialogTitle>
@@ -1957,57 +1736,6 @@ const ProjectDesignBasesPage = () => {
                 </Card>
               )}
 
-              {/* Cálculos Estructurales */}
-              {previewData.data.structural && (
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Cálculos Estructurales
-                    </Typography>
-
-                    {/* Pilar de Hormigón Armado */}
-                    {previewData.data.structural.concreteColumn && (
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="subtitle1" gutterBottom>
-                          Pilar de Hormigón Armado (ACI318)
-                        </Typography>
-                        <Grid container spacing={1}>
-                          <Grid item xs={6}>
-                            <Typography variant="body2">
-                              <strong>Capacidad Axial:</strong> {previewData.data.structural.concreteColumn.axialCapacity?.toFixed(2)} kN
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="body2">
-                              <strong>Ratio de Utilización:</strong> {(previewData.data.structural.concreteColumn.axialCapacityRatio * 100)?.toFixed(1)}%
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="body2">
-                              <strong>Refuerzo Longitudinal:</strong> {previewData.data.structural.concreteColumn.longitudinalSteel?.numBars} φ{previewData.data.structural.concreteColumn.longitudinalSteel?.barDiameter}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="body2">
-                              <strong>Estribos:</strong> φ{previewData.data.structural.concreteColumn.transverseSteel?.diameter} @ {previewData.data.structural.concreteColumn.transverseSteel?.spacing} mm
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="body2">
-                              <strong>Esbeltez:</strong> {previewData.data.structural.concreteColumn.slendernessRatio?.toFixed(2)}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="body2">
-                              <strong>¿Es Esbelto?:</strong> {previewData.data.structural.concreteColumn.isSlender ? "Sí" : "No"}
-                            </Typography>
-                          </Grid>
-                        </Grid>
-                      </Box>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
             </Box>
           )}
         </DialogContent>
