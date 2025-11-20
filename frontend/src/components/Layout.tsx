@@ -1,10 +1,10 @@
 import {
   AppBar,
   Box,
+  Breadcrumbs,
   Button,
   Divider,
   Drawer,
-  FormControlLabel,
   IconButton,
   List,
   ListItemButton,
@@ -112,6 +112,46 @@ const Layout = () => {
     []
   );
 
+  const pageContext = useMemo(() => {
+    const path = location.pathname;
+    if (path.startsWith("/projects")) {
+      return {
+        title: "Proyectos",
+        subtitle: "Planifica, calcula y documenta los proyectos activos.",
+        ctaLabel: "Nuevo proyecto",
+        ctaPath: "/projects",
+      };
+    }
+    if (path.startsWith("/tasks")) {
+      return {
+        title: "Tareas",
+        subtitle: "Seguimiento de pendientes y asignaciones del equipo.",
+        ctaLabel: "Nueva tarea",
+        ctaPath: "/tasks",
+      };
+    }
+    if (path.startsWith("/payments")) {
+      return {
+        title: "Finanzas",
+        subtitle: "Flujo de caja, pagos y cobranzas al día.",
+        ctaLabel: "Nuevo pago",
+        ctaPath: "/payments",
+      };
+    }
+    if (path.startsWith("/settings")) {
+      return {
+        title: "Configuración",
+        subtitle: "Preferencias de cuenta, equipo y accesos.",
+      };
+    }
+    return {
+      title: "Dashboard",
+      subtitle: "Controla proyectos, tareas y finanzas en un solo espacio.",
+      ctaLabel: "Nuevo proyecto",
+      ctaPath: "/projects",
+    };
+  }, [location.pathname]);
+
   const drawerContent = (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", p: 2, gap: 2 }}>
       <Box
@@ -161,7 +201,15 @@ const Layout = () => {
                     <Typography
                       variant="overline"
                       color="text.secondary"
-                      sx={{ pl: 2, pt: 2, pb: 0.5, display: "block", letterSpacing: 0.4 }}
+                      sx={{
+                        pl: 2,
+                        pt: 2,
+                        pb: 0.5,
+                        display: "block",
+                        letterSpacing: 0.6,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                      }}
                     >
                       {item.label}
                     </Typography>
@@ -186,7 +234,7 @@ const Layout = () => {
                 }}
                 sx={{
                   px: 1.5,
-                  py: 1,
+                  py: 1.1,
                   gap: 1,
                   alignItems: "center",
                   borderRadius: 2,
@@ -194,6 +242,11 @@ const Layout = () => {
                   border: selected ? `1px solid ${theme.palette.divider}` : "1px solid transparent",
                   transition: "all 0.2s ease",
                   pl: item.indent ? 4 : 2,
+                  backgroundColor: selected
+                    ? theme.palette.mode === "light"
+                      ? "rgba(37,99,235,0.08)"
+                      : "rgba(37,99,235,0.16)"
+                    : "transparent",
                 }}
               >
                 <ListItemIcon
@@ -224,13 +277,14 @@ const Layout = () => {
               color="primary"
               onChange={() => useThemeStore.getState().toggle()}
               checked={themeMode === "dark"}
+              inputProps={{ "aria-label": "Cambiar tema" }}
             />
             <Box>
               <Typography variant="body2" fontWeight={700}>
                 Tema {themeMode === "light" ? "claro" : "oscuro"}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Cambia el contraste según la iluminación.
+                Ajusta el contraste según tu entorno.
               </Typography>
             </Box>
           </Stack>
@@ -265,7 +319,7 @@ const Layout = () => {
           ml: { sm: `${drawerWidth}px` },
         }}
       >
-        <Toolbar sx={{ minHeight: 72 }}>
+        <Toolbar sx={{ minHeight: 68 }}>
           <IconButton
             color="inherit"
             edge="start"
@@ -274,28 +328,44 @@ const Layout = () => {
           >
             <MenuIcon />
           </IconButton>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, minWidth: 0 }}>
+            <Breadcrumbs
+              aria-label="breadcrumb"
+              sx={{ color: "text.secondary", fontSize: 12, letterSpacing: 0.4 }}
+            >
+              <Typography color="text.secondary">Inicio</Typography>
+              <Typography color="text.primary">{pageContext.title}</Typography>
+            </Breadcrumbs>
             <Typography variant="h6" noWrap component="div">
-              Panel estructural
+              {pageContext.title}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Controla proyectos, tareas y finanzas en un solo espacio.
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {pageContext.subtitle}
             </Typography>
           </Box>
           <Box sx={{ flexGrow: 1 }} />
           <Stack direction="row" alignItems="center" spacing={2}>
-            <FormControlLabel
-              control={
-                <Switch
-                  color="primary"
-                  onChange={() => useThemeStore.getState().toggle()}
-                  checked={themeMode === "dark"}
-                />
-              }
-              label="Tema"
+            {pageContext.ctaLabel && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => {
+                  if (pageContext.ctaPath) {
+                    navigate(pageContext.ctaPath);
+                  }
+                }}
+              >
+                {pageContext.ctaLabel}
+              </Button>
+            )}
+            <Switch
+              color="primary"
+              onChange={() => useThemeStore.getState().toggle()}
+              checked={themeMode === "dark"}
+              inputProps={{ "aria-label": "Cambiar tema" }}
             />
             <Button
-              variant="contained"
+              variant="outlined"
               color="secondary"
               onClick={() => {
                 if (token) {

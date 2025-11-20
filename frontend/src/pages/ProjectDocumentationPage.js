@@ -241,7 +241,7 @@ const ProjectDocumentationPage = () => {
         }
         setEditingError(null);
     }, [editingRun]);
-    // Agrupar cÃ¡lculos por tipo
+    // Agrupar cálculos por tipo
     const groupedCalculations = useMemo(() => {
         const grouped = {};
         calculationTypes.forEach((type) => {
@@ -268,15 +268,15 @@ const ProjectDocumentationPage = () => {
     const handleCreateCalculation = (typeId) => {
         if (inlineEditorTypes.has(typeId)) {
             if (!selectedProjectId) {
-                setError("Selecciona un proyecto para crear un c�lculo");
+                setError("Selecciona un proyecto para crear un c?lculo");
                 return;
             }
             if (!sessionUserId) {
-                setError("No se pudo identificar al usuario para crear el c�lculo");
+                setError("No se pudo identificar al usuario para crear el c?lculo");
                 return;
             }
             if (["wind_load", "snow_load", "seismic"].includes(typeId) && !designOptions) {
-                setError("Las opciones de dise�o a�n no est�n disponibles. Intenta nuevamente en unos segundos");
+                setError("Las opciones de dise?o a?n no est?n disponibles. Intenta nuevamente en unos segundos");
                 return;
             }
             const draft = {
@@ -469,10 +469,10 @@ const ProjectDocumentationPage = () => {
     const canSaveEditing = () => Boolean(buildUpdatePayload());
     const createDraftCalculation = async (normalizedType, payload) => {
         if (!selectedProjectId) {
-            throw new Error("Selecciona un proyecto antes de crear un c�lculo");
+            throw new Error("Selecciona un proyecto antes de crear un c?lculo");
         }
         if (!sessionUserId) {
-            throw new Error("No se pudo identificar al usuario para crear el c�lculo");
+            throw new Error("No se pudo identificar al usuario para crear el c?lculo");
         }
         const body = {
             ...payload,
@@ -503,7 +503,7 @@ const ProjectDocumentationPage = () => {
             await apiClient.post("/design-bases/seismic", body);
             return;
         }
-        throw new Error("Este tipo de c�lculo no se puede crear desde esta pantalla");
+        throw new Error("Este tipo de c?lculo no se puede crear desde esta pantalla");
     };
     const handleSaveEditing = async () => {
         if (!editingRun) {
@@ -678,25 +678,25 @@ const ProjectDocumentationPage = () => {
                 result = await setCriticalMutation.mutateAsync(runId);
                 console.log("Set critical result:", result);
             }
-            // Verificar que el backend devolviÃ³ datos
+            // Verificar que el backend devolvió datos
             if (!result?.run) {
                 console.error("Backend returned null run data:", result);
-                throw new Error("El backend no devolviÃ³ datos actualizados");
+                throw new Error("El backend no devolvió datos actualizados");
             }
             console.log("Updated run data:", result.run);
-            // Actualizar el cachÃ© de React Query manualmente
+            // Actualizar el caché de React Query manualmente
             queryClient.setQueryData(["calculation-runs", selectedProjectId], (oldData) => {
                 if (!oldData)
                     return oldData;
                 console.log("Updating cache, old data:", oldData);
-                // Si se estÃ¡ marcando como crÃ­tico, desmarcar otros del mismo tipo
+                // Si se está marcando como crítico, desmarcar otros del mismo tipo
                 const updatedData = oldData.map((run) => {
                     if (run.id === runId) {
-                        // Este es el elemento que se modificÃ³
+                        // Este es el elemento que se modificó
                         return { ...run, is_critical: result.run.is_critical };
                     }
                     else if (run.element_type === elementType && !currentIsCritical) {
-                        // Si estamos marcando uno como crÃ­tico, desmarcar los demÃ¡s del mismo tipo
+                        // Si estamos marcando uno como crítico, desmarcar los demás del mismo tipo
                         return { ...run, is_critical: false };
                     }
                     return run;
@@ -708,7 +708,7 @@ const ProjectDocumentationPage = () => {
         }
         catch (error) {
             console.error("Error toggling critical element:", error);
-            setError("Error al marcar elemento crÃ­tico. Verifica que la base de datos tenga la columna 'is_critical'.");
+            setError("Error al marcar elemento crítico. Verifica que la base de datos tenga la columna 'is_critical'.");
             // Refrescar desde el servidor en caso de error
             await queryClient.refetchQueries({
                 queryKey: ["calculation-runs", selectedProjectId],
@@ -747,7 +747,7 @@ const ProjectDocumentationPage = () => {
             field: "created_at",
             headerName: "Fecha",
             width: 150,
-            valueFormatter: (params) => (params.value ? dayjs(params.value).format("DD/MM/YYYY HH:mm") : "â€”"),
+            valueFormatter: (params) => (params.value ? dayjs(params.value).format("DD/MM/YYYY HH:mm") : "—"),
         },
         { field: "summary", headerName: "Resumen", flex: 1, minWidth: 250 },
         {
@@ -773,53 +773,53 @@ const ProjectDocumentationPage = () => {
                 if (result?.text)
                     parts.push(result.text.substring(0, 50) + (result.text.length > 50 ? "..." : ""));
                 if (result?.location)
-                    parts.push(`ðŸ“ ${result.location}`);
+                    parts.push(`📍 ${result.location}`);
                 if (result?.area)
-                    parts.push(`ðŸ“ ${result.area} mÂ²`);
+                    parts.push(`📐 ${result.area} m²`);
                 if (result?.height)
-                    parts.push(`ðŸ“ ${result.height} m`);
-                return parts.length > 0 ? parts.join(" | ") : "â€”";
+                    parts.push(`📏 ${result.height} m`);
+                return parts.length > 0 ? parts.join(" | ") : "—";
             }
             case "live_load":
-                return `${inputs?.buildingType || "â€”"} | ${inputs?.usage || "â€”"} | ${result?.uniformLoad || result?.uniformLoadRaw || "â€”"} kN/mÂ²`;
+                return `${inputs?.buildingType || "—"} | ${inputs?.usage || "—"} | ${result?.uniformLoad || result?.uniformLoadRaw || "—"} kN/m²`;
             case "reduction":
             case "live_load_reduction":
-                return `Elemento: ${inputs?.elementType || "â€”"} | Área: ${inputs?.tributaryArea || inputs?.tributary_area || "â€”"} m² | Carga reducida: ${typeof result?.reducedLoad === "number" ? result.reducedLoad.toFixed(3) : result?.reducedLoad || "â€”"} kN/m²`;
+                return `Elemento: ${inputs?.elementType || "—"} | Área: ${inputs?.tributaryArea || inputs?.tributary_area || "—"} m² | Carga reducida: ${typeof result?.reducedLoad === "number" ? result.reducedLoad.toFixed(3) : result?.reducedLoad || "—"} kN/m²`;
             case "wind_load":
-                return `Ambiente: ${inputs?.environment || "â€”"} | Altura: ${inputs?.height || "â€”"}m | q = ${result?.q?.toFixed(2) || "â€”"} kN/mÂ²`;
+                return `Ambiente: ${inputs?.environment || "—"} | Altura: ${inputs?.height || "—"}m | q = ${result?.q?.toFixed(2) || "—"} kN/m²`;
             case "snow_load":
-                return `Banda ${inputs?.latitudeBand || "â€”"} | pf = ${result?.pf?.toFixed(2) || "â€”"} kN/mÂ²`;
+                return `Banda ${inputs?.latitudeBand || "—"} | pf = ${result?.pf?.toFixed(2) || "—"} kN/m²`;
             case "seismic":
-                return `Zona ${inputs?.zone || "â€”"} | Qbas,x = ${result?.Qbasx?.toFixed(2) || "â€”"} kN | Qbas,y = ${result?.Qbasy?.toFixed(2) || "â€”"} kN`;
+                return `Zona ${inputs?.zone || "—"} | Qbas,x = ${result?.Qbasx?.toFixed(2) || "—"} kN | Qbas,y = ${result?.Qbasy?.toFixed(2) || "—"} kN`;
             case "rc_column": {
                 const longSteel = result?.longitudinalSteel;
                 const transSteel = result?.transverseSteel;
                 if (longSteel && transSteel) {
-                    return `${longSteel.numBars}Ï†${longSteel.barDiameter} (${Math.round(longSteel.totalArea)}mmÂ²), Est Ï†${transSteel.diameter}@${transSteel.spacing}mm`;
+                    return `${longSteel.numBars}φ${longSteel.barDiameter} (${Math.round(longSteel.totalArea)}mm²), Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
                 }
-                return "â€”";
+                return "—";
             }
             case "rc_beam": {
                 const posReinf = result?.positiveReinforcemenet || result?.positiveReinforcement;
                 const negReinf = result?.negativeReinforcement;
                 const transSteel = result?.transverseSteel;
                 if (posReinf && negReinf && transSteel) {
-                    return `Sup: ${negReinf.numBars}Ï†${negReinf.barDiameter}, Inf: ${posReinf.numBars}Ï†${posReinf.barDiameter}, Est Ï†${transSteel.diameter}@${transSteel.spacing}mm`;
+                    return `Sup: ${negReinf.numBars}φ${negReinf.barDiameter}, Inf: ${posReinf.numBars}φ${posReinf.barDiameter}, Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
                 }
-                return "â€”";
+                return "—";
             }
             case "steel_column":
-                return `Perfil: ${inputs?.profileName || "Personalizado"} | Pn = ${result?.pn?.toFixed(1) || "â€”"} kN | Ratio: ${((result?.interactionRatio || 0) * 100).toFixed(1)}%`;
+                return `Perfil: ${inputs?.profileName || "Personalizado"} | Pn = ${result?.pn?.toFixed(1) || "—"} kN | Ratio: ${((result?.interactionRatio || 0) * 100).toFixed(1)}%`;
             case "steel_beam":
-                return `Perfil: ${inputs?.profileName || "Personalizado"} | Mn = ${result?.mn?.toFixed(1) || "â€”"} kNÂ·m | Ratio: ${((result?.flexureRatio || 0) * 100).toFixed(1)}%`;
+                return `Perfil: ${inputs?.profileName || "Personalizado"} | Mn = ${result?.mn?.toFixed(1) || "—"} kN·m | Ratio: ${((result?.flexureRatio || 0) * 100).toFixed(1)}%`;
             case "wood_column":
-                return `SecciÃ³n: ${inputs?.width || "â€”"}x${inputs?.depth || "â€”"} cm | Pn = ${result?.pn?.toFixed(1) || "â€”"} kN | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
+                return `Sección: ${inputs?.width || "—"}x${inputs?.depth || "—"} cm | Pn = ${result?.pn?.toFixed(1) || "—"} kN | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
             case "wood_beam":
-                return `SecciÃ³n: ${inputs?.width || "â€”"}x${inputs?.height || "â€”"} cm | Mn = ${result?.mn?.toFixed(1) || "â€”"} kNÂ·m | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
+                return `Sección: ${inputs?.width || "—"}x${inputs?.height || "—"} cm | Mn = ${result?.mn?.toFixed(1) || "—"} kN·m | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
             case "footing":
-                return `Tipo: ${inputs?.footingType || "â€”"} | DimensiÃ³n: ${inputs?.length || "â€”"}x${inputs?.width || "â€”"} m | H = ${inputs?.footingDepth || "â€”"} cm`;
+                return `Tipo: ${inputs?.footingType || "—"} | Dimensión: ${inputs?.length || "—"}x${inputs?.width || "—"} m | H = ${inputs?.footingDepth || "—"} cm`;
             default:
-                return "â€”";
+                return "—";
         }
     };
     return (_jsxs(Box, { sx: { display: "flex", flexDirection: "column", gap: 3 }, children: [_jsxs(Box, { sx: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }, children: [_jsx(Typography, { variant: "h5", children: "Documentaci\u00C3\u00B3n del proyecto" }), _jsx(TextField, { select: true, label: "Proyecto", size: "small", value: selectedProjectId ?? "", onChange: (event) => {

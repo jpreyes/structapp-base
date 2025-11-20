@@ -13,7 +13,8 @@ apiClient.interceptors.request.use((config) => {
     return config;
 });
 apiClient.interceptors.response.use((response) => response, (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    if (status === 401 || status === 422) {
         const { setToken, setUser } = useSession.getState();
         setToken(null);
         setUser(undefined);
