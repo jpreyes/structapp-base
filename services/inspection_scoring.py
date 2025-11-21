@@ -98,6 +98,22 @@ def _score_damage(damage: dict[str, Any], weights: ScoringWeights) -> float:
     return severity_weight * cause_factor * type_factor * (1 + extent_value)
 
 
+def _max_raw_damage_score(weights: ScoringWeights) -> float:
+    return (
+        max(weights.severity.values())
+        * max(weights.cause.values())
+        * max(weights.damage_type.values())
+        * 2
+    )
+
+
+def _normalize_damage_score(raw_score: float, weights: ScoringWeights) -> float:
+    max_raw = _max_raw_damage_score(weights)
+    if max_raw <= 0:
+        return 0.0
+    return min(100.0, round((raw_score / max_raw) * 100, 2))
+
+
 def calculate_inspection_deterministic_score(
     damages: Iterable[dict[str, Any]], weights: ScoringWeights = DEFAULT_WEIGHTS
 ) -> float:
@@ -161,7 +177,8 @@ def evaluate_damage_with_llm(damage: dict[str, Any]) -> dict[str, Any]:
 
 
 def score_damage_record(damage: dict[str, Any], weights: ScoringWeights = DEFAULT_WEIGHTS) -> dict[str, Any]:
-    deterministic = round(_score_damage(damage, weights), 2)
+    raw_deterministic = _score_damage(damage, weights)
+    deterministic = _normalize_damage_score(raw_deterministic, weights)
     llm_result = evaluate_damage_with_llm(damage)
     return {
         "deterministic_score": deterministic,
