@@ -114,7 +114,7 @@ async def upload_damage_photo(
     if not damage:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Daño no encontrado")
     try:
-        stored = compress_and_store_inspection_photo(file, damage["project_id"], damage["inspection_id"])
+        stored = compress_and_store_inspection_photo(file, user_id, damage["project_id"], damage["inspection_id"])
         photo = create_project_inspection_damage_photo(
             {
                 "project_id": damage.get("project_id"),
@@ -202,7 +202,7 @@ async def upload_inspection_photo(
     file: UploadFile = File(...),
 ):
     try:
-        stored = compress_and_store_inspection_photo(file, project_id, inspection_id)
+        stored = compress_and_store_inspection_photo(file, user_id, project_id, inspection_id)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
     # Guardamos el path (privado); lo firmaremos al leer. Devolvemos el path para que se persista.
@@ -220,7 +220,7 @@ async def add_inspection_photo(
     if not inspection:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspección no encontrada")
     try:
-        stored = compress_and_store_inspection_photo(file, inspection["project_id"], inspection_id)
+        stored = compress_and_store_inspection_photo(file, user_id, inspection["project_id"], inspection_id)
         photo = {
             "id": uuid.uuid4().hex,
             "url": sign_storage_url(stored.url),

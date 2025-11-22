@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from dataclasses import dataclass
@@ -12,6 +13,8 @@ from fastapi import UploadFile
 
 from core.config import SUPABASE_SERVICE_KEY
 from supa.client import supa, supa_service
+
+logger = logging.getLogger(__name__)
 
 BASE_UPLOAD_DIR = Path("uploads")
 INSPECTIONS_DIR = BASE_UPLOAD_DIR / "inspections"
@@ -82,14 +85,24 @@ def sign_storage_url(path: str, expires_in: int = 60 * 60 * 24) -> str:
     """
     if path.startswith("http://") or path.startswith("https://"):
         return path
-    client = _storage_client()
-    signed = client.storage.from_(INSPECTION_BUCKET).create_signed_url(path, expires_in=expires_in)
-    # Supabase python client devuelve dict con signed_url
-    return signed.get("signed_url") or path
+    try:
+        client = _storage_client()
+        signed = client.storage.from_(INSPECTION_BUCKET).create_signed_url(path, expires_in=expires_in)
+        logger.debug("Signed URL response for %s: %s", path, signed)
+        # Supabase python client puede devolver signedURL (camelCase) o signed_url (snake_case)
+        url = signed.get("signedURL") or signed.get("signed_url")
+        if not url:
+            logger.warning("No signed URL returned for path %s, response: %s", path, signed)
+            return path
+        return url
+    except Exception as exc:
+        logger.error("Failed to sign URL for path %s: %s", path, exc)
+        return path
 
 
 def compress_and_store_inspection_photo(
     file: UploadFile,
+    user_id: str,
     project_id: str,
     inspection_id: str,
     max_width: int = 1024,
@@ -97,29 +110,30 @@ def compress_and_store_inspection_photo(
     target_max_bytes: int = 1_000_000,
 ) -> StoredPhoto:
     """
-    Comprime una foto de inspecci��n (1024x768 m��ximo, �?�1MB) manteniendo la proporci��n
+    Comprime una foto de inspección (1024x768 máximo, ~1MB) manteniendo la proporción
     y la sube a Supabase Storage (bucket privado). Retorna el path para firmarlo al leer.
     Si el upload falla, se hace fallback a disco local.
+    Estructura: {user_id}/{project_id}/{inspection_id}/{filename}
     """
     ensure_upload_dirs()
     compressed, file_ext = _compress_image(
         file, max_width=max_width, max_height=max_height, target_max_bytes=target_max_bytes
     )
     target_name = f"{uuid.uuid4().hex}{file_ext}"
-    storage_path = f"{project_id}/{inspection_id}/{target_name}"
+    storage_path = f"{user_id}/{project_id}/{inspection_id}/{target_name}"
 
     try:
         return _upload_to_supabase_storage(compressed.getvalue(), storage_path)
     except Exception:
-        # Fallback local para no romper el flujo si Supabase no est�� disponible.
-        dest_dir = INSPECTIONS_DIR / project_id / inspection_id
+        # Fallback local para no romper el flujo si Supabase no está disponible.
+        dest_dir = INSPECTIONS_DIR / user_id / project_id / inspection_id
         dest_dir.mkdir(parents=True, exist_ok=True)
         target_path = dest_dir / target_name
         compressed.seek(0)
         with open(target_path, "wb") as fh:
             fh.write(compressed.read())
         return StoredPhoto(
-            url=f"/uploads/inspections/{project_id}/{inspection_id}/{target_name}",
+            url=f"/uploads/inspections/{user_id}/{project_id}/{inspection_id}/{target_name}",
             path=str(target_path),
         )
 
