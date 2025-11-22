@@ -164,6 +164,7 @@ const InspectionDetailPage = () => {
         reason: inspection?.llm_reason,
         score: inspection?.llm_score,
     }), [inspection]);
+    const inspectionPhotos = inspection?.photos ?? [];
     const { data: damages = [] } = useProjectInspectionDamages(projectId, inspectionId);
     const { data: tests = [] } = useProjectInspectionTests(projectId, inspectionId);
     const { data: documents = [] } = useProjectInspectionDocuments(projectId, inspectionId);
@@ -190,6 +191,9 @@ const InspectionDetailPage = () => {
     const [damageDialogFiles, setDamageDialogFiles] = useState([]);
     const [damageDialogUploading, setDamageDialogUploading] = useState(false);
     const [photoCommentValues, setPhotoCommentValues] = useState({});
+    const [inspectionPhotoDrafts, setInspectionPhotoDrafts] = useState([]);
+    const [inspectionPhotosUploading, setInspectionPhotosUploading] = useState(false);
+    const [inspectionPhotoComments, setInspectionPhotoComments] = useState({});
     const [testModalOpen, setTestModalOpen] = useState(false);
     const [modalTest, setModalTest] = useState(null);
     const [documentModalOpen, setDocumentModalOpen] = useState(false);
@@ -207,6 +211,10 @@ const InspectionDetailPage = () => {
     useEffect(() => {
         setPhotoCommentValues({});
     }, [modalDamage?.id, editingDamage?.id]);
+    useEffect(() => {
+        setInspectionPhotoComments({});
+        setInspectionPhotoDrafts([]);
+    }, [inspection?.id]);
     const [testDialogOpen, setTestDialogOpen] = useState(false);
     const [testForm, setTestForm] = useState(defaultTestForm);
     const [editingTest, setEditingTest] = useState(null);
@@ -219,6 +227,54 @@ const InspectionDetailPage = () => {
     const modalDamageWithPhotos = modalDamage
         ? damages.find((damage) => damage.id === modalDamage.id) ?? modalDamage
         : null;
+    const createInspectionPhotoDraftId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const addInspectionPhotoFiles = (files) => {
+        const drafts = Array.from(files).map((file) => ({
+            id: createInspectionPhotoDraftId(),
+            file,
+            comment: "",
+        }));
+        setInspectionPhotoDrafts((prev) => [...prev, ...drafts]);
+    };
+    const updateInspectionPhotoDraft = (id, patch) => {
+        setInspectionPhotoDrafts((prev) => prev.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
+    };
+    const removeInspectionPhotoDraft = (id) => {
+        setInspectionPhotoDrafts((prev) => prev.filter((draft) => draft.id !== id));
+    };
+    const handleUploadInspectionPhotoDrafts = async () => {
+        if (!inspectionId || !inspectionPhotoDrafts.length || !canMutate)
+            return;
+        setInspectionPhotosUploading(true);
+        try {
+            for (const draft of inspectionPhotoDrafts) {
+                const form = new FormData();
+                form.append("file", draft.file);
+                if (draft.comment.trim()) {
+                    form.append("comment", draft.comment.trim());
+                }
+                await apiClient.post(`/inspections/${inspectionId}/photos`, form);
+            }
+            setInspectionPhotoDrafts([]);
+            invalidateDetailQueries();
+        }
+        finally {
+            setInspectionPhotosUploading(false);
+        }
+    };
+    const handleInspectionPhotoDelete = async (photoId) => {
+        if (!inspectionId || !photoId || !canMutate)
+            return;
+        await apiClient.delete(`/inspections/${inspectionId}/photos/${photoId}`);
+        invalidateDetailQueries();
+    };
+    const handleInspectionPhotoCommentChange = async (photoId, comment) => {
+        if (!inspectionId || !photoId || !canMutate)
+            return;
+        await apiClient.patch(`/inspections/${inspectionId}/photos/${photoId}`, { comment: comment ?? "" });
+        setInspectionPhotoComments((prev) => ({ ...prev, [photoId]: comment ?? "" }));
+        invalidateDetailQueries();
+    };
     const createDamageMutation = useMutation({
         mutationFn: async (payload) => {
             if (!projectId || !inspectionId)
@@ -597,7 +653,30 @@ const InspectionDetailPage = () => {
                                             ? "success"
                                             : inspection.overall_condition === "critica"
                                                 ? "error"
-                                                : "warning", size: "small" }), _jsxs(Typography, { color: "text.secondary", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] })] })] }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [_jsx(Button, { component: RouterLink, to: `/projects/${projectId}/inspections`, variant: "outlined", children: "Volver al plan" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(reportUrl, `${inspectionId}-report.pdf`, "application/pdf"), disabled: !inspectionId || downloadingReport, children: downloadingReport ? "Descargando..." : "Descargar informe" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(archiveUrl, `${inspectionId}-archive.zip`, "application/zip"), disabled: !inspectionId || downloadingArchive, children: downloadingArchive ? "Descargando..." : "Descargar ZIP" })] })] }), _jsx(Card, { variant: "outlined", children: _jsx(CardContent, { sx: { pt: 1, pb: 1 }, children: _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 3, alignItems: "center", justifyContent: "space-between", children: [_jsxs(Stack, { spacing: 0.5, children: [_jsx(Typography, { variant: "subtitle2", children: "Calificaci\u00F3n t\u00E9cnica" }), _jsx(Typography, { variant: "h5", children: formatScoreValue(inspection.deterministic_score) }), inspection.score_updated_at && (_jsxs(Typography, { variant: "caption", color: "text.secondary", children: ["Actualizado ", formatScoreTimestamp(inspection.score_updated_at)] }))] }), _jsxs(Stack, { spacing: 0.5, children: [_jsx(Typography, { variant: "subtitle2", children: "LLM" }), _jsx(Typography, { variant: "h5", children: formatLLMScoreValue(inspectionLLM.score, Boolean(inspectionLLM.reason)) }), inspectionLLM.reason && (_jsx(Typography, { variant: "body2", color: "text.secondary", children: inspectionLLM.reason })), _jsx(LLMPayloadViewer, { payload: inspectionLLM.payload, reason: inspectionLLM.reason, score: inspectionLLM.score, title: "Detalle del modelo LLM para la inspecci\u00F3n" })] })] }) }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "subtitle1", children: "Resumen de hallazgos" }), _jsx(Typography, { variant: "body1", sx: { mt: 1, mb: 2 }, children: inspection.summary || "No se registraron comentarios adicionales." }), (inspection.photos ?? []).length > 0 && (_jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((url) => (_jsx(Chip, { label: "Foto", component: "a", href: url, target: "_blank", rel: "noreferrer", clickable: true, variant: "outlined", size: "small" }, url))) }))] }) }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, children: _jsxs(Card, { children: [_jsxs(CardContent, { sx: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [_jsx(Typography, { variant: "h6", children: "Da\u00F1os registrados" }), _jsx(Button, { startIcon: _jsx(AddIcon, {}), variant: "contained", onClick: () => openDamageDialog(), disabled: !canMutate, children: "Registrar da\u00F1o" })] }), _jsxs(Table, { size: "small", children: [_jsx(TableHead, { children: _jsxs(TableRow, { children: [_jsx(TableCell, { children: "Estructura" }), _jsx(TableCell, { children: "Da\u00F1o" }), _jsx(TableCell, { children: "Causa" }), _jsx(TableCell, { children: "Gravedad" }), _jsx(TableCell, { children: "Extensi\u00F3n" }), _jsx(TableCell, { children: "Score \u00B7 Fotos" }), _jsx(TableCell, { align: "right", children: "Acciones" })] }) }), _jsxs(TableBody, { children: [damages.length === 0 && (_jsx(TableRow, { children: _jsx(TableCell, { colSpan: 7, align: "center", children: _jsx(Typography, { color: "text.secondary", children: "A\u00FAn no se registran da\u00F1os vinculados." }) }) })), damages.map((damage) => (_jsxs(TableRow, { hover: true, children: [_jsxs(TableCell, { children: [_jsx(Typography, { fontWeight: 600, children: damage.structure || "Sin dato" }), _jsx(Typography, { variant: "caption", color: "text.secondary", children: damage.location || "Ubicación no indicada" })] }), _jsx(TableCell, { children: damage.damage_type }), _jsx(TableCell, { children: damage.damage_cause }), _jsx(TableCell, { children: _jsx(Chip, { label: damage.severity, color: severityColor(damage.severity), size: "small", variant: damage.severity === "Leve" ? "outlined" : "filled" }) }), _jsx(TableCell, { children: damage.extent || "Sin dato" }), _jsx(TableCell, { children: _jsxs(Stack, { spacing: 0.5, children: [_jsxs(Typography, { variant: "body2", children: ["Score: ", formatScoreValue(damage.deterministic_score)] }), (() => {
+                                                : "warning", size: "small" }), _jsxs(Typography, { color: "text.secondary", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] })] })] }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [_jsx(Button, { component: RouterLink, to: `/projects/${projectId}/inspections`, variant: "outlined", children: "Volver al plan" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(reportUrl, `${inspectionId}-report.pdf`, "application/pdf"), disabled: !inspectionId || downloadingReport, children: downloadingReport ? "Descargando..." : "Descargar informe" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(archiveUrl, `${inspectionId}-archive.zip`, "application/zip"), disabled: !inspectionId || downloadingArchive, children: downloadingArchive ? "Descargando..." : "Descargar ZIP" })] })] }), _jsx(Card, { variant: "outlined", children: _jsx(CardContent, { sx: { pt: 1, pb: 1 }, children: _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 3, alignItems: "center", justifyContent: "space-between", children: [_jsxs(Stack, { spacing: 0.5, children: [_jsx(Typography, { variant: "subtitle2", children: "Calificaci\u00F3n t\u00E9cnica" }), _jsx(Typography, { variant: "h5", children: formatScoreValue(inspection.deterministic_score) }), inspection.score_updated_at && (_jsxs(Typography, { variant: "caption", color: "text.secondary", children: ["Actualizado ", formatScoreTimestamp(inspection.score_updated_at)] }))] }), _jsxs(Stack, { spacing: 0.5, children: [_jsx(Typography, { variant: "subtitle2", children: "LLM" }), _jsx(Typography, { variant: "h5", children: formatLLMScoreValue(inspectionLLM.score, Boolean(inspectionLLM.reason)) }), inspectionLLM.reason && (_jsx(Typography, { variant: "body2", color: "text.secondary", children: inspectionLLM.reason })), _jsx(LLMPayloadViewer, { payload: inspectionLLM.payload, reason: inspectionLLM.reason, score: inspectionLLM.score, title: "Detalle del modelo LLM para la inspecci\u00F3n" })] })] }) }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "subtitle1", children: "Resumen de hallazgos" }), _jsx(Typography, { variant: "body1", sx: { mt: 1, mb: 2 }, children: inspection.summary || "No se registraron comentarios adicionales." })] }) }), _jsx(Card, { children: _jsx(CardContent, { children: _jsxs(Stack, { spacing: 2, children: [_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, justifyContent: "space-between", children: [_jsx(Typography, { variant: "h6", children: "Fotograf\u00EDas de la inspecci\u00F3n" }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [_jsxs(Button, { component: "label", variant: "outlined", size: "small", disabled: !canMutate, children: ["Seleccionar fotos", _jsx("input", { type: "file", accept: "image/*", multiple: true, hidden: true, onChange: (event) => {
+                                                            const files = event.target.files;
+                                                            if (files?.length) {
+                                                                addInspectionPhotoFiles(files);
+                                                                event.target.value = "";
+                                                            }
+                                                        } })] }), _jsx(Button, { variant: "contained", size: "small", onClick: handleUploadInspectionPhotoDrafts, disabled: !canMutate || !inspectionPhotoDrafts.length || inspectionPhotosUploading, children: inspectionPhotosUploading ? "Subiendo..." : "Subir fotos" })] })] }), inspectionPhotoDrafts.length > 0 && (_jsxs(Stack, { spacing: 1, children: [_jsx(Typography, { variant: "subtitle2", children: "Fotos listas para subir" }), inspectionPhotoDrafts.map((draft) => (_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, sx: { border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }, children: [_jsxs(Stack, { spacing: 0.25, sx: { flexGrow: 1 }, children: [_jsx(Typography, { variant: "body2", fontWeight: 600, noWrap: true, title: draft.file.name, children: draft.file.name }), _jsxs(Typography, { variant: "caption", color: "text.secondary", children: [Math.round(draft.file.size / 1024), " KB \u00B7 se comprimir\u00E1 a 1080p"] })] }), _jsx(TextField, { size: "small", label: "Comentario", value: draft.comment, onChange: (event) => updateInspectionPhotoDraft(draft.id, { comment: event.target.value }), fullWidth: true, sx: { minWidth: { sm: 200 } } }), _jsx(IconButton, { "aria-label": "Quitar foto", onClick: () => removeInspectionPhotoDraft(draft.id), size: "small", children: _jsx(DeleteIcon, { fontSize: "small" }) })] }, draft.id)))] })), _jsxs(Stack, { spacing: 1, children: [_jsx(Typography, { variant: "subtitle2", children: "Fotos guardadas" }), inspectionPhotos.length === 0 ? (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "Sin fotograf\u00EDas anexas." })) : (_jsx(Stack, { direction: "row", spacing: 2, flexWrap: "wrap", children: inspectionPhotos.map((photo, index) => {
+                                            const photoId = typeof photo === "string" ? null : photo?.id ?? null;
+                                            const photoUrl = typeof photo === "string" ? photo : photo?.url ?? null;
+                                            const baseComment = typeof photo === "string" ? "" : photo?.comment ?? "";
+                                            const commentValue = photoId && inspectionPhotoComments[photoId] !== undefined
+                                                ? inspectionPhotoComments[photoId]
+                                                : baseComment;
+                                            const key = photoId ?? photoUrl ?? `inspection-photo-${index}`;
+                                            return (_jsxs(Stack, { spacing: 1, sx: { width: 180 }, children: [_jsx(Box, { component: "img", src: photoUrl ?? "", alt: "Foto de inspecci\u00F3n", sx: { width: "100%", height: 120, objectFit: "cover", borderRadius: 1, border: "1px solid", borderColor: "divider" } }), _jsx(TextField, { size: "small", label: "Comentario", value: commentValue, onChange: (event) => {
+                                                            if (photoId) {
+                                                                setInspectionPhotoComments((prev) => ({ ...prev, [photoId]: event.target.value }));
+                                                            }
+                                                        }, onBlur: (event) => {
+                                                            if (photoId) {
+                                                                handleInspectionPhotoCommentChange(photoId, event.target.value);
+                                                            }
+                                                        }, disabled: !photoId }), _jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", children: [_jsx(Button, { size: "small", component: "a", href: photoUrl ?? undefined, target: "_blank", rel: "noreferrer", startIcon: _jsx(AttachmentIcon, {}), disabled: !photoUrl, children: "Ver" }), photoId && canMutate && (_jsx(IconButton, { "aria-label": "Eliminar foto de inspecci\u00F3n", size: "small", onClick: () => handleInspectionPhotoDelete(photoId), children: _jsx(DeleteIcon, { fontSize: "small" }) }))] })] }, key));
+                                        }) }))] })] }) }) }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, children: _jsxs(Card, { children: [_jsxs(CardContent, { sx: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [_jsx(Typography, { variant: "h6", children: "Da\u00F1os registrados" }), _jsx(Button, { startIcon: _jsx(AddIcon, {}), variant: "contained", onClick: () => openDamageDialog(), disabled: !canMutate, children: "Registrar da\u00F1o" })] }), _jsxs(Table, { size: "small", children: [_jsx(TableHead, { children: _jsxs(TableRow, { children: [_jsx(TableCell, { children: "Estructura" }), _jsx(TableCell, { children: "Da\u00F1o" }), _jsx(TableCell, { children: "Causa" }), _jsx(TableCell, { children: "Gravedad" }), _jsx(TableCell, { children: "Extensi\u00F3n" }), _jsx(TableCell, { children: "Score \u00B7 Fotos" }), _jsx(TableCell, { align: "right", children: "Acciones" })] }) }), _jsxs(TableBody, { children: [damages.length === 0 && (_jsx(TableRow, { children: _jsx(TableCell, { colSpan: 7, align: "center", children: _jsx(Typography, { color: "text.secondary", children: "A\u00FAn no se registran da\u00F1os vinculados." }) }) })), damages.map((damage) => (_jsxs(TableRow, { hover: true, children: [_jsxs(TableCell, { children: [_jsx(Typography, { fontWeight: 600, children: damage.structure || "Sin dato" }), _jsx(Typography, { variant: "caption", color: "text.secondary", children: damage.location || "Ubicación no indicada" })] }), _jsx(TableCell, { children: damage.damage_type }), _jsx(TableCell, { children: damage.damage_cause }), _jsx(TableCell, { children: _jsx(Chip, { label: damage.severity, color: severityColor(damage.severity), size: "small", variant: damage.severity === "Leve" ? "outlined" : "filled" }) }), _jsx(TableCell, { children: damage.extent || "Sin dato" }), _jsx(TableCell, { children: _jsxs(Stack, { spacing: 0.5, children: [_jsxs(Typography, { variant: "body2", children: ["Score: ", formatScoreValue(damage.deterministic_score)] }), (() => {
                                                                         const details = extractLLMDetails({
                                                                             payload: damage.llm_payload,
                                                                             reason: damage.llm_reason,

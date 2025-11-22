@@ -45,6 +45,7 @@ const ProjectInspectionsPage = () => {
             setProject(firstProjectId);
         }
     }, [projects, selectedProjectId, sessionProjectId, setProject]);
+    const createDraftId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false);
     const [inspectionForm, setInspectionForm] = useState({
         structure_name: "",
@@ -53,8 +54,38 @@ const ProjectInspectionsPage = () => {
         inspector: "",
         overall_condition: "operativa",
         summary: "",
-        photos: "",
     });
+    const [photoDrafts, setPhotoDrafts] = useState([]);
+    const [newPhotoUrl, setNewPhotoUrl] = useState("");
+    const [newPhotoComment, setNewPhotoComment] = useState("");
+    const addPhotoFiles = (files) => {
+        const nextDrafts = Array.from(files).map((file) => ({
+            id: createDraftId(),
+            file,
+            comment: "",
+        }));
+        setPhotoDrafts((prev) => [...prev, ...nextDrafts]);
+    };
+    const handleAddPhotoUrl = () => {
+        if (!newPhotoUrl.trim())
+            return;
+        setPhotoDrafts((prev) => [
+            ...prev,
+            {
+                id: createDraftId(),
+                url: newPhotoUrl.trim(),
+                comment: newPhotoComment.trim(),
+            },
+        ]);
+        setNewPhotoUrl("");
+        setNewPhotoComment("");
+    };
+    const updatePhotoDraft = (id, patch) => {
+        setPhotoDrafts((prev) => prev.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
+    };
+    const removePhotoDraft = (id) => {
+        setPhotoDrafts((prev) => prev.filter((draft) => draft.id !== id));
+    };
     const invalidateInspectionQueries = () => {
         if (!effectiveProjectId)
             return;
@@ -67,11 +98,13 @@ const ProjectInspectionsPage = () => {
         mutationFn: async () => {
             if (!effectiveProjectId)
                 throw new Error("No hay proyecto activo");
-            const photos = inspectionForm.photos
-                .split("\n")
-                .map((value) => value.trim())
-                .filter(Boolean);
-            const { data } = await apiClient.post("/inspections", {
+            const urlPhotos = photoDrafts
+                .filter((draft) => draft.url)
+                .map((draft) => ({
+                url: draft.url,
+                comment: draft.comment?.trim() || null,
+            }));
+            const { data: inspection } = await apiClient.post("/inspections", {
                 project_id: effectiveProjectId,
                 structure_name: inspectionForm.structure_name,
                 location: inspectionForm.location,
@@ -79,9 +112,18 @@ const ProjectInspectionsPage = () => {
                 inspector: inspectionForm.inspector,
                 overall_condition: inspectionForm.overall_condition,
                 summary: inspectionForm.summary,
-                photos,
+                photos: urlPhotos,
             });
-            return data;
+            const fileDrafts = photoDrafts.filter((draft) => draft.file);
+            for (const draft of fileDrafts) {
+                const form = new FormData();
+                form.append("file", draft.file);
+                if (draft.comment?.trim()) {
+                    form.append("comment", draft.comment.trim());
+                }
+                await apiClient.post(`/inspections/${inspection.id}/photos`, form);
+            }
+            return inspection;
         },
         onSuccess: () => {
             setInspectionDialogOpen(false);
@@ -92,8 +134,10 @@ const ProjectInspectionsPage = () => {
                 inspector: "",
                 overall_condition: "operativa",
                 summary: "",
-                photos: "",
             });
+            setPhotoDrafts([]);
+            setNewPhotoUrl("");
+            setNewPhotoComment("");
             invalidateInspectionQueries();
         },
     });
@@ -134,10 +178,27 @@ const ProjectInspectionsPage = () => {
                                                             ? "success"
                                                             : inspection.overall_condition === "critica"
                                                                 ? "error"
-                                                                : "warning", size: "small" })] }), secondary: _jsxs(Stack, { spacing: 1, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector: ", " ", inspection.inspector] }), _jsx(Typography, { variant: "body2", component: "div", children: inspection.summary }), _jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((url) => (_jsx(Chip, { label: "Foto", component: "span", onClick: () => window.open(url, "_blank", "noopener"), clickable: true, variant: "outlined", size: "small" }, url))) })] }), primaryTypographyProps: { component: "div" }, secondaryTypographyProps: { component: "div" } }) }) }, inspection.id));
+                                                                : "warning", size: "small" })] }), secondary: _jsxs(Stack, { spacing: 1, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] }), _jsx(Typography, { variant: "body2", component: "div", children: inspection.summary }), _jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((photo, index) => {
+                                                            const photoUrl = typeof photo === "string" ? photo : photo?.url;
+                                                            const label = typeof photo === "string" ? "Foto" : photo?.comment || "Foto";
+                                                            const key = typeof photo === "string" ? photo : photo?.id ?? photoUrl ?? `photo-${index}`;
+                                                            return (_jsx(Chip, { label: label, component: "span", onClick: () => {
+                                                                    if (photoUrl) {
+                                                                        window.open(photoUrl, "_blank", "noopener");
+                                                                    }
+                                                                }, clickable: Boolean(photoUrl), variant: "outlined", size: "small" }, key));
+                                                        }) })] }), primaryTypographyProps: { component: "div" }, secondaryTypographyProps: { component: "div" } }) }) }, inspection.id));
                             })] })] }), _jsxs(Dialog, { open: inspectionDialogOpen, onClose: () => setInspectionDialogOpen(false), maxWidth: "sm", fullWidth: true, children: [_jsx(DialogTitle, { children: "Nueva inspecci\u00F3n" }), _jsx(DialogContent, { dividers: true, children: _jsxs(Stack, { spacing: 2, sx: { mt: 1 }, children: [_jsx(TextField, { label: "Estructura / elemento", value: inspectionForm.structure_name, onChange: (event) => setInspectionForm((prev) => ({ ...prev, structure_name: event.target.value })), id: "inspection-structure", name: "inspectionStructure" }), _jsx(TextField, { label: "Ubicaci\u00F3n", value: inspectionForm.location, onChange: (event) => setInspectionForm((prev) => ({ ...prev, location: event.target.value })), id: "inspection-location", name: "inspectionLocation" }), _jsxs(Stack, { direction: "row", spacing: 2, children: [_jsx(TextField, { type: "date", label: "Fecha", InputLabelProps: { shrink: true }, fullWidth: true, value: inspectionForm.inspection_date, onChange: (event) => setInspectionForm((prev) => ({ ...prev, inspection_date: event.target.value })), id: "inspection-date", name: "inspectionDate" }), _jsx(TextField, { label: "Inspector", fullWidth: true, value: inspectionForm.inspector, onChange: (event) => setInspectionForm((prev) => ({ ...prev, inspector: event.target.value })), id: "inspection-inspector", name: "inspectionInspector" })] }), _jsx(TextField, { select: true, label: "Condici\u00F3n", value: inspectionForm.overall_condition, onChange: (event) => setInspectionForm((prev) => ({
                                         ...prev,
                                         overall_condition: event.target.value,
-                                    })), id: "inspection-condition", name: "inspectionCondition", children: conditionOptions.map((option) => (_jsx(MenuItem, { value: option.value, children: option.label }, option.value))) }), _jsx(TextField, { label: "Resumen de hallazgos", multiline: true, minRows: 3, value: inspectionForm.summary, onChange: (event) => setInspectionForm((prev) => ({ ...prev, summary: event.target.value })), id: "inspection-summary", name: "inspectionSummary" }), _jsx(TextField, { label: "URLs de fotograf\u00EDas (una por l\u00EDnea)", multiline: true, minRows: 3, value: inspectionForm.photos, onChange: (event) => setInspectionForm((prev) => ({ ...prev, photos: event.target.value })), id: "inspection-photos", name: "inspectionPhotos" })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setInspectionDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: () => createInspectionMutation.mutate(), disabled: !effectiveProjectId || !inspectionForm.structure_name.trim() || createInspectionMutation.isPending, children: "Guardar" })] })] })] }));
+                                    })), id: "inspection-condition", name: "inspectionCondition", children: conditionOptions.map((option) => (_jsx(MenuItem, { value: option.value, children: option.label }, option.value))) }), _jsx(TextField, { label: "Resumen de hallazgos", multiline: true, minRows: 3, value: inspectionForm.summary, onChange: (event) => setInspectionForm((prev) => ({ ...prev, summary: event.target.value })), id: "inspection-summary", name: "inspectionSummary" }), _jsxs(Stack, { spacing: 1, children: [_jsx(Typography, { variant: "subtitle2", children: "Fotograf\u00EDas" }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, children: [_jsxs(Button, { component: "label", variant: "outlined", size: "small", children: ["Seleccionar fotos", _jsx("input", { type: "file", accept: "image/*", multiple: true, hidden: true, onChange: (event) => {
+                                                                const files = event.target.files;
+                                                                if (files?.length) {
+                                                                    addPhotoFiles(files);
+                                                                    event.target.value = "";
+                                                                }
+                                                            } })] }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: photoDrafts.some((draft) => draft.file)
+                                                        ? `${photoDrafts.filter((draft) => draft.file).length} archivo(s) listo(s) para subir`
+                                                        : "Puedes adjuntar fotos ahora o más tarde" })] }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [_jsx(TextField, { label: "URL de foto", value: newPhotoUrl, onChange: (event) => setNewPhotoUrl(event.target.value), size: "small", fullWidth: true, id: "inspection-photo-url", name: "inspectionPhotoUrl" }), _jsx(TextField, { label: "Comentario breve", value: newPhotoComment, onChange: (event) => setNewPhotoComment(event.target.value), size: "small", fullWidth: true, id: "inspection-photo-comment", name: "inspectionPhotoComment" }), _jsx(Button, { variant: "outlined", onClick: handleAddPhotoUrl, disabled: !newPhotoUrl.trim(), sx: { minWidth: 140 }, children: "Agregar URL" })] }), _jsx(Stack, { spacing: 1, children: photoDrafts.length === 0 ? (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "No hay fotos pendientes. Puedes a\u00F1adir archivos o URLs y agregarles un comentario corto." })) : (photoDrafts.map((draft) => (_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, sx: { border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }, children: [_jsxs(Stack, { spacing: 0.5, sx: { flexGrow: 1, minWidth: 0 }, children: [_jsx(Typography, { variant: "body2", fontWeight: 600, noWrap: true, title: draft.file ? draft.file.name : draft.url, children: draft.file ? draft.file.name : draft.url }), _jsx(Typography, { variant: "caption", color: "text.secondary", children: draft.file ? `${Math.round(draft.file.size / 1024)} KB · se comprimirá a 1080p` : "Desde URL" }), !draft.file && (_jsx(TextField, { size: "small", label: "URL", value: draft.url ?? "", onChange: (event) => updatePhotoDraft(draft.id, { url: event.target.value }), fullWidth: true }))] }), _jsx(TextField, { size: "small", label: "Comentario", value: draft.comment, onChange: (event) => updatePhotoDraft(draft.id, { comment: event.target.value }), fullWidth: true, sx: { minWidth: { sm: 200 } } }), _jsx(IconButton, { "aria-label": "Eliminar foto", onClick: () => removePhotoDraft(draft.id), size: "small", children: _jsx(DeleteIcon, { fontSize: "small" }) })] }, draft.id)))) })] })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setInspectionDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: () => createInspectionMutation.mutate(), disabled: !effectiveProjectId || !inspectionForm.structure_name.trim() || createInspectionMutation.isPending, children: "Guardar" })] })] })] }));
 };
 export default ProjectInspectionsPage;

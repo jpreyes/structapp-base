@@ -10,6 +10,12 @@ export interface InspectionDocument {
     url?: string | null;
     notes?: string | null;
 }
+export interface InspectionPhoto {
+    id?: string | null;
+    url?: string | null;
+    comment?: string | null;
+    storage_path?: string | null;
+}
 export interface ProjectInspectionDamage {
     id: string;
     project_id: string;
@@ -48,7 +54,7 @@ export interface ProjectInspection {
     accessibility?: string | null;
     overall_condition: "operativa" | "observacion" | "critica";
     summary: string;
-    photos?: string[];
+    photos?: InspectionPhoto[];
     documents?: InspectionDocument[];
     deterministic_score?: number | null;
     llm_score?: number | null;

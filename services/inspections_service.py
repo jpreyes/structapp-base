@@ -1,6 +1,6 @@
 from datetime import date, datetime
 import logging
-from typing import Any, Mapping
+from typing import Any, Mapping, Tuple
 
 from core.config import SUPABASE_SERVICE_KEY
 from supa.client import supa, supa_service
@@ -10,6 +10,7 @@ from services.inspection_scoring import (
     evaluate_inspection_with_llm,
     score_damage_record,
 )
+from services.media_service import sign_storage_url
 
 
 def _serialize_payload(payload: Mapping[str, Any]) -> dict:
@@ -27,7 +28,7 @@ def _serialize_payload(payload: Mapping[str, Any]) -> dict:
 
 
 def list_project_inspections(project_id: str):
-    return (
+    inspections = (
         supa()
         .table("project_inspections")
         .select("*")
@@ -36,6 +37,19 @@ def list_project_inspections(project_id: str):
         .execute()
         .data
     )
+    for inspection in inspections or []:
+        if inspection.get("photos"):
+            signed = []
+            for item in inspection["photos"]:
+                if isinstance(item, str):
+                    signed.append({"url": sign_storage_url(item), "storage_path": item})
+                elif isinstance(item, dict):
+                    path = item.get("storage_path") or item.get("url")
+                    signed.append({**item, "url": sign_storage_url(path) if path else item.get("url")})
+                else:
+                    signed.append(item)
+            inspection["photos"] = signed
+    return inspections
 
 
 def create_project_inspection(payload: dict):
@@ -59,7 +73,62 @@ def get_project_inspection(inspection_id: str):
         .single()
         .execute()
     )
-    return result.data
+    data = result.data
+    if data is not None and data.get("photos") is None:
+        data["photos"] = []
+    if data and data.get("photos"):
+        signed = []
+        for item in data["photos"]:
+            if isinstance(item, str):
+                signed.append({"url": sign_storage_url(item), "storage_path": item})
+            elif isinstance(item, dict):
+                path = item.get("storage_path") or item.get("url")
+                signed.append({**item, "url": sign_storage_url(path) if path else item.get("url")})
+            else:
+                signed.append(item)
+        data["photos"] = signed
+    return data
+
+
+def append_inspection_photo(inspection_id: str, photo: dict) -> Tuple[dict, dict]:
+    inspection = get_project_inspection(inspection_id)
+    if not inspection:
+        raise ValueError("Inspecci��n no encontrada")
+    photos = inspection.get("photos") or []
+    photos.append(photo)
+    supa().table("project_inspections").update({"photos": photos}).eq("id", inspection_id).execute()
+    return photo, inspection
+
+
+def delete_inspection_photo(inspection_id: str, photo_id: str) -> dict | None:
+    inspection = get_project_inspection(inspection_id)
+    if not inspection:
+        return None
+    photos = inspection.get("photos") or []
+    remaining: list[dict] = []
+    removed: dict | None = None
+    for item in photos:
+        if item.get("id") == photo_id or (not item.get("id") and item.get("url") == photo_id):
+            removed = item
+            continue
+        remaining.append(item)
+    supa().table("project_inspections").update({"photos": remaining}).eq("id", inspection_id).execute()
+    return removed
+
+
+def update_inspection_photo_comment(inspection_id: str, photo_id: str, comment: str | None) -> dict | None:
+    inspection = get_project_inspection(inspection_id)
+    if not inspection:
+        return None
+    photos = inspection.get("photos") or []
+    updated: dict | None = None
+    for item in photos:
+        if item.get("id") == photo_id or (not item.get("id") and item.get("url") == photo_id):
+            item["comment"] = comment
+            updated = item
+            break
+    supa().table("project_inspections").update({"photos": photos}).eq("id", inspection_id).execute()
+    return updated
 
 
 def list_project_inspection_damages(project_id: str, inspection_id: str | None = None):
@@ -91,11 +160,14 @@ def list_project_inspection_damages(project_id: str, inspection_id: str | None =
         pid = photo.get("id")
         comments = photo.get("comments")
         if damage_id and url:
+            photo["photo_url"] = sign_storage_url(url)
             photo_map.setdefault(damage_id, []).append(
                 {"id": pid, "photo_url": url, "comments": comments}
             )
     for damage in damages:
         damage["photos"] = photo_map.get(damage.get("id") or "", [])
+        if damage.get("damage_photo_url"):
+            damage["damage_photo_url"] = sign_storage_url(damage["damage_photo_url"])
     return damages
 
 
@@ -231,7 +303,11 @@ def list_project_inspection_damage_photos(damage_id: str):
         .order("created_at", desc=False)
         .execute()
     )
-    return result.data
+    photos = result.data or []
+    for photo in photos:
+        if photo.get("photo_url"):
+            photo["photo_url"] = sign_storage_url(photo["photo_url"])
+    return photos
 
 
 def create_project_inspection_damage_photo(payload: dict):

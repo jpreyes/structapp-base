@@ -64,6 +64,12 @@ type DamagePhoto = {
   comments?: string | null;
 };
 
+type InspectionPhotoDraft = {
+  id: string;
+  file: File;
+  comment: string;
+};
+
 type TestFormState = {
   test_type: string;
   method: string;
@@ -319,6 +325,7 @@ const InspectionDetailPage = () => {
       }),
     [inspection]
   );
+  const inspectionPhotos = inspection?.photos ?? [];
 
   const { data: damages = [] } = useProjectInspectionDamages(projectId, inspectionId);
   const { data: tests = [] } = useProjectInspectionTests(projectId, inspectionId);
@@ -347,6 +354,9 @@ const InspectionDetailPage = () => {
   const [damageDialogFiles, setDamageDialogFiles] = useState<File[]>([]);
   const [damageDialogUploading, setDamageDialogUploading] = useState(false);
   const [photoCommentValues, setPhotoCommentValues] = useState<Record<string, string>>({});
+  const [inspectionPhotoDrafts, setInspectionPhotoDrafts] = useState<InspectionPhotoDraft[]>([]);
+  const [inspectionPhotosUploading, setInspectionPhotosUploading] = useState(false);
+  const [inspectionPhotoComments, setInspectionPhotoComments] = useState<Record<string, string>>({});
   const [testModalOpen, setTestModalOpen] = useState(false);
   const [modalTest, setModalTest] = useState<ProjectInspectionTest | null>(null);
   const [documentModalOpen, setDocumentModalOpen] = useState(false);
@@ -368,6 +378,11 @@ const InspectionDetailPage = () => {
     setPhotoCommentValues({});
   }, [modalDamage?.id, editingDamage?.id]);
 
+  useEffect(() => {
+    setInspectionPhotoComments({});
+    setInspectionPhotoDrafts([]);
+  }, [inspection?.id]);
+
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testForm, setTestForm] = useState<TestFormState>(defaultTestForm);
   const [editingTest, setEditingTest] = useState<ProjectInspectionTest | null>(null);
@@ -382,6 +397,57 @@ const InspectionDetailPage = () => {
   const modalDamageWithPhotos = modalDamage
     ? damages.find((damage) => damage.id === modalDamage.id) ?? modalDamage
     : null;
+  const createInspectionPhotoDraftId = () =>
+    crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  const addInspectionPhotoFiles = (files: FileList) => {
+    const drafts = Array.from(files).map((file) => ({
+      id: createInspectionPhotoDraftId(),
+      file,
+      comment: "",
+    }));
+    setInspectionPhotoDrafts((prev) => [...prev, ...drafts]);
+  };
+
+  const updateInspectionPhotoDraft = (id: string, patch: Partial<InspectionPhotoDraft>) => {
+    setInspectionPhotoDrafts((prev) => prev.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
+  };
+
+  const removeInspectionPhotoDraft = (id: string) => {
+    setInspectionPhotoDrafts((prev) => prev.filter((draft) => draft.id !== id));
+  };
+
+  const handleUploadInspectionPhotoDrafts = async () => {
+    if (!inspectionId || !inspectionPhotoDrafts.length || !canMutate) return;
+    setInspectionPhotosUploading(true);
+    try {
+      for (const draft of inspectionPhotoDrafts) {
+        const form = new FormData();
+        form.append("file", draft.file);
+        if (draft.comment.trim()) {
+          form.append("comment", draft.comment.trim());
+        }
+        await apiClient.post(`/inspections/${inspectionId}/photos`, form);
+      }
+      setInspectionPhotoDrafts([]);
+      invalidateDetailQueries();
+    } finally {
+      setInspectionPhotosUploading(false);
+    }
+  };
+
+  const handleInspectionPhotoDelete = async (photoId?: string | null) => {
+    if (!inspectionId || !photoId || !canMutate) return;
+    await apiClient.delete(`/inspections/${inspectionId}/photos/${photoId}`);
+    invalidateDetailQueries();
+  };
+
+  const handleInspectionPhotoCommentChange = async (photoId?: string | null, comment?: string) => {
+    if (!inspectionId || !photoId || !canMutate) return;
+    await apiClient.patch(`/inspections/${inspectionId}/photos/${photoId}`, { comment: comment ?? "" });
+    setInspectionPhotoComments((prev) => ({ ...prev, [photoId]: comment ?? "" }));
+    invalidateDetailQueries();
+  };
 
   const createDamageMutation = useMutation({
     mutationFn: async (payload: DamageFormState) => {
@@ -953,23 +1019,156 @@ const InspectionDetailPage = () => {
           <Typography variant="body1" sx={{ mt: 1, mb: 2 }}>
             {inspection.summary || "No se registraron comentarios adicionales."}
           </Typography>
-          {(inspection.photos ?? []).length > 0 && (
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              {(inspection.photos ?? []).map((url) => (
-                <Chip
-                  key={url}
-                  label="Foto"
-                  component="a"
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  clickable
-                  variant="outlined"
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              alignItems={{ sm: "center" }}
+              justifyContent="space-between"
+            >
+              <Typography variant="h6">Fotografías de la inspección</Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Button component="label" variant="outlined" size="small" disabled={!canMutate}>
+                  Seleccionar fotos
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={(event) => {
+                      const files = event.target.files;
+                      if (files?.length) {
+                        addInspectionPhotoFiles(files);
+                        event.target.value = "";
+                      }
+                    }}
+                  />
+                </Button>
+                <Button
+                  variant="contained"
                   size="small"
-                />
-              ))}
+                  onClick={handleUploadInspectionPhotoDrafts}
+                  disabled={!canMutate || !inspectionPhotoDrafts.length || inspectionPhotosUploading}
+                >
+                  {inspectionPhotosUploading ? "Subiendo..." : "Subir fotos"}
+                </Button>
+              </Stack>
             </Stack>
-          )}
+
+            {inspectionPhotoDrafts.length > 0 && (
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Fotos listas para subir</Typography>
+                {inspectionPhotoDrafts.map((draft) => (
+                  <Stack
+                    key={draft.id}
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1}
+                    alignItems={{ sm: "center" }}
+                    sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }}
+                  >
+                    <Stack spacing={0.25} sx={{ flexGrow: 1 }}>
+                      <Typography variant="body2" fontWeight={600} noWrap title={draft.file.name}>
+                        {draft.file.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {Math.round(draft.file.size / 1024)} KB · se comprimirá a 1080p
+                      </Typography>
+                    </Stack>
+                    <TextField
+                      size="small"
+                      label="Comentario"
+                      value={draft.comment}
+                      onChange={(event) => updateInspectionPhotoDraft(draft.id, { comment: event.target.value })}
+                      fullWidth
+                      sx={{ minWidth: { sm: 200 } }}
+                    />
+                    <IconButton
+                      aria-label="Quitar foto"
+                      onClick={() => removeInspectionPhotoDraft(draft.id)}
+                      size="small"
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+
+            <Stack spacing={1}>
+              <Typography variant="subtitle2">Fotos guardadas</Typography>
+              {inspectionPhotos.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Sin fotografías anexas.
+                </Typography>
+              ) : (
+                <Stack direction="row" spacing={2} flexWrap="wrap">
+                  {inspectionPhotos.map((photo, index) => {
+                    const photoId = typeof photo === "string" ? null : photo?.id ?? null;
+                    const photoUrl = typeof photo === "string" ? photo : photo?.url ?? null;
+                    const baseComment = typeof photo === "string" ? "" : photo?.comment ?? "";
+                    const commentValue =
+                      photoId && inspectionPhotoComments[photoId] !== undefined
+                        ? inspectionPhotoComments[photoId]
+                        : baseComment;
+                    const key = photoId ?? photoUrl ?? `inspection-photo-${index}`;
+                    return (
+                      <Stack key={key} spacing={1} sx={{ width: 180 }}>
+                        <Box
+                          component="img"
+                          src={photoUrl ?? ""}
+                          alt="Foto de inspección"
+                          sx={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 1, border: "1px solid", borderColor: "divider" }}
+                        />
+                        <TextField
+                          size="small"
+                          label="Comentario"
+                          value={commentValue}
+                          onChange={(event) => {
+                            if (photoId) {
+                              setInspectionPhotoComments((prev) => ({ ...prev, [photoId]: event.target.value }));
+                            }
+                          }}
+                          onBlur={(event) => {
+                            if (photoId) {
+                              handleInspectionPhotoCommentChange(photoId, event.target.value);
+                            }
+                          }}
+                          disabled={!photoId}
+                        />
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Button
+                            size="small"
+                            component="a"
+                            href={photoUrl ?? undefined}
+                            target="_blank"
+                            rel="noreferrer"
+                            startIcon={<AttachmentIcon />}
+                            disabled={!photoUrl}
+                          >
+                            Ver
+                          </Button>
+                          {photoId && canMutate && (
+                            <IconButton
+                              aria-label="Eliminar foto de inspección"
+                              size="small"
+                              onClick={() => handleInspectionPhotoDelete(photoId)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Stack>
+                      </Stack>
+                    );
+                  })}
+                </Stack>
+              )}
+            </Stack>
+          </Stack>
         </CardContent>
       </Card>
 

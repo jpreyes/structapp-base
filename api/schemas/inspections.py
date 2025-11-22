@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ConditionLiteral = Literal["operativa", "observacion", "critica"]
 
@@ -14,7 +16,7 @@ class InspectionBase(BaseModel):
     inspector: str
     overall_condition: ConditionLiteral
     summary: str
-    photos: list[str] = Field(default_factory=list)
+    photos: list["InspectionPhoto"] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="allow")
 
@@ -46,6 +48,35 @@ class InspectionScoreResponse(BaseModel):
 
 class PhotoUploadResponse(BaseModel):
     url: str
+
+
+class InspectionPhoto(BaseModel):
+    id: str | None = None
+    url: str
+    comment: str | None = None
+    storage_path: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize(cls, value):
+        if isinstance(value, str):
+            return {"url": value}
+        if isinstance(value, dict):
+            data = dict(value)
+            if "photo_url" in data and "url" not in data:
+                data["url"] = data["photo_url"]
+            return data
+        return value
+
+
+class InspectionPhotoResponse(InspectionPhoto):
+    pass
+
+
+class InspectionPhotoUpdate(BaseModel):
+    comment: str | None = None
+
+    model_config = ConfigDict(extra="allow")
 
 
 class DamageBase(BaseModel):

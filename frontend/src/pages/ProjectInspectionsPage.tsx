@@ -56,9 +56,14 @@ type InspectionFormState = {
   inspector: string;
   overall_condition: (typeof conditionOptions)[number]["value"];
   summary: string;
-  photos: string;
 };
 
+type InspectionPhotoDraft = {
+  id: string;
+  file?: File;
+  url?: string;
+  comment: string;
+};
 const ProjectInspectionsPage = () => {
   const sessionProjectId = useSession((state) => state.projectId);
   const setProject = useSession((state) => state.setProject);
@@ -88,6 +93,7 @@ const ProjectInspectionsPage = () => {
     }
   }, [projects, selectedProjectId, sessionProjectId, setProject]);
 
+  const createDraftId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false);
   const [inspectionForm, setInspectionForm] = useState<InspectionFormState>({
     structure_name: "",
@@ -96,8 +102,41 @@ const ProjectInspectionsPage = () => {
     inspector: "",
     overall_condition: "operativa",
     summary: "",
-    photos: "",
   });
+  const [photoDrafts, setPhotoDrafts] = useState<InspectionPhotoDraft[]>([]);
+  const [newPhotoUrl, setNewPhotoUrl] = useState("");
+  const [newPhotoComment, setNewPhotoComment] = useState("");
+
+  const addPhotoFiles = (files: FileList) => {
+    const nextDrafts = Array.from(files).map((file) => ({
+      id: createDraftId(),
+      file,
+      comment: "",
+    }));
+    setPhotoDrafts((prev) => [...prev, ...nextDrafts]);
+  };
+
+  const handleAddPhotoUrl = () => {
+    if (!newPhotoUrl.trim()) return;
+    setPhotoDrafts((prev) => [
+      ...prev,
+      {
+        id: createDraftId(),
+        url: newPhotoUrl.trim(),
+        comment: newPhotoComment.trim(),
+      },
+    ]);
+    setNewPhotoUrl("");
+    setNewPhotoComment("");
+  };
+
+  const updatePhotoDraft = (id: string, patch: Partial<InspectionPhotoDraft>) => {
+    setPhotoDrafts((prev) => prev.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
+  };
+
+  const removePhotoDraft = (id: string) => {
+    setPhotoDrafts((prev) => prev.filter((draft) => draft.id !== id));
+  };
 
   const invalidateInspectionQueries = () => {
     if (!effectiveProjectId) return;
@@ -110,11 +149,13 @@ const ProjectInspectionsPage = () => {
   const createInspectionMutation = useMutation({
     mutationFn: async () => {
       if (!effectiveProjectId) throw new Error("No hay proyecto activo");
-      const photos = inspectionForm.photos
-        .split("\n")
-        .map((value) => value.trim())
-        .filter(Boolean);
-      const { data } = await apiClient.post("/inspections", {
+      const urlPhotos = photoDrafts
+        .filter((draft) => draft.url)
+        .map((draft) => ({
+          url: draft.url,
+          comment: draft.comment?.trim() || null,
+        }));
+      const { data: inspection } = await apiClient.post("/inspections", {
         project_id: effectiveProjectId,
         structure_name: inspectionForm.structure_name,
         location: inspectionForm.location,
@@ -122,9 +163,18 @@ const ProjectInspectionsPage = () => {
         inspector: inspectionForm.inspector,
         overall_condition: inspectionForm.overall_condition,
         summary: inspectionForm.summary,
-        photos,
+        photos: urlPhotos,
       });
-      return data;
+      const fileDrafts = photoDrafts.filter((draft) => draft.file) as Array<InspectionPhotoDraft & { file: File }>;
+      for (const draft of fileDrafts) {
+        const form = new FormData();
+        form.append("file", draft.file);
+        if (draft.comment?.trim()) {
+          form.append("comment", draft.comment.trim());
+        }
+        await apiClient.post(`/inspections/${inspection.id}/photos`, form);
+      }
+      return inspection;
     },
     onSuccess: () => {
       setInspectionDialogOpen(false);
@@ -135,8 +185,10 @@ const ProjectInspectionsPage = () => {
         inspector: "",
         overall_condition: "operativa",
         summary: "",
-        photos: "",
       });
+      setPhotoDrafts([]);
+      setNewPhotoUrl("");
+      setNewPhotoComment("");
       invalidateInspectionQueries();
     },
   });
@@ -299,24 +351,33 @@ const ProjectInspectionsPage = () => {
                     secondary={
                       <Stack spacing={1}>
                         <Typography variant="body2" color="text.secondary" component="div">
-                          {inspection.location} · {dayjs(inspection.inspection_date).format("DD/MM/YYYY")} · Inspector: {" "}
+                          {inspection.location} · {dayjs(inspection.inspection_date).format("DD/MM/YYYY")} · Inspector:{" "}
                           {inspection.inspector}
                         </Typography>
                         <Typography variant="body2" component="div">
                           {inspection.summary}
                         </Typography>
                         <Stack direction="row" spacing={1} flexWrap="wrap">
-                          {(inspection.photos ?? []).map((url) => (
-                            <Chip
-                              key={url}
-                              label="Foto"
-                              component="span"
-                              onClick={() => window.open(url, "_blank", "noopener")}
-                              clickable
-                              variant="outlined"
-                              size="small"
-                            />
-                          ))}
+                          {(inspection.photos ?? []).map((photo, index) => {
+                            const photoUrl = typeof photo === "string" ? photo : photo?.url;
+                            const label = typeof photo === "string" ? "Foto" : photo?.comment || "Foto";
+                            const key = typeof photo === "string" ? photo : photo?.id ?? photoUrl ?? `photo-${index}`;
+                            return (
+                              <Chip
+                                key={key}
+                                label={label}
+                                component="span"
+                                onClick={() => {
+                                  if (photoUrl) {
+                                    window.open(photoUrl, "_blank", "noopener");
+                                  }
+                                }}
+                                clickable={Boolean(photoUrl)}
+                                variant="outlined"
+                                size="small"
+                              />
+                            );
+                          })}
                         </Stack>
                       </Stack>
                     }
@@ -396,15 +457,101 @@ const ProjectInspectionsPage = () => {
               id="inspection-summary"
               name="inspectionSummary"
             />
-            <TextField
-              label="URLs de fotografías (una por línea)"
-              multiline
-              minRows={3}
-              value={inspectionForm.photos}
-              onChange={(event) => setInspectionForm((prev) => ({ ...prev, photos: event.target.value }))}
-              id="inspection-photos"
-              name="inspectionPhotos"
-            />
+            <Stack spacing={1}>
+              <Typography variant="subtitle2">Fotografías</Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
+                <Button component="label" variant="outlined" size="small">
+                  Seleccionar fotos
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={(event) => {
+                      const files = event.target.files;
+                      if (files?.length) {
+                        addPhotoFiles(files);
+                        event.target.value = "";
+                      }
+                    }}
+                  />
+                </Button>
+                <Typography variant="body2" color="text.secondary">
+                  {photoDrafts.some((draft) => draft.file)
+                    ? `${photoDrafts.filter((draft) => draft.file).length} archivo(s) listo(s) para subir`
+                    : "Puedes adjuntar fotos ahora o más tarde"}
+                </Typography>
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <TextField
+                  label="URL de foto"
+                  value={newPhotoUrl}
+                  onChange={(event) => setNewPhotoUrl(event.target.value)}
+                  size="small"
+                  fullWidth
+                  id="inspection-photo-url"
+                  name="inspectionPhotoUrl"
+                />
+                <TextField
+                  label="Comentario breve"
+                  value={newPhotoComment}
+                  onChange={(event) => setNewPhotoComment(event.target.value)}
+                  size="small"
+                  fullWidth
+                  id="inspection-photo-comment"
+                  name="inspectionPhotoComment"
+                />
+                <Button variant="outlined" onClick={handleAddPhotoUrl} disabled={!newPhotoUrl.trim()} sx={{ minWidth: 140 }}>
+                  Agregar URL
+                </Button>
+              </Stack>
+              <Stack spacing={1}>
+                {photoDrafts.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No hay fotos pendientes. Puedes añadir archivos o URLs y agregarles un comentario corto.
+                  </Typography>
+                ) : (
+                  photoDrafts.map((draft) => (
+                    <Stack
+                      key={draft.id}
+                      direction={{ xs: "column", sm: "row" }}
+                      spacing={1}
+                      alignItems={{ sm: "center" }}
+                      sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }}
+                    >
+                      <Stack spacing={0.5} sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={600} noWrap title={draft.file ? draft.file.name : draft.url}>
+                          {draft.file ? draft.file.name : draft.url}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {draft.file ? `${Math.round(draft.file.size / 1024)} KB · se comprimirá a 1080p` : "Desde URL"}
+                        </Typography>
+                        {!draft.file && (
+                          <TextField
+                            size="small"
+                            label="URL"
+                            value={draft.url ?? ""}
+                            onChange={(event) => updatePhotoDraft(draft.id, { url: event.target.value })}
+                            fullWidth
+                          />
+                        )}
+                      </Stack>
+                      <TextField
+                        size="small"
+                        label="Comentario"
+                        value={draft.comment}
+                        onChange={(event) => updatePhotoDraft(draft.id, { comment: event.target.value })}
+                        fullWidth
+                        sx={{ minWidth: { sm: 200 } }}
+                      />
+                      <IconButton aria-label="Eliminar foto" onClick={() => removePhotoDraft(draft.id)} size="small">
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  ))
+                )}
+              </Stack>
+            </Stack>
           </Stack>
         </DialogContent>
         <DialogActions>

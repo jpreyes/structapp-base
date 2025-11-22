@@ -1,3 +1,6 @@
+import uuid
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
@@ -11,6 +14,8 @@ from api.schemas.inspections import (
     DocumentCreate,
     DocumentResponse,
     DocumentUpdate,
+    InspectionPhotoResponse,
+    InspectionPhotoUpdate,
     InspectionCreate,
     InspectionResponse,
     InspectionScoreResponse,
@@ -27,11 +32,14 @@ from services.inspections_service import (
     create_project_inspection_damage_photo,
     create_project_inspection_document,
     create_project_inspection_test,
+    append_inspection_photo,
+    delete_inspection_photo as delete_inspection_photo_record,
     delete_project_inspection,
     delete_project_inspection_damage,
     delete_project_inspection_damage_photo,
     delete_project_inspection_document,
     delete_project_inspection_test,
+    get_project_inspection,
     get_project_inspection_damage,
     list_project_inspection_damage_photos,
     list_project_inspection_damages,
@@ -42,8 +50,13 @@ from services.inspections_service import (
     update_project_inspection_damage,
     update_project_inspection_document,
     update_project_inspection_damage_photo,
+    update_inspection_photo_comment,
 )
-from services.media_service import compress_and_store_inspection_photo
+from services.media_service import (
+    compress_and_store_inspection_photo,
+    delete_stored_inspection_photo,
+    sign_storage_url,
+)
 
 router = APIRouter()
 
@@ -101,17 +114,19 @@ async def upload_damage_photo(
     if not damage:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Daño no encontrado")
     try:
-        url = compress_and_store_inspection_photo(file, damage["project_id"], damage["inspection_id"])
+        stored = compress_and_store_inspection_photo(file, damage["project_id"], damage["inspection_id"])
         photo = create_project_inspection_damage_photo(
             {
                 "project_id": damage.get("project_id"),
                 "inspection_id": damage.get("inspection_id"),
                 "damage_id": damage_id,
-                "photo_url": url,
+                "photo_url": stored.url,
             }
         )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+    if photo.get("photo_url"):
+        photo["photo_url"] = sign_storage_url(photo["photo_url"])
     return photo
 
 
@@ -187,10 +202,70 @@ async def upload_inspection_photo(
     file: UploadFile = File(...),
 ):
     try:
-        url = compress_and_store_inspection_photo(file, project_id, inspection_id)
+        stored = compress_and_store_inspection_photo(file, project_id, inspection_id)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
-    return PhotoUploadResponse(url=url)
+    # Guardamos el path (privado); lo firmaremos al leer. Devolvemos el path para que se persista.
+    return PhotoUploadResponse(url=stored.url)
+
+
+@router.post("/inspections/{inspection_id}/photos", response_model=InspectionPhotoResponse)
+async def add_inspection_photo(
+    inspection_id: str,
+    user_id: UserIdDep,
+    comment: str | None = Form(None),
+    file: UploadFile = File(...),
+):
+    inspection = get_project_inspection(inspection_id)
+    if not inspection:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspección no encontrada")
+    try:
+        stored = compress_and_store_inspection_photo(file, inspection["project_id"], inspection_id)
+        photo = {
+            "id": uuid.uuid4().hex,
+            "url": sign_storage_url(stored.url),
+            "storage_path": stored.path,
+            "comment": comment or None,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        append_inspection_photo(inspection_id, photo)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+    return photo
+
+
+@router.patch("/inspections/{inspection_id}/photos/{photo_id}", response_model=InspectionPhotoResponse)
+async def update_inspection_photo(
+    inspection_id: str,
+    photo_id: str,
+    payload: InspectionPhotoUpdate,
+    user_id: UserIdDep,
+):
+    inspection = get_project_inspection(inspection_id)
+    if not inspection:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspección no encontrada")
+    try:
+        updated = update_inspection_photo_comment(inspection_id, photo_id, payload.comment)
+        if not updated:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Foto no encontrada")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+    return updated
+
+
+@router.delete("/inspections/{inspection_id}/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_inspection_photo(inspection_id: str, photo_id: str, user_id: UserIdDep):
+    inspection = get_project_inspection(inspection_id)
+    if not inspection:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspección no encontrada")
+    try:
+        removed = delete_inspection_photo_record(inspection_id, photo_id)
+        if removed and removed.get("storage_path"):
+            delete_stored_inspection_photo(str(removed.get("storage_path")))
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
 
 
 @router.delete("/inspections/{inspection_id}", status_code=status.HTTP_204_NO_CONTENT)
