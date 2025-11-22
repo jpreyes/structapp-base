@@ -1,6 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid, MenuItem, Tab, Tabs, TextField, Typography, } from "@mui/material";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useTasks } from "../hooks/useTasks";
 import { useProjects } from "../hooks/useProjects";
@@ -16,11 +16,21 @@ const TasksPage = () => {
     const { data: projects } = useProjects();
     const [activeTab, setActiveTab] = useState("kanban");
     const [selectedProjectId, setSelectedProjectId] = useState(sessionProjectId);
+    const isAllProjects = selectedProjectId === "all";
     const [formOpen, setFormOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
     const [taskPendingDelete, setTaskPendingDelete] = useState(null);
-    const effectiveProjectId = selectedProjectId ?? projects?.[0]?.id;
-    const { data: tasks = [] } = useTasks(effectiveProjectId);
+    const effectiveProjectId = isAllProjects ? undefined : selectedProjectId ?? projects?.[0]?.id;
+    const { data: projectTasks = [] } = useTasks(effectiveProjectId);
+    const { data: allTasks = [], isFetching: isFetchingAll } = useQuery({
+        queryKey: ["tasks", "all"],
+        enabled: isAllProjects && Boolean(projects?.length),
+        queryFn: async () => {
+            const responses = await Promise.all((projects ?? []).map((project) => apiClient.get(`/tasks/${project.id}`)));
+            return responses.flatMap((res) => res.data);
+        },
+    });
+    const tasks = isAllProjects ? allTasks : projectTasks;
     const queryClient = useQueryClient();
     useEffect(() => {
         if (!selectedProjectId && projects?.length) {
@@ -54,12 +64,7 @@ const TasksPage = () => {
             return data;
         },
         onSuccess: () => {
-            if (effectiveProjectId) {
-                queryClient.invalidateQueries({ queryKey: ["tasks", effectiveProjectId] });
-            }
-            else {
-                queryClient.invalidateQueries({ queryKey: ["tasks"] });
-            }
+            queryClient.invalidateQueries({ queryKey: ["tasks"] });
             setFormOpen(false);
         },
     });
@@ -69,12 +74,7 @@ const TasksPage = () => {
             return data;
         },
         onSuccess: () => {
-            if (effectiveProjectId) {
-                queryClient.invalidateQueries({ queryKey: ["tasks", effectiveProjectId] });
-            }
-            else {
-                queryClient.invalidateQueries({ queryKey: ["tasks"] });
-            }
+            queryClient.invalidateQueries({ queryKey: ["tasks"] });
             setFormOpen(false);
             setEditingTask(null);
         },
@@ -84,12 +84,7 @@ const TasksPage = () => {
             await apiClient.delete(`/tasks/${taskId}`);
         },
         onSuccess: () => {
-            if (effectiveProjectId) {
-                queryClient.invalidateQueries({ queryKey: ["tasks", effectiveProjectId] });
-            }
-            else {
-                queryClient.invalidateQueries({ queryKey: ["tasks"] });
-            }
+            queryClient.invalidateQueries({ queryKey: ["tasks"] });
             setTaskPendingDelete(null);
         },
     });
@@ -105,7 +100,14 @@ const TasksPage = () => {
         setTaskPendingDelete(task);
     };
     const handleStatusChange = (task, status) => {
-        if (!effectiveProjectId || task.status === status)
+        if (task.status === status)
+            return;
+        // En modo "todos" evitamos optimismo cruzado y solo invalidamos luego del patch.
+        if (!effectiveProjectId && isAllProjects) {
+            updateTaskMutation.mutate({ taskId: task.id, patch: { status } });
+            return;
+        }
+        if (!effectiveProjectId)
             return;
         const queryKey = ["tasks", effectiveProjectId];
         const previous = queryClient.getQueryData(queryKey);
@@ -153,10 +155,11 @@ const TasksPage = () => {
             handleEditTask(task);
         }
     };
-    return (_jsxs(Box, { sx: { display: "flex", flexDirection: "column", gap: 3 }, children: [_jsxs(Box, { sx: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [_jsxs(Box, { sx: { display: "flex", gap: 2, alignItems: "center" }, children: [_jsx(Typography, { variant: "h5", children: "Tareas" }), _jsx(TextField, { select: true, label: "Proyecto activo", size: "small", value: effectiveProjectId ?? "", onChange: (event) => {
-                                    setSelectedProjectId(event.target.value);
-                                    setProjectInSession(event.target.value);
-                                }, sx: { minWidth: 220 }, children: (projects ?? []).map((project) => (_jsx(MenuItem, { value: project.id, children: project.name }, project.id))) })] }), _jsx(Button, { variant: "contained", onClick: handleCreateClick, disabled: !effectiveProjectId, children: "Nueva tarea" })] }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 6, md: 3, children: _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "button", color: "text.secondary", children: "Total de tareas" }), _jsx(Typography, { variant: "h5", children: metrics.total })] }) }) }), Object.entries(STATUS_META).map(([status, meta]) => (_jsx(Grid, { item: true, xs: 12, sm: 6, md: 3, children: _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "button", color: "text.secondary", children: meta.label }), _jsx(Typography, { variant: "h5", children: metrics.byStatus[status] ?? 0 })] }) }) }, status)))] }), _jsxs(Tabs, { value: activeTab, onChange: (_, value) => setActiveTab(value), sx: { borderBottom: 1, borderColor: "divider" }, children: [_jsx(Tab, { value: "kanban", label: "Kanban" }), _jsx(Tab, { value: "calendar", label: "Calendario" }), _jsx(Tab, { value: "gantt", label: "Gantt" })] }), activeTab === "kanban" && (_jsx(TaskBoard, { tasks: tasks, onEdit: handleEditTask, onDelete: handleDeleteTask, onStatusChange: handleStatusChange })), activeTab === "calendar" && (_jsx(TaskCalendar, { tasks: tasks, onSelectTask: handleSelectTask })), activeTab === "gantt" && _jsx(TaskGantt, { tasks: tasks, onSelectTask: handleSelectTask }), _jsx(TaskFormDialog, { open: formOpen, initialTask: editingTask ?? undefined, onClose: () => {
+    return (_jsxs(Box, { sx: { display: "flex", flexDirection: "column", gap: 3 }, children: [_jsxs(Box, { sx: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [_jsxs(Box, { sx: { display: "flex", gap: 2, alignItems: "center" }, children: [_jsx(Typography, { variant: "h5", children: "Tareas" }), _jsxs(TextField, { select: true, label: "Proyecto activo", size: "small", value: isAllProjects ? "all" : effectiveProjectId ?? "", onChange: (event) => {
+                                    const value = event.target.value;
+                                    setSelectedProjectId(value);
+                                    setProjectInSession(value === "all" ? undefined : value);
+                                }, sx: { minWidth: 220 }, children: [_jsx(MenuItem, { value: "all", children: "Todos los proyectos" }), (projects ?? []).map((project) => (_jsx(MenuItem, { value: project.id, children: project.name }, project.id)))] })] }), _jsx(Button, { variant: "contained", onClick: handleCreateClick, disabled: !effectiveProjectId || isAllProjects, children: "Nueva tarea" })] }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 6, md: 3, children: _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "button", color: "text.secondary", children: "Total de tareas" }), _jsx(Typography, { variant: "h5", children: metrics.total })] }) }) }), Object.entries(STATUS_META).map(([status, meta]) => (_jsx(Grid, { item: true, xs: 12, sm: 6, md: 3, children: _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "button", color: "text.secondary", children: meta.label }), _jsx(Typography, { variant: "h5", children: metrics.byStatus[status] ?? 0 })] }) }) }, status)))] }), _jsxs(Tabs, { value: activeTab, onChange: (_, value) => setActiveTab(value), sx: { borderBottom: 1, borderColor: "divider" }, children: [_jsx(Tab, { value: "kanban", label: "Kanban" }), _jsx(Tab, { value: "calendar", label: "Calendario" }), _jsx(Tab, { value: "gantt", label: "Gantt" })] }), activeTab === "kanban" && (_jsx(TaskBoard, { tasks: tasks, onEdit: handleEditTask, onDelete: handleDeleteTask, onStatusChange: handleStatusChange })), activeTab === "calendar" && (_jsx(TaskCalendar, { tasks: tasks, onSelectTask: handleSelectTask })), activeTab === "gantt" && _jsx(TaskGantt, { tasks: tasks, onSelectTask: handleSelectTask }), _jsx(TaskFormDialog, { open: formOpen, initialTask: editingTask ?? undefined, onClose: () => {
                     setFormOpen(false);
                     setEditingTask(null);
                 }, onSubmit: handleSubmitForm, loading: createTaskMutation.isPending || updateTaskMutation.isPending }), _jsxs(Dialog, { open: Boolean(taskPendingDelete), onClose: () => setTaskPendingDelete(null), children: [_jsx(DialogTitle, { children: "Eliminar tarea" }), _jsx(DialogContent, { children: _jsxs(DialogContentText, { children: ["\u00BFSeguro que deseas eliminar la tarea \"", taskPendingDelete?.title, "\"? Esta acci\u00F3n no se puede deshacer."] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setTaskPendingDelete(null), children: "Cancelar" }), _jsx(Button, { variant: "contained", color: "error", onClick: () => taskPendingDelete && deleteTaskMutation.mutate(taskPendingDelete.id), disabled: deleteTaskMutation.isPending, children: "Eliminar" })] })] })] }));

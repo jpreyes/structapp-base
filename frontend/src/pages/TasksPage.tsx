@@ -15,7 +15,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 import { useTasks, Task } from "../hooks/useTasks";
@@ -35,12 +35,24 @@ const TasksPage = () => {
   const { data: projects } = useProjects();
   const [activeTab, setActiveTab] = useState<TaskTab>("kanban");
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(sessionProjectId);
+  const isAllProjects = selectedProjectId === "all";
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
 
-  const effectiveProjectId = selectedProjectId ?? projects?.[0]?.id;
-  const { data: tasks = [] } = useTasks(effectiveProjectId);
+  const effectiveProjectId = isAllProjects ? undefined : selectedProjectId ?? projects?.[0]?.id;
+  const { data: projectTasks = [] } = useTasks(effectiveProjectId);
+  const { data: allTasks = [], isFetching: isFetchingAll } = useQuery({
+    queryKey: ["tasks", "all"],
+    enabled: isAllProjects && Boolean(projects?.length),
+    queryFn: async () => {
+      const responses = await Promise.all(
+        (projects ?? []).map((project) => apiClient.get<Task[]>(`/tasks/${project.id}`))
+      );
+      return responses.flatMap((res) => res.data);
+    },
+  });
+  const tasks = isAllProjects ? allTasks : projectTasks;
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -80,11 +92,7 @@ const TasksPage = () => {
       return data;
     },
     onSuccess: () => {
-      if (effectiveProjectId) {
-        queryClient.invalidateQueries({ queryKey: ["tasks", effectiveProjectId] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setFormOpen(false);
     },
   });
@@ -95,11 +103,7 @@ const TasksPage = () => {
       return data;
     },
     onSuccess: () => {
-      if (effectiveProjectId) {
-        queryClient.invalidateQueries({ queryKey: ["tasks", effectiveProjectId] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setFormOpen(false);
       setEditingTask(null);
     },
@@ -110,11 +114,7 @@ const TasksPage = () => {
       await apiClient.delete(`/tasks/${taskId}`);
     },
     onSuccess: () => {
-      if (effectiveProjectId) {
-        queryClient.invalidateQueries({ queryKey: ["tasks", effectiveProjectId] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setTaskPendingDelete(null);
     },
   });
@@ -134,7 +134,13 @@ const TasksPage = () => {
   };
 
   const handleStatusChange = (task: Task, status: string) => {
-    if (!effectiveProjectId || task.status === status) return;
+    if (task.status === status) return;
+    // En modo "todos" evitamos optimismo cruzado y solo invalidamos luego del patch.
+    if (!effectiveProjectId && isAllProjects) {
+      updateTaskMutation.mutate({ taskId: task.id, patch: { status } });
+      return;
+    }
+    if (!effectiveProjectId) return;
     const queryKey = ["tasks", effectiveProjectId] as const;
     const previous = queryClient.getQueryData<Task[]>(queryKey);
     const updatedTask = { ...task, status };
@@ -196,13 +202,15 @@ const TasksPage = () => {
             select
             label="Proyecto activo"
             size="small"
-            value={effectiveProjectId ?? ""}
+            value={isAllProjects ? "all" : effectiveProjectId ?? ""}
             onChange={(event) => {
-              setSelectedProjectId(event.target.value);
-              setProjectInSession(event.target.value);
+              const value = event.target.value;
+              setSelectedProjectId(value);
+              setProjectInSession(value === "all" ? undefined : value);
             }}
             sx={{ minWidth: 220 }}
           >
+            <MenuItem value="all">Todos los proyectos</MenuItem>
             {(projects ?? []).map((project) => (
               <MenuItem key={project.id} value={project.id}>
                 {project.name}
@@ -210,7 +218,11 @@ const TasksPage = () => {
             ))}
           </TextField>
         </Box>
-        <Button variant="contained" onClick={handleCreateClick} disabled={!effectiveProjectId}>
+        <Button
+          variant="contained"
+          onClick={handleCreateClick}
+          disabled={!effectiveProjectId || isAllProjects}
+        >
           Nueva tarea
         </Button>
       </Box>
