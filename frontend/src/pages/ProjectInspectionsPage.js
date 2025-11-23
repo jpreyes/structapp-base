@@ -1,4 +1,4 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { Box, Breadcrumbs, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, Link, List, ListItem, ListItemButton, ListItemText, MenuItem, Stack, TextField, Typography, } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import AttachmentIcon from "@mui/icons-material/Attachment";
@@ -9,6 +9,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import WarningIcon from "@mui/icons-material/Warning";
 import dayjs from "dayjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useProjects } from "../hooks/useProjects";
@@ -20,6 +21,16 @@ const conditionOptions = [
     { value: "observacion", label: "Con observaciones" },
     { value: "critica", label: "Crítica" },
 ];
+const formatScoreValue = (value) => value !== undefined && value !== null ? value.toFixed(0) : "—";
+const getScoreColor = (value) => {
+    if (value === undefined || value === null)
+        return "default";
+    if (value >= 70)
+        return "success";
+    if (value >= 40)
+        return "warning";
+    return "error";
+};
 const ProjectInspectionsPage = () => {
     const sessionProjectId = useSession((state) => state.projectId);
     const setProject = useSession((state) => state.setProject);
@@ -38,6 +49,12 @@ const ProjectInspectionsPage = () => {
     const { data: damages = [] } = useProjectInspectionDamages(effectiveProjectId);
     const { data: tests = [] } = useProjectInspectionTests(effectiveProjectId);
     const { data: documents = [] } = useProjectInspectionDocuments(effectiveProjectId);
+    const planSummary = useMemo(() => {
+        const criticalCount = inspections.filter((i) => i.overall_condition === "critica").length;
+        const observationCount = inspections.filter((i) => i.overall_condition === "observacion").length;
+        const operationalCount = inspections.filter((i) => i.overall_condition === "operativa").length;
+        return { criticalCount, observationCount, operationalCount, total: inspections.length };
+    }, [inspections]);
     useEffect(() => {
         if (!selectedProjectId && projects?.length) {
             const firstProjectId = sessionProjectId ?? projects[0].id;
@@ -56,8 +73,6 @@ const ProjectInspectionsPage = () => {
         summary: "",
     });
     const [photoDrafts, setPhotoDrafts] = useState([]);
-    const [newPhotoUrl, setNewPhotoUrl] = useState("");
-    const [newPhotoComment, setNewPhotoComment] = useState("");
     const addPhotoFiles = (files) => {
         const nextDrafts = Array.from(files).map((file) => ({
             id: createDraftId(),
@@ -65,20 +80,6 @@ const ProjectInspectionsPage = () => {
             comment: "",
         }));
         setPhotoDrafts((prev) => [...prev, ...nextDrafts]);
-    };
-    const handleAddPhotoUrl = () => {
-        if (!newPhotoUrl.trim())
-            return;
-        setPhotoDrafts((prev) => [
-            ...prev,
-            {
-                id: createDraftId(),
-                url: newPhotoUrl.trim(),
-                comment: newPhotoComment.trim(),
-            },
-        ]);
-        setNewPhotoUrl("");
-        setNewPhotoComment("");
     };
     const updatePhotoDraft = (id, patch) => {
         setPhotoDrafts((prev) => prev.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
@@ -98,12 +99,6 @@ const ProjectInspectionsPage = () => {
         mutationFn: async () => {
             if (!effectiveProjectId)
                 throw new Error("No hay proyecto activo");
-            const urlPhotos = photoDrafts
-                .filter((draft) => draft.url)
-                .map((draft) => ({
-                url: draft.url,
-                comment: draft.comment?.trim() || null,
-            }));
             const { data: inspection } = await apiClient.post("/inspections", {
                 project_id: effectiveProjectId,
                 structure_name: inspectionForm.structure_name,
@@ -112,10 +107,9 @@ const ProjectInspectionsPage = () => {
                 inspector: inspectionForm.inspector,
                 overall_condition: inspectionForm.overall_condition,
                 summary: inspectionForm.summary,
-                photos: urlPhotos,
+                photos: [],
             });
-            const fileDrafts = photoDrafts.filter((draft) => draft.file);
-            for (const draft of fileDrafts) {
+            for (const draft of photoDrafts) {
                 const form = new FormData();
                 form.append("file", draft.file);
                 if (draft.comment?.trim()) {
@@ -136,8 +130,6 @@ const ProjectInspectionsPage = () => {
                 summary: "",
             });
             setPhotoDrafts([]);
-            setNewPhotoUrl("");
-            setNewPhotoComment("");
             invalidateInspectionQueries();
         },
     });
@@ -164,7 +156,15 @@ const ProjectInspectionsPage = () => {
                 }, children: [_jsx(Typography, { variant: "h4", fontWeight: 600, children: "Plan de inspecciones" }), _jsx(Box, { sx: { flexGrow: 1 } }), _jsx(TextField, { select: true, label: "Proyecto activo", size: "small", sx: { minWidth: 220 }, value: effectiveProjectId ?? "", onChange: (event) => {
                             setSelectedProjectId(event.target.value);
                             setProject(event.target.value);
-                        }, id: "inspection-project-select", name: "inspectionProject", children: (projects ?? []).map((project) => (_jsx(MenuItem, { value: project.id, children: project.name }, project.id))) }), _jsx(Button, { variant: "outlined", startIcon: _jsx(RefreshIcon, {}), onClick: () => invalidateInspectionQueries(), disabled: !effectiveProjectId, children: "Actualizar datos" })] }), _jsx(Grid, { container: true, spacing: 2, children: summaryCards.map((card) => (_jsx(Grid, { item: true, xs: 12, sm: 6, md: 3, children: _jsx(Card, { children: _jsx(CardContent, { children: _jsxs(Stack, { direction: "row", spacing: 2, alignItems: "center", children: [card.icon, _jsxs(Box, { children: [_jsx(Typography, { variant: "h6", children: card.value }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: card.title })] })] }) }) }) }, card.title))) }), _jsxs(Card, { children: [_jsxs(CardContent, { sx: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [_jsx(Typography, { variant: "h6", children: "Inspecciones de estructuras existentes" }), _jsx(Button, { startIcon: _jsx(AddIcon, {}), variant: "contained", onClick: () => setInspectionDialogOpen(true), disabled: !effectiveProjectId, children: "Nueva inspecci\u00F3n" })] }), _jsxs(List, { dense: true, children: [inspections.length === 0 && (_jsx(ListItem, { children: _jsx(ListItemText, { primary: "No hay inspecciones registradas" }) })), inspections.map((inspection) => {
+                        }, id: "inspection-project-select", name: "inspectionProject", children: (projects ?? []).map((project) => (_jsx(MenuItem, { value: project.id, children: project.name }, project.id))) }), _jsx(Button, { variant: "outlined", startIcon: _jsx(RefreshIcon, {}), onClick: () => invalidateInspectionQueries(), disabled: !effectiveProjectId, children: "Actualizar datos" })] }), _jsx(Grid, { container: true, spacing: 2, children: summaryCards.map((card) => (_jsx(Grid, { item: true, xs: 12, sm: 6, md: 3, children: _jsx(Card, { children: _jsx(CardContent, { children: _jsxs(Stack, { direction: "row", spacing: 2, alignItems: "center", children: [card.icon, _jsxs(Box, { children: [_jsx(Typography, { variant: "h6", children: card.value }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: card.title })] })] }) }) }) }, card.title))) }), _jsx(Card, { children: _jsx(CardContent, { children: _jsxs(Stack, { spacing: 2, children: [_jsx(Typography, { variant: "h6", children: "Evaluaci\u00F3n del plan de inspecciones" }), inspections.length === 0 ? (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "No hay inspecciones registradas para evaluar." })) : (_jsxs(_Fragment, { children: [_jsxs(Stack, { direction: "row", spacing: 2, flexWrap: "wrap", children: [_jsx(Chip, { icon: _jsx(ChecklistIcon, {}), label: `${planSummary.operationalCount} Operativas`, color: "success", variant: "outlined", size: "small" }), _jsx(Chip, { icon: _jsx(WarningIcon, {}), label: `${planSummary.observationCount} Con observaciones`, color: "warning", variant: "outlined", size: "small" }), _jsx(Chip, { icon: _jsx(WarningIcon, {}), label: `${planSummary.criticalCount} Críticas`, color: "error", variant: "outlined", size: "small" })] }), _jsxs(Box, { children: [_jsx(Typography, { variant: "subtitle2", color: "text.secondary", sx: { mb: 1 }, children: "Resumen por inspecci\u00F3n" }), _jsx(Stack, { spacing: 1, children: inspections.map((insp) => (_jsx(Card, { variant: "outlined", children: _jsxs(CardContent, { sx: { py: 1, "&:last-child": { pb: 1 } }, children: [_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, justifyContent: "space-between", children: [_jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", flexWrap: "wrap", children: [_jsx(Typography, { variant: "body2", fontWeight: 600, children: insp.structure_name }), _jsx(Chip, { label: conditionOptions.find((c) => c.value === insp.overall_condition)?.label ?? "Sin dato", color: insp.overall_condition === "operativa"
+                                                                                    ? "success"
+                                                                                    : insp.overall_condition === "critica"
+                                                                                        ? "error"
+                                                                                        : "warning", size: "small" })] }), _jsxs(Stack, { direction: "row", spacing: 0.5, alignItems: "center", children: [_jsx(Chip, { label: `H: ${formatScoreValue(insp.deterministic_score)}`, color: getScoreColor(insp.deterministic_score), size: "small", sx: { fontSize: "0.7rem", height: 20 } }), _jsx(Chip, { label: `L: ${formatScoreValue(insp.llm_score)}`, color: getScoreColor(insp.llm_score), size: "small", sx: { fontSize: "0.7rem", height: 20 } })] })] }), insp.llm_reason && (_jsx(Typography, { variant: "caption", color: "text.secondary", sx: { mt: 0.5, display: "block", fontStyle: "italic" }, children: insp.llm_reason }))] }) }, insp.id))) })] }), damages.length > 0 && (_jsxs(Box, { children: [_jsxs(Typography, { variant: "subtitle2", color: "text.secondary", sx: { mb: 1 }, children: ["Hallazgos principales (", damages.length, " da\u00F1os registrados)"] }), _jsxs(Stack, { spacing: 1, children: [damages.slice(0, 5).map((damage) => (_jsx(Card, { variant: "outlined", children: _jsxs(CardContent, { sx: { py: 1, "&:last-child": { pb: 1 } }, children: [_jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", flexWrap: "wrap", children: [_jsx(Typography, { variant: "body2", fontWeight: 600, children: damage.structure || "Sin estructura" }), _jsx(Chip, { label: damage.severity, color: damage.severity === "Alta" || damage.severity === "Muy Alta"
+                                                                                ? "error"
+                                                                                : damage.severity === "Media"
+                                                                                    ? "warning"
+                                                                                    : "default", size: "small" }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: damage.damage_type })] }), damage.comments && (_jsx(Typography, { variant: "caption", color: "text.secondary", sx: { mt: 0.5, display: "block" }, children: damage.comments }))] }) }, damage.id))), damages.length > 5 && (_jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["... y ", damages.length - 5, " da\u00F1os m\u00E1s"] }))] })] }))] }))] }) }) }), _jsxs(Card, { children: [_jsxs(CardContent, { sx: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [_jsx(Typography, { variant: "h6", children: "Inspecciones de estructuras existentes" }), _jsx(Button, { startIcon: _jsx(AddIcon, {}), variant: "contained", onClick: () => setInspectionDialogOpen(true), disabled: !effectiveProjectId, children: "Nueva inspecci\u00F3n" })] }), _jsxs(List, { dense: true, children: [inspections.length === 0 && (_jsx(ListItem, { children: _jsx(ListItemText, { primary: "No hay inspecciones registradas" }) })), inspections.map((inspection) => {
                                 const detailHref = effectiveProjectId
                                     ? `/projects/${effectiveProjectId}/inspections/${inspection.id}`
                                     : "#";
@@ -178,7 +178,7 @@ const ProjectInspectionsPage = () => {
                                                             ? "success"
                                                             : inspection.overall_condition === "critica"
                                                                 ? "error"
-                                                                : "warning", size: "small" })] }), secondary: _jsxs(Stack, { spacing: 1, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] }), _jsx(Typography, { variant: "body2", component: "div", children: inspection.summary }), _jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((photo, index) => {
+                                                                : "warning", size: "small" }), _jsxs(Stack, { direction: "row", spacing: 0.5, alignItems: "center", children: [_jsx(Chip, { label: `H: ${formatScoreValue(inspection.deterministic_score)}`, color: getScoreColor(inspection.deterministic_score), size: "small", sx: { fontSize: "0.75rem", height: 22 } }), _jsx(Chip, { label: `L: ${formatScoreValue(inspection.llm_score)}`, color: getScoreColor(inspection.llm_score), size: "small", sx: { fontSize: "0.75rem", height: 22 } })] })] }), secondary: _jsxs(Stack, { spacing: 1, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] }), _jsx(Typography, { variant: "body2", component: "div", children: inspection.summary }), inspection.llm_reason && (_jsx(Typography, { variant: "body2", color: "text.secondary", component: "div", sx: { fontStyle: "italic" }, children: inspection.llm_reason })), _jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((photo, index) => {
                                                             const photoUrl = typeof photo === "string" ? photo : photo?.url;
                                                             const label = typeof photo === "string" ? "Foto" : photo?.comment || "Foto";
                                                             const key = typeof photo === "string" ? photo : photo?.id ?? photoUrl ?? `photo-${index}`;
@@ -197,8 +197,8 @@ const ProjectInspectionsPage = () => {
                                                                     addPhotoFiles(files);
                                                                     event.target.value = "";
                                                                 }
-                                                            } })] }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: photoDrafts.some((draft) => draft.file)
-                                                        ? `${photoDrafts.filter((draft) => draft.file).length} archivo(s) listo(s) para subir`
-                                                        : "Puedes adjuntar fotos ahora o más tarde" })] }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [_jsx(TextField, { label: "URL de foto", value: newPhotoUrl, onChange: (event) => setNewPhotoUrl(event.target.value), size: "small", fullWidth: true, id: "inspection-photo-url", name: "inspectionPhotoUrl" }), _jsx(TextField, { label: "Comentario breve", value: newPhotoComment, onChange: (event) => setNewPhotoComment(event.target.value), size: "small", fullWidth: true, id: "inspection-photo-comment", name: "inspectionPhotoComment" }), _jsx(Button, { variant: "outlined", onClick: handleAddPhotoUrl, disabled: !newPhotoUrl.trim(), sx: { minWidth: 140 }, children: "Agregar URL" })] }), _jsx(Stack, { spacing: 1, children: photoDrafts.length === 0 ? (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "No hay fotos pendientes. Puedes a\u00F1adir archivos o URLs y agregarles un comentario corto." })) : (photoDrafts.map((draft) => (_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, sx: { border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }, children: [_jsxs(Stack, { spacing: 0.5, sx: { flexGrow: 1, minWidth: 0 }, children: [_jsx(Typography, { variant: "body2", fontWeight: 600, noWrap: true, title: draft.file ? draft.file.name : draft.url, children: draft.file ? draft.file.name : draft.url }), _jsx(Typography, { variant: "caption", color: "text.secondary", children: draft.file ? `${Math.round(draft.file.size / 1024)} KB · se comprimirá a 1080p` : "Desde URL" }), !draft.file && (_jsx(TextField, { size: "small", label: "URL", value: draft.url ?? "", onChange: (event) => updatePhotoDraft(draft.id, { url: event.target.value }), fullWidth: true }))] }), _jsx(TextField, { size: "small", label: "Comentario", value: draft.comment, onChange: (event) => updatePhotoDraft(draft.id, { comment: event.target.value }), fullWidth: true, sx: { minWidth: { sm: 200 } } }), _jsx(IconButton, { "aria-label": "Eliminar foto", onClick: () => removePhotoDraft(draft.id), size: "small", children: _jsx(DeleteIcon, { fontSize: "small" }) })] }, draft.id)))) })] })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setInspectionDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: () => createInspectionMutation.mutate(), disabled: !effectiveProjectId || !inspectionForm.structure_name.trim() || createInspectionMutation.isPending, children: "Guardar" })] })] })] }));
+                                                            } })] }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: photoDrafts.length > 0
+                                                        ? `${photoDrafts.length} archivo(s) listo(s) para subir`
+                                                        : "Puedes adjuntar fotos ahora o más tarde" })] }), _jsx(Stack, { spacing: 1, children: photoDrafts.length === 0 ? (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "No hay fotos pendientes." })) : (photoDrafts.map((draft) => (_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, sx: { border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }, children: [_jsxs(Stack, { spacing: 0.5, sx: { flexGrow: 1, minWidth: 0 }, children: [_jsx(Typography, { variant: "body2", fontWeight: 600, noWrap: true, title: draft.file.name, children: draft.file.name }), _jsxs(Typography, { variant: "caption", color: "text.secondary", children: [Math.round(draft.file.size / 1024), " KB \u00B7 se comprimir\u00E1 a 1080p"] })] }), _jsx(TextField, { size: "small", label: "Comentario", value: draft.comment, onChange: (event) => updatePhotoDraft(draft.id, { comment: event.target.value }), fullWidth: true, sx: { minWidth: { sm: 200 } } }), _jsx(IconButton, { "aria-label": "Eliminar foto", onClick: () => removePhotoDraft(draft.id), size: "small", children: _jsx(DeleteIcon, { fontSize: "small" }) })] }, draft.id)))) })] })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setInspectionDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: () => createInspectionMutation.mutate(), disabled: !effectiveProjectId || !inspectionForm.structure_name.trim() || createInspectionMutation.isPending, children: "Guardar" })] })] })] }));
 };
 export default ProjectInspectionsPage;

@@ -115,7 +115,7 @@ def append_inspection_photo(inspection_id: str, photo: dict) -> Tuple[dict, dict
 
 
 def delete_inspection_photo(inspection_id: str, photo_id: str) -> dict | None:
-    inspection = _get_project_inspection_raw(inspection_id)
+    inspection = get_project_inspection(inspection_id)
     if not inspection:
         return None
     photos = inspection.get("photos") or []
@@ -131,7 +131,7 @@ def delete_inspection_photo(inspection_id: str, photo_id: str) -> dict | None:
 
 
 def update_inspection_photo_comment(inspection_id: str, photo_id: str, comment: str | None) -> dict | None:
-    inspection = _get_project_inspection_raw(inspection_id)
+    inspection = get_project_inspection(inspection_id)
     if not inspection:
         return None
     photos = inspection.get("photos") or []
@@ -142,11 +142,6 @@ def update_inspection_photo_comment(inspection_id: str, photo_id: str, comment: 
             updated = item
             break
     supa().table("project_inspections").update({"photos": photos}).eq("id", inspection_id).execute()
-    # Retornar con URL firmada para la respuesta
-    if updated:
-        path = updated.get("storage_path") or updated.get("url")
-        if path:
-            updated["url"] = sign_storage_url(path)
     return updated
 
 

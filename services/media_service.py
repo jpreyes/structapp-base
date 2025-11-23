@@ -78,26 +78,55 @@ def _upload_to_supabase_storage(data: bytes, path: str, content_type: str = "ima
     return StoredPhoto(url=path, path=path)
 
 
+def _build_public_storage_url(path: str) -> str:
+    """
+    Construye una URL pública para un archivo en Supabase Storage.
+    Usado como fallback cuando la firma falla.
+    """
+    from core.config import SUPABASE_URL
+    if not SUPABASE_URL:
+        logger.error("SUPABASE_URL is not configured, cannot build storage URL for path: %s", path)
+        # Retornar vacío para evitar que el frontend interprete el path como ruta relativa
+        return ""
+    # URL pública: {SUPABASE_URL}/storage/v1/object/public/{bucket}/{path}
+    base_url = SUPABASE_URL.rstrip("/")
+    return f"{base_url}/storage/v1/object/public/{INSPECTION_BUCKET}/{path}"
+
+
 def sign_storage_url(path: str, expires_in: int = 60 * 60 * 24) -> str:
     """
     Genera un signed URL temporal para un objeto privado.
     Si el path ya es una URL absoluta (http/https), la devuelve tal cual.
+    Si la firma falla, intenta construir una URL pública como fallback.
     """
+    if not path:
+        return ""
     if path.startswith("http://") or path.startswith("https://"):
         return path
     try:
         client = _storage_client()
         signed = client.storage.from_(INSPECTION_BUCKET).create_signed_url(path, expires_in=expires_in)
-        logger.debug("Signed URL response for %s: %s", path, signed)
-        # Supabase python client puede devolver signedURL (camelCase) o signed_url (snake_case)
-        url = signed.get("signedURL") or signed.get("signed_url")
+        logger.debug("Signed URL response for %s: %s (type: %s)", path, signed, type(signed))
+
+        # Supabase python client puede devolver la URL de diferentes formas:
+        # - Dict con 'signedURL' (camelCase)
+        # - Dict con 'signed_url' (snake_case)
+        # - Objeto con atributo signed_url
+        url = None
+        if isinstance(signed, dict):
+            url = signed.get("signedURL") or signed.get("signed_url")
+        elif hasattr(signed, "signed_url"):
+            url = signed.signed_url
+        elif hasattr(signed, "signedURL"):
+            url = signed.signedURL
+
         if not url:
-            logger.warning("No signed URL returned for path %s, response: %s", path, signed)
-            return path
+            logger.warning("No signed URL returned for path %s, response: %s. Falling back to public URL.", path, signed)
+            return _build_public_storage_url(path)
         return url
     except Exception as exc:
-        logger.error("Failed to sign URL for path %s: %s", path, exc)
-        return path
+        logger.error("Failed to sign URL for path %s: %s. Falling back to public URL.", path, exc)
+        return _build_public_storage_url(path)
 
 
 def compress_and_store_inspection_photo(

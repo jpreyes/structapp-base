@@ -990,7 +990,6 @@ const InspectionDetailPage = () => {
 
   const [downloadingReport, setDownloadingReport] = useState(false);
   const [downloadingArchive, setDownloadingArchive] = useState(false);
-  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
 
   const downloadFile = async (url: string, filename: string, mimeType: string) => {
     const isReport = url.includes("report");
@@ -1076,9 +1075,6 @@ const InspectionDetailPage = () => {
           <Button component={RouterLink} to={`/projects/${projectId}/inspections`} variant="outlined">
             Volver al plan
           </Button>
-          <Button variant="contained" onClick={() => setSummaryDialogOpen(true)}>
-            Ver resumen
-          </Button>
           <Button
             variant="outlined"
             onClick={() => downloadFile(reportUrl, `${inspectionId}-report.pdf`, "application/pdf")}
@@ -1096,55 +1092,31 @@ const InspectionDetailPage = () => {
         </Stack>
       </Stack>
 
-      <Dialog open={summaryDialogOpen} onClose={() => setSummaryDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Resumen de la inspección</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2}>
-            <Stack
-              direction={{ xs: "column", md: "row" }}
-              spacing={3}
-              alignItems={{ md: "flex-start" }}
-              justifyContent="space-between"
-            >
-              <Stack direction="row" spacing={4} flexWrap="wrap">
-                <Stack spacing={0.5} alignItems="center">
-                  <Typography variant="caption" color="text.secondary">
-                    Score Heurístico
-                  </Typography>
-                  <Chip
-                    label={formatScoreValue(inspection.deterministic_score)}
-                    color={
-                      (inspection.deterministic_score ?? 0) >= 70
-                        ? "success"
-                        : (inspection.deterministic_score ?? 0) >= 40
-                        ? "warning"
-                        : "error"
-                    }
-                    sx={{ fontWeight: 600, fontSize: "1rem", px: 1 }}
-                  />
-                </Stack>
-                <Stack spacing={0.5} alignItems="center">
-                  <Typography variant="caption" color="text.secondary">
-                    Score LLM
-                  </Typography>
-                  <Chip
-                    label={formatLLMScoreValue(inspectionLLM.score, Boolean(inspectionLLM.reason))}
-                    color={
-                      (inspectionLLM.score ?? 0) >= 70
-                        ? "success"
-                        : (inspectionLLM.score ?? 0) >= 40
-                        ? "warning"
-                        : "error"
-                    }
-                    sx={{ fontWeight: 600, fontSize: "1rem", px: 1 }}
-                  />
-                </Stack>
-                {inspection.score_updated_at && (
-                  <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
-                    Actualizado {formatScoreTimestamp(inspection.score_updated_at)}
-                  </Typography>
-                )}
-              </Stack>
+      <Card variant="outlined">
+        <CardContent sx={{ pt: 1, pb: 1 }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={3}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Stack spacing={0.5}>
+              <Typography variant="subtitle2">Calificación técnica</Typography>
+              <Typography variant="h5">{formatScoreValue(inspection.deterministic_score)}</Typography>
+              {inspection.score_updated_at && (
+                <Typography variant="caption" color="text.secondary">
+                  Actualizado {formatScoreTimestamp(inspection.score_updated_at)}
+                </Typography>
+              )}
+            </Stack>
+            <Stack spacing={0.5}>
+              <Typography variant="subtitle2">LLM</Typography>
+              <Typography variant="h5">{formatLLMScoreValue(inspectionLLM.score, Boolean(inspectionLLM.reason))}</Typography>
+              {inspectionLLM.reason && (
+                <Typography variant="body2" color="text.secondary">
+                  {inspectionLLM.reason}
+                </Typography>
+              )}
               <LLMPayloadViewer
                 payload={inspectionLLM.payload}
                 reason={inspectionLLM.reason}
@@ -1152,174 +1124,18 @@ const InspectionDetailPage = () => {
                 title="Detalle del modelo LLM para la inspección"
               />
             </Stack>
-
-            {inspectionLLM.reason && (
-              <Card variant="outlined" sx={{ backgroundColor: "action.hover" }}>
-                <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
-                  <Typography variant="body2">{inspectionLLM.reason}</Typography>
-                </CardContent>
-              </Card>
-            )}
-
-            {inspection.summary && (
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Resumen de hallazgos
-                </Typography>
-                <Typography variant="body2">{inspection.summary}</Typography>
-              </Box>
-            )}
-
-            {damages.length > 0 && (
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  Daños registrados ({damages.length})
-                </Typography>
-                <Stack spacing={1}>
-                  {damages.map((damage) => {
-                    const photos = (damage.photos ?? []).slice(0, 2);
-                    const severityColor =
-                      damage.severity === "Alta"
-                        ? "error"
-                        : damage.severity === "Media"
-                        ? "warning"
-                        : "success";
-                    const damageHeuristic = damage.deterministic_score ?? null;
-                    const damageLLM = damage.llm_score ?? null;
-                    return (
-                      <Card key={damage.id} variant="outlined">
-                        <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
-                          <Stack
-                            direction={{ xs: "column", sm: "row" }}
-                            spacing={2}
-                            alignItems={{ sm: "center" }}
-                          >
-                            <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
-                              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                                <Typography variant="subtitle2" fontWeight={600}>
-                                  {damage.structure || "Sin estructura"}
-                                </Typography>
-                                <Chip
-                                  label={damage.severity || "Sin severidad"}
-                                  size="small"
-                                  color={severityColor as "error" | "warning" | "success"}
-                                />
-                                {damage.extent && (
-                                  <Chip
-                                    label={`${damage.extent}`}
-                                    size="small"
-                                    variant="outlined"
-                                  />
-                                )}
-                              </Stack>
-                              <Typography variant="body2" color="text.secondary" noWrap>
-                                {damage.damage_type} · {damage.damage_cause}
-                              </Typography>
-                              {damage.comments && (
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{
-                                    fontStyle: "italic",
-                                    display: "-webkit-box",
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: "vertical",
-                                    overflow: "hidden",
-                                  }}
-                                >
-                                  {damage.comments}
-                                </Typography>
-                              )}
-                            </Stack>
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-                              {(damageHeuristic !== null || damageLLM !== null) && (
-                                <Stack direction="row" spacing={0.5} alignItems="center">
-                                  {damageHeuristic !== null && (
-                                    <Chip
-                                      label={`H: ${damageHeuristic.toFixed(0)}`}
-                                      size="small"
-                                      color={
-                                        damageHeuristic >= 70
-                                          ? "success"
-                                          : damageHeuristic >= 40
-                                          ? "warning"
-                                          : "error"
-                                      }
-                                      sx={{ fontSize: "0.7rem", height: 20 }}
-                                    />
-                                  )}
-                                  {damageLLM !== null && (
-                                    <Chip
-                                      label={`L: ${damageLLM.toFixed(0)}`}
-                                      size="small"
-                                      color={
-                                        damageLLM >= 70
-                                          ? "success"
-                                          : damageLLM >= 40
-                                          ? "warning"
-                                          : "error"
-                                      }
-                                      sx={{ fontSize: "0.7rem", height: 20 }}
-                                    />
-                                  )}
-                                </Stack>
-                              )}
-                              {photos.length > 0 && (
-                                <Stack direction="row" spacing={0.5}>
-                                  {photos.map((photo, idx) => (
-                                    <Box
-                                      key={photo.id || idx}
-                                      component="img"
-                                      src={photo.photo_url ?? ""}
-                                      alt={`Foto ${idx + 1}`}
-                                      sx={{
-                                        width: 50,
-                                        height: 50,
-                                        objectFit: "cover",
-                                        borderRadius: 1,
-                                        border: "1px solid",
-                                        borderColor: "divider",
-                                        cursor: "pointer",
-                                      }}
-                                      onClick={() => photo.photo_url && window.open(photo.photo_url, "_blank")}
-                                    />
-                                  ))}
-                                  {(damage.photos ?? []).length > 2 && (
-                                    <Box
-                                      sx={{
-                                        width: 50,
-                                        height: 50,
-                                        borderRadius: 1,
-                                        border: "1px solid",
-                                        borderColor: "divider",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        backgroundColor: "action.hover",
-                                      }}
-                                    >
-                                      <Typography variant="caption" color="text.secondary">
-                                        +{(damage.photos ?? []).length - 2}
-                                      </Typography>
-                                    </Box>
-                                  )}
-                                </Stack>
-                              )}
-                            </Stack>
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </Stack>
-              </Box>
-            )}
           </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSummaryDialogOpen(false)}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Typography variant="subtitle1">Resumen de hallazgos</Typography>
+          <Typography variant="body1" sx={{ mt: 1, mb: 2 }}>
+            {inspection.summary || "No se registraron comentarios adicionales."}
+          </Typography>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent>

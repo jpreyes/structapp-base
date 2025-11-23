@@ -990,7 +990,6 @@ const InspectionDetailPage = () => {
 
   const [downloadingReport, setDownloadingReport] = useState(false);
   const [downloadingArchive, setDownloadingArchive] = useState(false);
-  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
 
   const downloadFile = async (url: string, filename: string, mimeType: string) => {
     const isReport = url.includes("report");
@@ -1076,9 +1075,6 @@ const InspectionDetailPage = () => {
           <Button component={RouterLink} to={`/projects/${projectId}/inspections`} variant="outlined">
             Volver al plan
           </Button>
-          <Button variant="contained" onClick={() => setSummaryDialogOpen(true)}>
-            Ver resumen
-          </Button>
           <Button
             variant="outlined"
             onClick={() => downloadFile(reportUrl, `${inspectionId}-report.pdf`, "application/pdf")}
@@ -1096,9 +1092,8 @@ const InspectionDetailPage = () => {
         </Stack>
       </Stack>
 
-      <Dialog open={summaryDialogOpen} onClose={() => setSummaryDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Resumen de la inspección</DialogTitle>
-        <DialogContent dividers>
+      <Card variant="outlined">
+        <CardContent>
           <Stack spacing={2}>
             <Stack
               direction={{ xs: "column", md: "row" }}
@@ -1184,8 +1179,6 @@ const InspectionDetailPage = () => {
                         : damage.severity === "Media"
                         ? "warning"
                         : "success";
-                    const damageHeuristic = damage.deterministic_score ?? null;
-                    const damageLLM = damage.llm_score ?? null;
                     return (
                       <Card key={damage.id} variant="outlined">
                         <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
@@ -1231,81 +1224,47 @@ const InspectionDetailPage = () => {
                                 </Typography>
                               )}
                             </Stack>
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-                              {(damageHeuristic !== null || damageLLM !== null) && (
-                                <Stack direction="row" spacing={0.5} alignItems="center">
-                                  {damageHeuristic !== null && (
-                                    <Chip
-                                      label={`H: ${damageHeuristic.toFixed(0)}`}
-                                      size="small"
-                                      color={
-                                        damageHeuristic >= 70
-                                          ? "success"
-                                          : damageHeuristic >= 40
-                                          ? "warning"
-                                          : "error"
-                                      }
-                                      sx={{ fontSize: "0.7rem", height: 20 }}
-                                    />
-                                  )}
-                                  {damageLLM !== null && (
-                                    <Chip
-                                      label={`L: ${damageLLM.toFixed(0)}`}
-                                      size="small"
-                                      color={
-                                        damageLLM >= 70
-                                          ? "success"
-                                          : damageLLM >= 40
-                                          ? "warning"
-                                          : "error"
-                                      }
-                                      sx={{ fontSize: "0.7rem", height: 20 }}
-                                    />
-                                  )}
-                                </Stack>
-                              )}
-                              {photos.length > 0 && (
-                                <Stack direction="row" spacing={0.5}>
-                                  {photos.map((photo, idx) => (
-                                    <Box
-                                      key={photo.id || idx}
-                                      component="img"
-                                      src={photo.photo_url ?? ""}
-                                      alt={`Foto ${idx + 1}`}
-                                      sx={{
-                                        width: 50,
-                                        height: 50,
-                                        objectFit: "cover",
-                                        borderRadius: 1,
-                                        border: "1px solid",
-                                        borderColor: "divider",
-                                        cursor: "pointer",
-                                      }}
-                                      onClick={() => photo.photo_url && window.open(photo.photo_url, "_blank")}
-                                    />
-                                  ))}
-                                  {(damage.photos ?? []).length > 2 && (
-                                    <Box
-                                      sx={{
-                                        width: 50,
-                                        height: 50,
-                                        borderRadius: 1,
-                                        border: "1px solid",
-                                        borderColor: "divider",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        backgroundColor: "action.hover",
-                                      }}
-                                    >
-                                      <Typography variant="caption" color="text.secondary">
-                                        +{(damage.photos ?? []).length - 2}
-                                      </Typography>
-                                    </Box>
-                                  )}
-                                </Stack>
-                              )}
-                            </Stack>
+                            {photos.length > 0 && (
+                              <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                                {photos.map((photo, idx) => (
+                                  <Box
+                                    key={photo.id || idx}
+                                    component="img"
+                                    src={photo.photo_url ?? ""}
+                                    alt={`Foto ${idx + 1}`}
+                                    sx={{
+                                      width: 60,
+                                      height: 60,
+                                      objectFit: "cover",
+                                      borderRadius: 1,
+                                      border: "1px solid",
+                                      borderColor: "divider",
+                                      cursor: "pointer",
+                                    }}
+                                    onClick={() => photo.photo_url && window.open(photo.photo_url, "_blank")}
+                                  />
+                                ))}
+                                {(damage.photos ?? []).length > 2 && (
+                                  <Box
+                                    sx={{
+                                      width: 60,
+                                      height: 60,
+                                      borderRadius: 1,
+                                      border: "1px solid",
+                                      borderColor: "divider",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      backgroundColor: "action.hover",
+                                    }}
+                                  >
+                                    <Typography variant="caption" color="text.secondary">
+                                      +{(damage.photos ?? []).length - 2}
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </Stack>
+                            )}
                           </Stack>
                         </CardContent>
                       </Card>
@@ -1315,11 +1274,8 @@ const InspectionDetailPage = () => {
               </Box>
             )}
           </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSummaryDialogOpen(false)}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent>

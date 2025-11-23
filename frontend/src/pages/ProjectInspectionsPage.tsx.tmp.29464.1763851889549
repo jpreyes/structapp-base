@@ -30,7 +30,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import WarningIcon from "@mui/icons-material/Warning";
 import dayjs from "dayjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -49,16 +48,6 @@ const conditionOptions = [
   { value: "observacion", label: "Con observaciones" },
   { value: "critica", label: "Crítica" },
 ] as const;
-
-const formatScoreValue = (value?: number | null) =>
-  value !== undefined && value !== null ? value.toFixed(0) : "—";
-
-const getScoreColor = (value?: number | null): "success" | "warning" | "error" | "default" => {
-  if (value === undefined || value === null) return "default";
-  if (value >= 70) return "success";
-  if (value >= 40) return "warning";
-  return "error";
-};
 
 type InspectionFormState = {
   structure_name: string;
@@ -94,13 +83,6 @@ const ProjectInspectionsPage = () => {
   const { data: damages = [] } = useProjectInspectionDamages(effectiveProjectId);
   const { data: tests = [] } = useProjectInspectionTests(effectiveProjectId);
   const { data: documents = [] } = useProjectInspectionDocuments(effectiveProjectId);
-
-  const planSummary = useMemo(() => {
-    const criticalCount = inspections.filter((i) => i.overall_condition === "critica").length;
-    const observationCount = inspections.filter((i) => i.overall_condition === "observacion").length;
-    const operationalCount = inspections.filter((i) => i.overall_condition === "operativa").length;
-    return { criticalCount, observationCount, operationalCount, total: inspections.length };
-  }, [inspections]);
 
   useEffect(() => {
     if (!selectedProjectId && projects?.length) {
@@ -150,6 +132,12 @@ const ProjectInspectionsPage = () => {
   const createInspectionMutation = useMutation({
     mutationFn: async () => {
       if (!effectiveProjectId) throw new Error("No hay proyecto activo");
+      const urlPhotos = photoDrafts
+        .filter((draft) => draft.url)
+        .map((draft) => ({
+          url: draft.url,
+          comment: draft.comment?.trim() || null,
+        }));
       const { data: inspection } = await apiClient.post("/inspections", {
         project_id: effectiveProjectId,
         structure_name: inspectionForm.structure_name,
@@ -158,9 +146,10 @@ const ProjectInspectionsPage = () => {
         inspector: inspectionForm.inspector,
         overall_condition: inspectionForm.overall_condition,
         summary: inspectionForm.summary,
-        photos: [],
+        photos: urlPhotos,
       });
-      for (const draft of photoDrafts) {
+      const fileDrafts = photoDrafts.filter((draft) => draft.file) as Array<InspectionPhotoDraft & { file: File }>;
+      for (const draft of fileDrafts) {
         const form = new FormData();
         form.append("file", draft.file);
         if (draft.comment?.trim()) {
@@ -181,6 +170,8 @@ const ProjectInspectionsPage = () => {
         summary: "",
       });
       setPhotoDrafts([]);
+      setNewPhotoUrl("");
+      setNewPhotoComment("");
       invalidateInspectionQueries();
     },
   });
@@ -277,146 +268,6 @@ const ProjectInspectionsPage = () => {
       </Grid>
 
       <Card>
-        <CardContent>
-          <Stack spacing={2}>
-            <Typography variant="h6">Evaluación del plan de inspecciones</Typography>
-            {inspections.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                No hay inspecciones registradas para evaluar.
-              </Typography>
-            ) : (
-              <>
-                <Stack direction="row" spacing={2} flexWrap="wrap">
-                  <Chip
-                    icon={<ChecklistIcon />}
-                    label={`${planSummary.operationalCount} Operativas`}
-                    color="success"
-                    variant="outlined"
-                    size="small"
-                  />
-                  <Chip
-                    icon={<WarningIcon />}
-                    label={`${planSummary.observationCount} Con observaciones`}
-                    color="warning"
-                    variant="outlined"
-                    size="small"
-                  />
-                  <Chip
-                    icon={<WarningIcon />}
-                    label={`${planSummary.criticalCount} Críticas`}
-                    color="error"
-                    variant="outlined"
-                    size="small"
-                  />
-                </Stack>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    Resumen por inspección
-                  </Typography>
-                  <Stack spacing={1}>
-                    {inspections.map((insp) => (
-                      <Card key={insp.id} variant="outlined">
-                        <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
-                          <Stack
-                            direction={{ xs: "column", sm: "row" }}
-                            spacing={1}
-                            alignItems={{ sm: "center" }}
-                            justifyContent="space-between"
-                          >
-                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                              <Typography variant="body2" fontWeight={600}>
-                                {insp.structure_name}
-                              </Typography>
-                              <Chip
-                                label={
-                                  conditionOptions.find((c) => c.value === insp.overall_condition)?.label ?? "Sin dato"
-                                }
-                                color={
-                                  insp.overall_condition === "operativa"
-                                    ? "success"
-                                    : insp.overall_condition === "critica"
-                                    ? "error"
-                                    : "warning"
-                                }
-                                size="small"
-                              />
-                            </Stack>
-                            <Stack direction="row" spacing={0.5} alignItems="center">
-                              <Chip
-                                label={`H: ${formatScoreValue(insp.deterministic_score)}`}
-                                color={getScoreColor(insp.deterministic_score)}
-                                size="small"
-                                sx={{ fontSize: "0.7rem", height: 20 }}
-                              />
-                              <Chip
-                                label={`L: ${formatScoreValue(insp.llm_score)}`}
-                                color={getScoreColor(insp.llm_score)}
-                                size="small"
-                                sx={{ fontSize: "0.7rem", height: 20 }}
-                              />
-                            </Stack>
-                          </Stack>
-                          {insp.llm_reason && (
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block", fontStyle: "italic" }}>
-                              {insp.llm_reason}
-                            </Typography>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Stack>
-                </Box>
-                {damages.length > 0 && (
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                      Hallazgos principales ({damages.length} daños registrados)
-                    </Typography>
-                    <Stack spacing={1}>
-                      {damages.slice(0, 5).map((damage) => (
-                        <Card key={damage.id} variant="outlined">
-                          <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
-                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                              <Typography variant="body2" fontWeight={600}>
-                                {damage.structure || "Sin estructura"}
-                              </Typography>
-                              <Chip
-                                label={damage.severity}
-                                color={
-                                  damage.severity === "Alta" || damage.severity === "Muy Alta"
-                                    ? "error"
-                                    : damage.severity === "Media"
-                                    ? "warning"
-                                    : "default"
-                                }
-                                size="small"
-                              />
-                              <Typography variant="body2" color="text.secondary">
-                                {damage.damage_type}
-                              </Typography>
-                            </Stack>
-                            {damage.comments && (
-                              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                                {damage.comments}
-                              </Typography>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))}
-                      {damages.length > 5 && (
-                        <Typography variant="body2" color="text.secondary">
-                          ... y {damages.length - 5} daños más
-                        </Typography>
-                      )}
-                    </Stack>
-                  </Box>
-                )}
-              </>
-            )}
-          </Stack>
-        </CardContent>
-      </Card>
-
-      <Card>
         <CardContent sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Typography variant="h6">Inspecciones de estructuras existentes</Typography>
           <Button
@@ -478,20 +329,6 @@ const ProjectInspectionsPage = () => {
                           }
                           size="small"
                         />
-                        <Stack direction="row" spacing={0.5} alignItems="center">
-                          <Chip
-                            label={`H: ${formatScoreValue(inspection.deterministic_score)}`}
-                            color={getScoreColor(inspection.deterministic_score)}
-                            size="small"
-                            sx={{ fontSize: "0.75rem", height: 22 }}
-                          />
-                          <Chip
-                            label={`L: ${formatScoreValue(inspection.llm_score)}`}
-                            color={getScoreColor(inspection.llm_score)}
-                            size="small"
-                            sx={{ fontSize: "0.75rem", height: 22 }}
-                          />
-                        </Stack>
                       </Stack>
                     }
                     secondary={
@@ -503,11 +340,6 @@ const ProjectInspectionsPage = () => {
                         <Typography variant="body2" component="div">
                           {inspection.summary}
                         </Typography>
-                        {inspection.llm_reason && (
-                          <Typography variant="body2" color="text.secondary" component="div" sx={{ fontStyle: "italic" }}>
-                            {inspection.llm_reason}
-                          </Typography>
-                        )}
                         <Stack direction="row" spacing={1} flexWrap="wrap">
                           {(inspection.photos ?? []).map((photo, index) => {
                             const photoUrl = typeof photo === "string" ? photo : photo?.url;
@@ -628,15 +460,38 @@ const ProjectInspectionsPage = () => {
                   />
                 </Button>
                 <Typography variant="body2" color="text.secondary">
-                  {photoDrafts.length > 0
-                    ? `${photoDrafts.length} archivo(s) listo(s) para subir`
+                  {photoDrafts.some((draft) => draft.file)
+                    ? `${photoDrafts.filter((draft) => draft.file).length} archivo(s) listo(s) para subir`
                     : "Puedes adjuntar fotos ahora o más tarde"}
                 </Typography>
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <TextField
+                  label="URL de foto"
+                  value={newPhotoUrl}
+                  onChange={(event) => setNewPhotoUrl(event.target.value)}
+                  size="small"
+                  fullWidth
+                  id="inspection-photo-url"
+                  name="inspectionPhotoUrl"
+                />
+                <TextField
+                  label="Comentario breve"
+                  value={newPhotoComment}
+                  onChange={(event) => setNewPhotoComment(event.target.value)}
+                  size="small"
+                  fullWidth
+                  id="inspection-photo-comment"
+                  name="inspectionPhotoComment"
+                />
+                <Button variant="outlined" onClick={handleAddPhotoUrl} disabled={!newPhotoUrl.trim()} sx={{ minWidth: 140 }}>
+                  Agregar URL
+                </Button>
               </Stack>
               <Stack spacing={1}>
                 {photoDrafts.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
-                    No hay fotos pendientes.
+                    No hay fotos pendientes. Puedes añadir archivos o URLs y agregarles un comentario corto.
                   </Typography>
                 ) : (
                   photoDrafts.map((draft) => (
@@ -648,12 +503,21 @@ const ProjectInspectionsPage = () => {
                       sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }}
                     >
                       <Stack spacing={0.5} sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Typography variant="body2" fontWeight={600} noWrap title={draft.file.name}>
-                          {draft.file.name}
+                        <Typography variant="body2" fontWeight={600} noWrap title={draft.file ? draft.file.name : draft.url}>
+                          {draft.file ? draft.file.name : draft.url}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {Math.round(draft.file.size / 1024)} KB · se comprimirá a 1080p
+                          {draft.file ? `${Math.round(draft.file.size / 1024)} KB · se comprimirá a 1080p` : "Desde URL"}
                         </Typography>
+                        {!draft.file && (
+                          <TextField
+                            size="small"
+                            label="URL"
+                            value={draft.url ?? ""}
+                            onChange={(event) => updatePhotoDraft(draft.id, { url: event.target.value })}
+                            fullWidth
+                          />
+                        )}
                       </Stack>
                       <TextField
                         size="small"
