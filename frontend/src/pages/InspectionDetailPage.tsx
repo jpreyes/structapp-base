@@ -1333,87 +1333,38 @@ const InspectionDetailPage = () => {
 
 {/* aqui comienza la card del llm */}
 
-       <Card>
+      <Card>
         <CardContent>
-          <Stack spacing={2}>
-            <Typography variant="h6">Evaluación de la inspección</Typography>
-            {inspections.length === 0 ? (
+          <Stack spacing={1.5}>
+            <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ sm: "center" }} spacing={1} justifyContent="space-between">
+              <Typography variant="h6">Evaluación de la inspección</Typography>
+              {inspection && (
+                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+                  <Chip
+                    label={`H: ${formatScoreValue(inspection.deterministic_score)}`}
+                    color={getScoreColor(inspection.deterministic_score)}
+                    size="small"
+                    sx={{ fontSize: "0.7rem", height: 20 }}
+                  />
+                  <Chip
+                    label={`L: ${formatScoreValue(inspectionLLM?.score)}`}
+                    color={getScoreColor(inspectionLLM?.score)}
+                    size="small"
+                    sx={{ fontSize: "0.7rem", height: 20 }}
+                  />
+                </Stack>
+              )}
+            </Stack>
+            {!inspection ? (
               <Typography variant="body2" color="text.secondary">
                 No hay inspecciones registradas para evaluar.
               </Typography>
             ) : (
-              <>
-                
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    Resumen de la inspección
-                  </Typography>
-                  <Stack spacing={1}>
-                    {inspections.map((insp) => {
-                      const llmDetails = extractLLMDetails({
-                        payload: insp.llm_payload,
-                        reason: insp.llm_reason,
-                        score: insp.llm_score,
-                      });
-                      return (
-                        <Card key={insp.id} variant="outlined">
-                          <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
-                            <Stack
-                              direction={{ xs: "column", sm: "row" }}
-                              spacing={1}
-                              alignItems={{ sm: "center" }}
-                              justifyContent="space-between"
-                            >
-                              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                                <Typography variant="body2" fontWeight={600}>
-                                  {insp.structure_name}
-                                </Typography>
-                                <Chip
-                                  label={
-                                    conditionOptions.find((c) => c.value === insp.overall_condition)?.label ?? "Sin dato"
-                                  }
-                                  color={
-                                    insp.overall_condition === "operativa"
-                                      ? "success"
-                                      : insp.overall_condition === "critica"
-                                      ? "error"
-                                      : "warning"
-                                  }
-                                  size="small"
-                                />
-                              </Stack>
-                              <Stack direction="row" spacing={0.5} alignItems="center">
-                                <Chip
-                                  label={`H: ${formatScoreValue(insp.deterministic_score)}`}
-                                  color={getScoreColor(insp.deterministic_score)}
-                                  size="small"
-                                  sx={{ fontSize: "0.7rem", height: 20 }}
-                                />
-                                <Chip
-                                  label={`L: ${formatScoreValue(llmDetails.score)}`}
-                                  color={getScoreColor(llmDetails.score)}
-                                  size="small"
-                                  sx={{ fontSize: "0.7rem", height: 20 }}
-                                />
-                              </Stack>
-                            </Stack>
-                            {llmDetails.reason && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ mt: 0.5, display: "block", fontStyle: "italic" }}
-                              >
-                                {llmDetails.reason}
-                              </Typography>
-                            )}
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </Stack>
-                </Box>
-                
-              </>
+              inspectionLLM?.reason && (
+                <Typography variant="body2" color="text.secondary">
+                  {inspectionLLM.reason}
+                </Typography>
+              )
             )}
           </Stack>
         </CardContent>
