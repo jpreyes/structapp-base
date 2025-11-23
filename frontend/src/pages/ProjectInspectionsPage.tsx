@@ -30,7 +30,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import WarningIcon from "@mui/icons-material/Warning";
 import dayjs from "dayjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -50,14 +49,32 @@ const conditionOptions = [
   { value: "critica", label: "Crítica" },
 ] as const;
 
-const formatScoreValue = (value?: number | null) =>
-  value !== undefined && value !== null ? value.toFixed(0) : "—";
+const formatScoreValue = (value?: number | null) => (value !== undefined && value !== null ? value.toFixed(0) : "—");
 
 const getScoreColor = (value?: number | null): "success" | "warning" | "error" | "default" => {
   if (value === undefined || value === null) return "default";
   if (value >= 70) return "success";
   if (value >= 40) return "warning";
   return "error";
+};
+
+const extractLLMScore = (payload?: unknown, reason?: string | null, score?: number | null): number | null => {
+  if (score !== undefined && score !== null) return score;
+  const tryExtract = (text?: string | null) => {
+    if (!text) return null;
+    const cleaned = text.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+    try {
+      const parsed = JSON.parse(cleaned);
+      const value = (parsed as any)?.score;
+      if (typeof value === "number") return value;
+    } catch {
+      // ignore parse errors
+    }
+    const match =
+      cleaned.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i) || cleaned.match(/score\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i);
+    return match ? Number(match[1]) : null;
+  };
+  return tryExtract(typeof payload === "string" ? payload : null) ?? tryExtract(reason);
 };
 
 type InspectionFormState = {
@@ -74,6 +91,7 @@ type InspectionPhotoDraft = {
   file: File;
   comment: string;
 };
+
 const ProjectInspectionsPage = () => {
   const sessionProjectId = useSession((state) => state.projectId);
   const setProject = useSession((state) => state.setProject);
@@ -298,6 +316,7 @@ const ProjectInspectionsPage = () => {
             const detailHref = effectiveProjectId
               ? `/projects/${effectiveProjectId}/inspections/${inspection.id}`
               : "#";
+            const llmScore = extractLLMScore(inspection.llm_payload as unknown, inspection.llm_reason, inspection.llm_score);
             return (
               <ListItem
                 key={inspection.id}
@@ -346,8 +365,8 @@ const ProjectInspectionsPage = () => {
                             sx={{ fontSize: "0.75rem", height: 22 }}
                           />
                           <Chip
-                            label={`L: ${formatScoreValue(inspection.llm_score)}`}
-                            color={getScoreColor(inspection.llm_score)}
+                            label={`L: ${formatScoreValue(llmScore)}`}
+                            color={getScoreColor(llmScore)}
                             size="small"
                             sx={{ fontSize: "0.75rem", height: 22 }}
                           />

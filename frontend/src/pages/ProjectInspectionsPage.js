@@ -1,4 +1,4 @@
-﻿import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Box, Breadcrumbs, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, Link, List, ListItem, ListItemButton, ListItemText, MenuItem, Stack, TextField, Typography, } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import AttachmentIcon from "@mui/icons-material/Attachment";
@@ -18,10 +18,9 @@ import apiClient from "../api/client";
 const conditionOptions = [
     { value: "operativa", label: "Operativa" },
     { value: "observacion", label: "Con observaciones" },
-    { value: "critica", label: "Cr��tica" },
+    { value: "critica", label: "Crítica" },
 ];
-
-const formatScoreValue = (value) => (value !== undefined && value !== null ? value.toFixed(0) : "N/A");
+const formatScoreValue = (value) => (value !== undefined && value !== null ? value.toFixed(0) : "—");
 const getScoreColor = (value) => {
     if (value === undefined || value === null)
         return "default";
@@ -30,6 +29,27 @@ const getScoreColor = (value) => {
     if (value >= 40)
         return "warning";
     return "error";
+};
+const extractLLMScore = (payload, reason, score) => {
+    if (score !== undefined && score !== null)
+        return score;
+    const tryExtract = (text) => {
+        if (!text)
+            return null;
+        const cleaned = text.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+        try {
+            const parsed = JSON.parse(cleaned);
+            const value = parsed?.score;
+            if (typeof value === "number")
+                return value;
+        }
+        catch {
+            // ignore parse errors
+        }
+        const match = cleaned.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i) || cleaned.match(/score\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i);
+        return match ? Number(match[1]) : null;
+    };
+    return tryExtract(typeof payload === "string" ? payload : null) ?? tryExtract(reason);
 };
 const ProjectInspectionsPage = () => {
     const sessionProjectId = useSession((state) => state.projectId);
@@ -144,7 +164,7 @@ const ProjectInspectionsPage = () => {
     });
     const summaryCards = useMemo(() => [
         { title: "Inspecciones", value: inspections.length, icon: _jsx(ChecklistIcon, {}) },
-        { title: "DaÃ±os", value: damages.length, icon: _jsx(AttachmentIcon, {}) },
+        { title: "Daños", value: damages.length, icon: _jsx(AttachmentIcon, {}) },
         { title: "Ensayos", value: tests.length, icon: _jsx(ScienceIcon, {}) },
         { title: "Documentos", value: documents.length, icon: _jsx(DescriptionIcon, {}) },
     ], [inspections.length, damages.length, tests.length, documents.length]);
@@ -160,8 +180,9 @@ const ProjectInspectionsPage = () => {
                                 const detailHref = effectiveProjectId
                                     ? `/projects/${effectiveProjectId}/inspections/${inspection.id}`
                                     : "#";
-                                return (_jsx(ListItem, { divider: true, alignItems: "flex-start", secondaryAction: _jsx(IconButton, { edge: "end", "aria-label": `Eliminar inspecciÃ³n ${inspection.structure_name}`, onClick: () => {
-                                            if (!confirmDeletion(`Â¿Eliminar la inspecciÃ³n de ${inspection.structure_name}?`)) {
+                                const llmScore = extractLLMScore(inspection.llm_payload, inspection.llm_reason, inspection.llm_score);
+                                return (_jsx(ListItem, { divider: true, alignItems: "flex-start", secondaryAction: _jsx(IconButton, { edge: "end", "aria-label": `Eliminar inspección ${inspection.structure_name}`, onClick: () => {
+                                            if (!confirmDeletion(`¿Eliminar la inspección de ${inspection.structure_name}?`)) {
                                                 return;
                                             }
                                             deleteInspectionMutation.mutate(inspection.id);
@@ -170,7 +191,7 @@ const ProjectInspectionsPage = () => {
                                                             ? "success"
                                                             : inspection.overall_condition === "critica"
                                                                 ? "error"
-                                                                : "warning", size: "small" }), _jsxs(Stack, { direction: "row", spacing: 0.5, alignItems: "center", children: [_jsx(Chip, { label: `H: ${formatScoreValue(inspection.deterministic_score)}`, color: getScoreColor(inspection.deterministic_score), size: "small", sx: { fontSize: "0.75rem", height: 22 } }), _jsx(Chip, { label: `L: ${formatScoreValue(inspection.llm_score)}`, color: getScoreColor(inspection.llm_score), size: "small", sx: { fontSize: "0.75rem", height: 22 } })] })] }), secondary: _jsxs(Stack, { spacing: 1, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] }), _jsx(Typography, { variant: "body2", component: "div", children: inspection.summary }), inspection.llm_reason && (_jsx(Typography, { variant: "body2", color: "text.secondary", component: "div", sx: { fontStyle: "italic" }, children: inspection.llm_reason })), _jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((photo, index) => {
+                                                                : "warning", size: "small" }), _jsxs(Stack, { direction: "row", spacing: 0.5, alignItems: "center", children: [_jsx(Chip, { label: `H: ${formatScoreValue(inspection.deterministic_score)}`, color: getScoreColor(inspection.deterministic_score), size: "small", sx: { fontSize: "0.75rem", height: 22 } }), _jsx(Chip, { label: `L: ${formatScoreValue(llmScore)}`, color: getScoreColor(llmScore), size: "small", sx: { fontSize: "0.75rem", height: 22 } })] })] }), secondary: _jsxs(Stack, { spacing: 1, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] }), _jsx(Typography, { variant: "body2", component: "div", children: inspection.summary }), inspection.llm_reason && (_jsx(Typography, { variant: "body2", color: "text.secondary", component: "div", sx: { fontStyle: "italic" }, children: inspection.llm_reason })), _jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((photo, index) => {
                                                             const photoUrl = typeof photo === "string" ? photo : photo?.url;
                                                             const label = typeof photo === "string" ? "Foto" : photo?.comment || "Foto";
                                                             const key = typeof photo === "string" ? photo : photo?.id ?? photoUrl ?? `photo-${index}`;
@@ -191,8 +212,6 @@ const ProjectInspectionsPage = () => {
                                                                 }
                                                             } })] }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: photoDrafts.length > 0
                                                         ? `${photoDrafts.length} archivo(s) listo(s) para subir`
-                                                        : "Puedes adjuntar fotos ahora o mÃ¡s tarde" })] }), _jsx(Stack, { spacing: 1, children: photoDrafts.length === 0 ? (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "No hay fotos pendientes." })) : (photoDrafts.map((draft) => (_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, sx: { border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }, children: [_jsxs(Stack, { spacing: 0.5, sx: { flexGrow: 1, minWidth: 0 }, children: [_jsx(Typography, { variant: "body2", fontWeight: 600, noWrap: true, title: draft.file.name, children: draft.file.name }), _jsxs(Typography, { variant: "caption", color: "text.secondary", children: [Math.round(draft.file.size / 1024), " KB \u00B7 se comprimir\u00E1 a 1080p"] })] }), _jsx(TextField, { size: "small", label: "Comentario", value: draft.comment, onChange: (event) => updatePhotoDraft(draft.id, { comment: event.target.value }), fullWidth: true, sx: { minWidth: { sm: 200 } } }), _jsx(IconButton, { "aria-label": "Eliminar foto", onClick: () => removePhotoDraft(draft.id), size: "small", children: _jsx(DeleteIcon, { fontSize: "small" }) })] }, draft.id)))) })] })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setInspectionDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: () => createInspectionMutation.mutate(), disabled: !effectiveProjectId || !inspectionForm.structure_name.trim() || createInspectionMutation.isPending, children: "Guardar" })] })] })] }));
+                                                        : "Puedes adjuntar fotos ahora o más tarde" })] }), _jsx(Stack, { spacing: 1, children: photoDrafts.length === 0 ? (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "No hay fotos pendientes." })) : (photoDrafts.map((draft) => (_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, sx: { border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }, children: [_jsxs(Stack, { spacing: 0.5, sx: { flexGrow: 1, minWidth: 0 }, children: [_jsx(Typography, { variant: "body2", fontWeight: 600, noWrap: true, title: draft.file.name, children: draft.file.name }), _jsxs(Typography, { variant: "caption", color: "text.secondary", children: [Math.round(draft.file.size / 1024), " KB \u00B7 se comprimir\u00E1 a 1080p"] })] }), _jsx(TextField, { size: "small", label: "Comentario", value: draft.comment, onChange: (event) => updatePhotoDraft(draft.id, { comment: event.target.value }), fullWidth: true, sx: { minWidth: { sm: 200 } } }), _jsx(IconButton, { "aria-label": "Eliminar foto", onClick: () => removePhotoDraft(draft.id), size: "small", children: _jsx(DeleteIcon, { fontSize: "small" }) })] }, draft.id)))) })] })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setInspectionDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: () => createInspectionMutation.mutate(), disabled: !effectiveProjectId || !inspectionForm.structure_name.trim() || createInspectionMutation.isPending, children: "Guardar" })] })] })] }));
 };
 export default ProjectInspectionsPage;
-
-

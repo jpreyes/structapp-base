@@ -104,7 +104,7 @@ const parseScoreFromText = (text) => {
     const match = text.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i) || text.match(/score\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i);
     return match ? Number(match[1]) : null;
 };
-const parseLLMPayload = (payload) => {
+export const parseLLMPayload = (payload) => {
     if (!payload)
         return null;
     if (typeof payload === "string") {
@@ -128,7 +128,7 @@ const parseLLMPayload = (payload) => {
     }
     return payload;
 };
-const extractLLMDetails = ({ payload, reason, score, }) => {
+export const extractLLMDetails = ({ payload, reason, score, }) => {
     const parsed = parseLLMPayload(payload);
     const parsedScore = score ??
         (parsed && typeof parsed === "object" && "score" in parsed && parsed.score !== undefined

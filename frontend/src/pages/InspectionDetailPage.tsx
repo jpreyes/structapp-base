@@ -190,7 +190,7 @@ const parseScoreFromText = (text?: string | null): number | null => {
   return match ? Number(match[1]) : null;
 };
 
-const parseLLMPayload = (payload?: { score?: number; reason?: string } | string | null) => {
+export const parseLLMPayload = (payload?: { score?: number; reason?: string } | string | null) => {
   if (!payload) return null;
   if (typeof payload === "string") {
     const cleaned = payload.replace(/```/g, "").replace(/^json\s*/i, "").trim();
@@ -213,7 +213,7 @@ const parseLLMPayload = (payload?: { score?: number; reason?: string } | string 
   return payload;
 };
 
-const extractLLMDetails = ({
+export const extractLLMDetails = ({
   payload,
   reason,
   score,
