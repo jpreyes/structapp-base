@@ -90,6 +90,16 @@ type DocumentFormState = {
   notes: string;
 };
 
+// const formatScoreValue = (value) => value !== undefined && value !== null ? value.toFixed(0) : "—";
+const getScoreColor = (value) => {
+    if (value === undefined || value === null)
+        return "default";
+    if (value >= 70)
+        return "success";
+    if (value >= 40)
+        return "warning";
+    return "error";
+};
 const defaultDamageForm: DamageFormState = {
   structure: "",
   location: "",
@@ -1320,6 +1330,126 @@ const InspectionDetailPage = () => {
           <Button onClick={() => setSummaryDialogOpen(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
+
+{/* aqui comienza la card del llm */}
+
+       <Card>
+        <CardContent>
+          <Stack spacing={2}>
+            <Typography variant="h6">Evaluación del plan de inspecciones</Typography>
+            {inspections.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No hay inspecciones registradas para evaluar.
+              </Typography>
+            ) : (
+              <>
+                
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                    Resumen por inspección
+                  </Typography>
+                  <Stack spacing={1}>
+                    {inspections.map((insp) => (
+                      <Card key={insp.id} variant="outlined">
+                        <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1}
+                            alignItems={{ sm: "center" }}
+                            justifyContent="space-between"
+                          >
+                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                              <Typography variant="body2" fontWeight={600}>
+                                {insp.structure_name}
+                              </Typography>
+                              <Chip
+                                label={
+                                  conditionOptions.find((c) => c.value === insp.overall_condition)?.label ?? "Sin dato"
+                                }
+                                color={
+                                  insp.overall_condition === "operativa"
+                                    ? "success"
+                                    : insp.overall_condition === "critica"
+                                    ? "error"
+                                    : "warning"
+                                }
+                                size="small"
+                              />
+                            </Stack>
+                            <Stack direction="row" spacing={0.5} alignItems="center">
+                              <Chip
+                                label={`H: ${formatScoreValue(insp.deterministic_score)}`}
+                                color={getScoreColor(insp.deterministic_score)}
+                                size="small"
+                                sx={{ fontSize: "0.7rem", height: 20 }}
+                              />
+                              <Chip
+                                label={`L: ${formatScoreValue(insp.llm_score)}`}
+                                color={getScoreColor(insp.llm_score)}
+                                size="small"
+                                sx={{ fontSize: "0.7rem", height: 20 }}
+                              />
+                            </Stack>
+                          </Stack>
+                          {insp.llm_reason && (
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block", fontStyle: "italic" }}>
+                              {insp.llm_reason}
+                            </Typography>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Stack>
+                </Box>
+                {damages.length > 0 && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                      Hallazgos principales ({damages.length} daños registrados)
+                    </Typography>
+                    <Stack spacing={1}>
+                      {damages.slice(0, 5).map((damage) => (
+                        <Card key={damage.id} variant="outlined">
+                          <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
+                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                              <Typography variant="body2" fontWeight={600}>
+                                {damage.structure || "Sin estructura"}
+                              </Typography>
+                              <Chip
+                                label={damage.severity}
+                                color={
+                                  damage.severity === "Alta" || damage.severity === "Muy Alta"
+                                    ? "error"
+                                    : damage.severity === "Media"
+                                    ? "warning"
+                                    : "default"
+                                }
+                                size="small"
+                              />
+                              <Typography variant="body2" color="text.secondary">
+                                {damage.damage_type}
+                              </Typography>
+                            </Stack>
+                            {damage.comments && (
+                              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                                {damage.comments}
+                              </Typography>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                      {damages.length > 5 && (
+                        <Typography variant="body2" color="text.secondary">
+                          ... y {damages.length - 5} daños más
+                        </Typography>
+                      )}
+                    </Stack>
+                  </Box>
+                )}
+              </>
+            )}
+          </Stack>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent>
