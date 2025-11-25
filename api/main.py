@@ -1,4 +1,5 @@
 ﻿import sys
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -27,6 +28,19 @@ from payments_webhook.flow_webhook import router as flow_router
 
 app = FastAPI(title="StructApp API", version="0.1.0")
 
+# CORS
+def _allowed_origins() -> list[str]:
+    raw = os.getenv("CORS_ALLOW_ORIGINS")
+    if raw:
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    # Default to local dev hosts
+    return [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8501",
+        "http://127.0.0.1:8501",
+    ]
+
 UPLOADS_DIR = Path("uploads")
 UPLOADS_DIR.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR.resolve())), name="uploads")
@@ -34,7 +48,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR.resolve())), name="u
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=True,
