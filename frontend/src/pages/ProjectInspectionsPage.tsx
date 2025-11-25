@@ -77,6 +77,24 @@ const extractLLMScore = (payload?: unknown, reason?: string | null, score?: numb
   return tryExtract(typeof payload === "string" ? payload : null) ?? tryExtract(reason);
 };
 
+const cleanLLMReason = (text?: string | null) => {
+  if (!text) return null;
+  const trimmed = text.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === "object" && "reason" in parsed && typeof (parsed as any).reason === "string") {
+      return (parsed as any).reason as string;
+    }
+  } catch {
+    // ignore
+  }
+  const match = trimmed.match(/"reason"\s*:\s*"([^"]+)"/i);
+  if (match?.[1]) return match[1];
+  // If looks like JSON blob, avoid showing full blob
+  if (/^{.*}$/s.test(trimmed)) return null;
+  return trimmed;
+};
+
 type InspectionFormState = {
   structure_name: string;
   location: string;
@@ -317,6 +335,7 @@ const ProjectInspectionsPage = () => {
               ? `/projects/${effectiveProjectId}/inspections/${inspection.id}`
               : "#";
             const llmScore = extractLLMScore(inspection.llm_payload as unknown, inspection.llm_reason, inspection.llm_score);
+            const llmReason = cleanLLMReason(inspection.llm_reason);
             return (
               <ListItem
                 key={inspection.id}
@@ -382,9 +401,9 @@ const ProjectInspectionsPage = () => {
                         <Typography variant="body2" component="div">
                           {inspection.summary}
                         </Typography>
-                        {inspection.llm_reason && (
+                        {llmReason && (
                           <Typography variant="body2" color="text.secondary" component="div" sx={{ fontStyle: "italic" }}>
-                            {inspection.llm_reason}
+                            {llmReason}
                           </Typography>
                         )}
                         <Stack direction="row" spacing={1} flexWrap="wrap">

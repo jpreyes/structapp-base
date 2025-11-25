@@ -51,6 +51,27 @@ const extractLLMScore = (payload, reason, score) => {
     };
     return tryExtract(typeof payload === "string" ? payload : null) ?? tryExtract(reason);
 };
+const cleanLLMReason = (text) => {
+    if (!text)
+        return null;
+    const trimmed = text.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+    try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === "object" && "reason" in parsed && typeof parsed.reason === "string") {
+            return parsed.reason;
+        }
+    }
+    catch {
+        // ignore
+    }
+    const match = trimmed.match(/"reason"\s*:\s*"([^"]+)"/i);
+    if (match?.[1])
+        return match[1];
+    // If looks like JSON blob, avoid showing full blob
+    if (/^{.*}$/s.test(trimmed))
+        return null;
+    return trimmed;
+};
 const ProjectInspectionsPage = () => {
     const sessionProjectId = useSession((state) => state.projectId);
     const setProject = useSession((state) => state.setProject);
@@ -181,6 +202,7 @@ const ProjectInspectionsPage = () => {
                                     ? `/projects/${effectiveProjectId}/inspections/${inspection.id}`
                                     : "#";
                                 const llmScore = extractLLMScore(inspection.llm_payload, inspection.llm_reason, inspection.llm_score);
+                                const llmReason = cleanLLMReason(inspection.llm_reason);
                                 return (_jsx(ListItem, { divider: true, alignItems: "flex-start", secondaryAction: _jsx(IconButton, { edge: "end", "aria-label": `Eliminar inspección ${inspection.structure_name}`, onClick: () => {
                                             if (!confirmDeletion(`¿Eliminar la inspección de ${inspection.structure_name}?`)) {
                                                 return;
@@ -191,7 +213,7 @@ const ProjectInspectionsPage = () => {
                                                             ? "success"
                                                             : inspection.overall_condition === "critica"
                                                                 ? "error"
-                                                                : "warning", size: "small" }), _jsxs(Stack, { direction: "row", spacing: 0.5, alignItems: "center", children: [_jsx(Chip, { label: `H: ${formatScoreValue(inspection.deterministic_score)}`, color: getScoreColor(inspection.deterministic_score), size: "small", sx: { fontSize: "0.75rem", height: 22 } }), _jsx(Chip, { label: `L: ${formatScoreValue(llmScore)}`, color: getScoreColor(llmScore), size: "small", sx: { fontSize: "0.75rem", height: 22 } })] })] }), secondary: _jsxs(Stack, { spacing: 1, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] }), _jsx(Typography, { variant: "body2", component: "div", children: inspection.summary }), inspection.llm_reason && (_jsx(Typography, { variant: "body2", color: "text.secondary", component: "div", sx: { fontStyle: "italic" }, children: inspection.llm_reason })), _jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((photo, index) => {
+                                                                : "warning", size: "small" }), _jsxs(Stack, { direction: "row", spacing: 0.5, alignItems: "center", children: [_jsx(Chip, { label: `H: ${formatScoreValue(inspection.deterministic_score)}`, color: getScoreColor(inspection.deterministic_score), size: "small", sx: { fontSize: "0.75rem", height: 22 } }), _jsx(Chip, { label: `L: ${formatScoreValue(llmScore)}`, color: getScoreColor(llmScore), size: "small", sx: { fontSize: "0.75rem", height: 22 } })] })] }), secondary: _jsxs(Stack, { spacing: 1, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] }), _jsx(Typography, { variant: "body2", component: "div", children: inspection.summary }), llmReason && (_jsx(Typography, { variant: "body2", color: "text.secondary", component: "div", sx: { fontStyle: "italic" }, children: llmReason })), _jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((photo, index) => {
                                                             const photoUrl = typeof photo === "string" ? photo : photo?.url;
                                                             const label = typeof photo === "string" ? "Foto" : photo?.comment || "Foto";
                                                             const key = typeof photo === "string" ? photo : photo?.id ?? photoUrl ?? `photo-${index}`;
