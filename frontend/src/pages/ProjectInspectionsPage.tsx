@@ -49,6 +49,52 @@ const conditionOptions = [
   { value: "critica", label: "Crítica" },
 ] as const;
 
+const formatScoreValue = (value?: number | null) => (value !== undefined && value !== null ? value.toFixed(0) : "—");
+
+const getScoreColor = (value?: number | null): "success" | "warning" | "error" | "default" => {
+  if (value === undefined || value === null) return "default";
+  if (value >= 70) return "success";
+  if (value >= 40) return "warning";
+  return "error";
+};
+
+const extractLLMScore = (payload?: unknown, reason?: string | null, score?: number | null): number | null => {
+  if (score !== undefined && score !== null) return score;
+  const tryExtract = (text?: string | null) => {
+    if (!text) return null;
+    const cleaned = text.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+    try {
+      const parsed = JSON.parse(cleaned);
+      const value = (parsed as any)?.score;
+      if (typeof value === "number") return value;
+    } catch {
+      // ignore parse errors
+    }
+    const match =
+      cleaned.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i) || cleaned.match(/score\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i);
+    return match ? Number(match[1]) : null;
+  };
+  return tryExtract(typeof payload === "string" ? payload : null) ?? tryExtract(reason);
+};
+
+const cleanLLMReason = (text?: string | null) => {
+  if (!text) return null;
+  const trimmed = text.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === "object" && "reason" in parsed && typeof (parsed as any).reason === "string") {
+      return (parsed as any).reason as string;
+    }
+  } catch {
+    // ignore
+  }
+  const match = trimmed.match(/"reason"\s*:\s*"([^"]+)"/i);
+  if (match?.[1]) return match[1];
+  // If looks like JSON blob, avoid showing full blob
+  if (/^{.*}$/s.test(trimmed)) return null;
+  return trimmed;
+};
+
 type InspectionFormState = {
   structure_name: string;
   location: string;
@@ -56,7 +102,12 @@ type InspectionFormState = {
   inspector: string;
   overall_condition: (typeof conditionOptions)[number]["value"];
   summary: string;
-  photos: string;
+};
+
+type InspectionPhotoDraft = {
+  id: string;
+  file: File;
+  comment: string;
 };
 
 const ProjectInspectionsPage = () => {
@@ -80,6 +131,13 @@ const ProjectInspectionsPage = () => {
   const { data: tests = [] } = useProjectInspectionTests(effectiveProjectId);
   const { data: documents = [] } = useProjectInspectionDocuments(effectiveProjectId);
 
+  const planSummary = useMemo(() => {
+    const criticalCount = inspections.filter((i) => i.overall_condition === "critica").length;
+    const observationCount = inspections.filter((i) => i.overall_condition === "observacion").length;
+    const operationalCount = inspections.filter((i) => i.overall_condition === "operativa").length;
+    return { criticalCount, observationCount, operationalCount, total: inspections.length };
+  }, [inspections]);
+
   useEffect(() => {
     if (!selectedProjectId && projects?.length) {
       const firstProjectId = sessionProjectId ?? projects[0].id;
@@ -88,6 +146,7 @@ const ProjectInspectionsPage = () => {
     }
   }, [projects, selectedProjectId, sessionProjectId, setProject]);
 
+  const createDraftId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false);
   const [inspectionForm, setInspectionForm] = useState<InspectionFormState>({
     structure_name: "",
@@ -96,8 +155,25 @@ const ProjectInspectionsPage = () => {
     inspector: "",
     overall_condition: "operativa",
     summary: "",
-    photos: "",
   });
+  const [photoDrafts, setPhotoDrafts] = useState<InspectionPhotoDraft[]>([]);
+
+  const addPhotoFiles = (files: FileList) => {
+    const nextDrafts = Array.from(files).map((file) => ({
+      id: createDraftId(),
+      file,
+      comment: "",
+    }));
+    setPhotoDrafts((prev) => [...prev, ...nextDrafts]);
+  };
+
+  const updatePhotoDraft = (id: string, patch: Partial<InspectionPhotoDraft>) => {
+    setPhotoDrafts((prev) => prev.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
+  };
+
+  const removePhotoDraft = (id: string) => {
+    setPhotoDrafts((prev) => prev.filter((draft) => draft.id !== id));
+  };
 
   const invalidateInspectionQueries = () => {
     if (!effectiveProjectId) return;
@@ -110,11 +186,7 @@ const ProjectInspectionsPage = () => {
   const createInspectionMutation = useMutation({
     mutationFn: async () => {
       if (!effectiveProjectId) throw new Error("No hay proyecto activo");
-      const photos = inspectionForm.photos
-        .split("\n")
-        .map((value) => value.trim())
-        .filter(Boolean);
-      const { data } = await apiClient.post("/inspections", {
+      const { data: inspection } = await apiClient.post("/inspections", {
         project_id: effectiveProjectId,
         structure_name: inspectionForm.structure_name,
         location: inspectionForm.location,
@@ -122,9 +194,17 @@ const ProjectInspectionsPage = () => {
         inspector: inspectionForm.inspector,
         overall_condition: inspectionForm.overall_condition,
         summary: inspectionForm.summary,
-        photos,
+        photos: [],
       });
-      return data;
+      for (const draft of photoDrafts) {
+        const form = new FormData();
+        form.append("file", draft.file);
+        if (draft.comment?.trim()) {
+          form.append("comment", draft.comment.trim());
+        }
+        await apiClient.post(`/inspections/${inspection.id}/photos`, form);
+      }
+      return inspection;
     },
     onSuccess: () => {
       setInspectionDialogOpen(false);
@@ -135,8 +215,8 @@ const ProjectInspectionsPage = () => {
         inspector: "",
         overall_condition: "operativa",
         summary: "",
-        photos: "",
       });
+      setPhotoDrafts([]);
       invalidateInspectionQueries();
     },
   });
@@ -231,7 +311,7 @@ const ProjectInspectionsPage = () => {
           </Grid>
         ))}
       </Grid>
-
+      
       <Card>
         <CardContent sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Typography variant="h6">Inspecciones de estructuras existentes</Typography>
@@ -254,6 +334,8 @@ const ProjectInspectionsPage = () => {
             const detailHref = effectiveProjectId
               ? `/projects/${effectiveProjectId}/inspections/${inspection.id}`
               : "#";
+            const llmScore = extractLLMScore(inspection.llm_payload as unknown, inspection.llm_reason, inspection.llm_score);
+            const llmReason = cleanLLMReason(inspection.llm_reason);
             return (
               <ListItem
                 key={inspection.id}
@@ -294,29 +376,57 @@ const ProjectInspectionsPage = () => {
                           }
                           size="small"
                         />
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Chip
+                            label={`H: ${formatScoreValue(inspection.deterministic_score)}`}
+                            color={getScoreColor(inspection.deterministic_score)}
+                            size="small"
+                            sx={{ fontSize: "0.75rem", height: 22 }}
+                          />
+                          <Chip
+                            label={`L: ${formatScoreValue(llmScore)}`}
+                            color={getScoreColor(llmScore)}
+                            size="small"
+                            sx={{ fontSize: "0.75rem", height: 22 }}
+                          />
+                        </Stack>
                       </Stack>
                     }
                     secondary={
                       <Stack spacing={1}>
                         <Typography variant="body2" color="text.secondary" component="div">
-                          {inspection.location} · {dayjs(inspection.inspection_date).format("DD/MM/YYYY")} · Inspector: {" "}
+                          {inspection.location} · {dayjs(inspection.inspection_date).format("DD/MM/YYYY")} · Inspector:{" "}
                           {inspection.inspector}
                         </Typography>
                         <Typography variant="body2" component="div">
                           {inspection.summary}
                         </Typography>
+                        {llmReason && (
+                          <Typography variant="body2" color="text.secondary" component="div" sx={{ fontStyle: "italic" }}>
+                            {llmReason}
+                          </Typography>
+                        )}
                         <Stack direction="row" spacing={1} flexWrap="wrap">
-                          {(inspection.photos ?? []).map((url) => (
-                            <Chip
-                              key={url}
-                              label="Foto"
-                              component="span"
-                              onClick={() => window.open(url, "_blank", "noopener")}
-                              clickable
-                              variant="outlined"
-                              size="small"
-                            />
-                          ))}
+                          {(inspection.photos ?? []).map((photo, index) => {
+                            const photoUrl = typeof photo === "string" ? photo : photo?.url;
+                            const label = typeof photo === "string" ? "Foto" : photo?.comment || "Foto";
+                            const key = typeof photo === "string" ? photo : photo?.id ?? photoUrl ?? `photo-${index}`;
+                            return (
+                              <Chip
+                                key={key}
+                                label={label}
+                                component="span"
+                                onClick={() => {
+                                  if (photoUrl) {
+                                    window.open(photoUrl, "_blank", "noopener");
+                                  }
+                                }}
+                                clickable={Boolean(photoUrl)}
+                                variant="outlined"
+                                size="small"
+                              />
+                            );
+                          })}
                         </Stack>
                       </Stack>
                     }
@@ -396,15 +506,69 @@ const ProjectInspectionsPage = () => {
               id="inspection-summary"
               name="inspectionSummary"
             />
-            <TextField
-              label="URLs de fotografías (una por línea)"
-              multiline
-              minRows={3}
-              value={inspectionForm.photos}
-              onChange={(event) => setInspectionForm((prev) => ({ ...prev, photos: event.target.value }))}
-              id="inspection-photos"
-              name="inspectionPhotos"
-            />
+            <Stack spacing={1}>
+              <Typography variant="subtitle2">Fotografías</Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
+                <Button component="label" variant="outlined" size="small">
+                  Seleccionar fotos
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={(event) => {
+                      const files = event.target.files;
+                      if (files?.length) {
+                        addPhotoFiles(files);
+                        event.target.value = "";
+                      }
+                    }}
+                  />
+                </Button>
+                <Typography variant="body2" color="text.secondary">
+                  {photoDrafts.length > 0
+                    ? `${photoDrafts.length} archivo(s) listo(s) para subir`
+                    : "Puedes adjuntar fotos ahora o más tarde"}
+                </Typography>
+              </Stack>
+              <Stack spacing={1}>
+                {photoDrafts.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No hay fotos pendientes.
+                  </Typography>
+                ) : (
+                  photoDrafts.map((draft) => (
+                    <Stack
+                      key={draft.id}
+                      direction={{ xs: "column", sm: "row" }}
+                      spacing={1}
+                      alignItems={{ sm: "center" }}
+                      sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }}
+                    >
+                      <Stack spacing={0.5} sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={600} noWrap title={draft.file.name}>
+                          {draft.file.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {Math.round(draft.file.size / 1024)} KB · se comprimirá a 1080p
+                        </Typography>
+                      </Stack>
+                      <TextField
+                        size="small"
+                        label="Comentario"
+                        value={draft.comment}
+                        onChange={(event) => updatePhotoDraft(draft.id, { comment: event.target.value })}
+                        fullWidth
+                        sx={{ minWidth: { sm: 200 } }}
+                      />
+                      <IconButton aria-label="Eliminar foto" onClick={() => removePhotoDraft(draft.id)} size="small">
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  ))
+                )}
+              </Stack>
+            </Stack>
           </Stack>
         </DialogContent>
         <DialogActions>

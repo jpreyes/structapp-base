@@ -31,6 +31,7 @@ class ProjectResponse(ProjectBase):
     is_archived: bool = False
     payments_facturado: float = 0
     payments_pagado: float = 0
+    payments_egresos: float = 0
     payments_saldo: float = 0
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -42,6 +43,7 @@ class ProjectPaymentTotals(BaseModel):
     facturado: float
     pagado: float
     saldo: float
+    egresos: float = 0
 
 
 class ProjectMetrics(BaseModel):

@@ -64,6 +64,12 @@ type DamagePhoto = {
   comments?: string | null;
 };
 
+type InspectionPhotoDraft = {
+  id: string;
+  file: File;
+  comment: string;
+};
+
 type TestFormState = {
   test_type: string;
   method: string;
@@ -84,6 +90,16 @@ type DocumentFormState = {
   notes: string;
 };
 
+// const formatScoreValue = (value) => value !== undefined && value !== null ? value.toFixed(0) : "—";
+const getScoreColor = (value) => {
+    if (value === undefined || value === null)
+        return "default";
+    if (value >= 70)
+        return "success";
+    if (value >= 40)
+        return "warning";
+    return "error";
+};
 const defaultDamageForm: DamageFormState = {
   structure: "",
   location: "",
@@ -138,45 +154,275 @@ const confirmDeletion = (message: string) => window.confirm(message);
 const formatScoreValue = (value?: number | null) =>
   value !== undefined && value !== null ? value.toFixed(2) : "—";
 
-const formatLLMScoreValue = (value?: number | null) =>
-  value !== undefined && value !== null ? value.toFixed(2) : "Pendiente";
+const formatLLMScoreValue = (value?: number | null, hasReason?: boolean) => {
+  if (value !== undefined && value !== null) {
+    return value.toFixed(2);
+  }
+  return hasReason ? "—" : "Pendiente";
+};
+
+const cleanLLMReason = (text?: string | null) => {
+  if (!text) return null;
+  const trimmed = text.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+  const tryParse = (value: string) => {
+    try {
+      const parsed = JSON.parse(value);
+      return typeof parsed.reason === "string" ? parsed.reason : null;
+    } catch {
+      return null;
+    }
+  };
+  const parsedReason = tryParse(trimmed);
+  if (parsedReason) {
+    return parsedReason;
+  }
+  // Extraer "reason": "..." si viene como JSON mal formateado
+  const match = trimmed.match(/"reason"\s*:\s*"([^"]+)"/i);
+  if (match?.[1]) {
+    return match[1];
+  }
+  return trimmed.replace(/^{|}$/g, "");
+};
+
+const parseScoreFromText = (text?: string | null): number | null => {
+  if (!text) return null;
+  const match = text.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i) || text.match(/score\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i);
+  return match ? Number(match[1]) : null;
+};
+
+export const parseLLMPayload = (payload?: { score?: number; reason?: string } | string | null) => {
+  if (!payload) return null;
+  if (typeof payload === "string") {
+    const cleaned = payload.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      // intentar extraer score de forma liberal
+      const match = cleaned.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i);
+      const reasonMatch = cleaned.match(/"reason"\s*:\s*"([^"]+)"/i);
+      if (match || reasonMatch) {
+        return {
+          score: match ? Number(match[1]) : undefined,
+          reason: reasonMatch ? reasonMatch[1] : undefined,
+          raw: payload,
+        };
+      }
+      return { raw: payload };
+    }
+  }
+  return payload;
+};
+
+export const extractLLMDetails = ({
+  payload,
+  reason,
+  score,
+}: {
+  payload?: { score?: number; reason?: string } | string | null;
+  reason?: string | null;
+  score?: number | null;
+}) => {
+  const parsed = parseLLMPayload(payload);
+  const parsedScore =
+    score ??
+    (parsed && typeof parsed === "object" && "score" in parsed && (parsed as any).score !== undefined
+      ? Number((parsed as any).score)
+      : parseScoreFromText(reason) ?? parseScoreFromText(typeof payload === "string" ? payload : null));
+  const parsedReason =
+    cleanLLMReason(reason) ||
+    cleanLLMReason(
+      parsed && typeof parsed === "object" && "reason" in parsed ? String((parsed as any).reason) : null
+    );
+  return { score: parsedScore, reason: parsedReason, payload: parsed };
+};
 
 const formatScoreTimestamp = (value?: string | null) =>
   value ? dayjs(value).format("DD/MM/YYYY HH:mm") : null;
 
+const renderLLMDamageItem = (damage: Record<string, unknown>, index: number) => {
+  const severityColor =
+    damage.severity === "Alta"
+      ? "error"
+      : damage.severity === "Media"
+      ? "warning"
+      : "success";
+  return (
+    <Card key={index} variant="outlined" sx={{ mb: 1 }}>
+      <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Stack spacing={0.5}>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            <Typography variant="subtitle2" fontWeight={600}>
+              {String(damage.structure || "Estructura no especificada")}
+            </Typography>
+            <Chip
+              label={String(damage.severity || "Sin severidad")}
+              size="small"
+              color={severityColor as "error" | "warning" | "success"}
+            />
+            {damage.extent && (
+              <Chip label={`Extensión: ${damage.extent}`} size="small" variant="outlined" />
+            )}
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            <strong>Tipo:</strong> {String(damage.damage_type || "No especificado")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            <strong>Causa:</strong> {String(damage.damage_cause || "No especificada")}
+          </Typography>
+          {damage.location && (
+            <Typography variant="body2" color="text.secondary">
+              <strong>Ubicación:</strong> {String(damage.location)}
+            </Typography>
+          )}
+          {damage.comments && (
+            <Typography variant="body2" sx={{ mt: 0.5, fontStyle: "italic" }}>
+              {String(damage.comments)}
+            </Typography>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+};
+
+const renderLLMInspectionSummary = (inspection: Record<string, unknown>) => {
+  return (
+    <Card variant="outlined" sx={{ mb: 1, backgroundColor: "action.hover" }}>
+      <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Stack spacing={0.5}>
+          {inspection.structure && (
+            <Typography variant="subtitle2" fontWeight={600}>
+              {String(inspection.structure)}
+            </Typography>
+          )}
+          {inspection.summary && (
+            <Typography variant="body2">{String(inspection.summary)}</Typography>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+};
+
 const LLMPayloadViewer = ({
   payload,
+  reason,
+  score,
   title,
 }: {
-  payload?: { score?: number; reason?: string } | null;
+  payload?: { score?: number; reason?: string } | string | null;
+  reason?: string | null;
+  score?: number | null;
   title?: string;
 }) => {
   const [open, setOpen] = useState(false);
   if (!payload) {
     return null;
   }
-  const formatted = JSON.stringify(payload, null, 2);
+
+  const parsedPayload = parseLLMPayload(payload);
+  const { score: primaryScore, reason: cleanReason } = extractLLMDetails({ payload, reason, score });
+
+  const renderValue = (key: string, value: unknown) => {
+    if (key === "damages" && Array.isArray(value)) {
+      return (
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Daños identificados ({value.length})
+          </Typography>
+          {value.map((damage, index) =>
+            renderLLMDamageItem(damage as Record<string, unknown>, index)
+          )}
+        </Box>
+      );
+    }
+    if (key === "inspection" && typeof value === "object" && value !== null) {
+      return (
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Resumen de inspección
+          </Typography>
+          {renderLLMInspectionSummary(value as Record<string, unknown>)}
+        </Box>
+      );
+    }
+    if (typeof value === "object" && value !== null) {
+      if (Array.isArray(value)) {
+        return (
+          <Stack spacing={0.5}>
+            {value.map((item, idx) => (
+              <Typography key={idx} variant="body2">
+                • {typeof item === "object" ? JSON.stringify(item) : String(item)}
+              </Typography>
+            ))}
+          </Stack>
+        );
+      }
+      return (
+        <Card variant="outlined" sx={{ mt: 0.5 }}>
+          <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
+            {Object.entries(value).map(([k, v]) => (
+              <Typography key={k} variant="body2">
+                <strong>{k.replace(/_/g, " ")}:</strong> {String(v)}
+              </Typography>
+            ))}
+          </CardContent>
+        </Card>
+      );
+    }
+    return <Typography variant="body2">{String(value)}</Typography>;
+  };
+
   return (
     <>
       <Button size="small" variant="text" onClick={() => setOpen(true)}>
         Ver detalles del modelo
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>{title ?? "Detalle del modelo"}</DialogTitle>
-        <DialogContent>
-          <Box
-            component="pre"
-            sx={{
-              fontSize: "0.8rem",
-              backgroundColor: "rgba(0,0,0,0.04)",
-              borderRadius: 1,
-              padding: 1,
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            {formatted}
-          </Box>
+        <DialogContent dividers>
+          {primaryScore !== undefined && primaryScore !== null && (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+              <Typography variant="h6">Score LLM:</Typography>
+              <Chip
+                label={formatLLMScoreValue(primaryScore)}
+                color={primaryScore >= 70 ? "success" : primaryScore >= 40 ? "warning" : "error"}
+              />
+            </Stack>
+          )}
+          {cleanReason && (
+            <Card variant="outlined" sx={{ mb: 2, backgroundColor: "background.default" }}>
+              <CardContent>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Análisis del modelo
+                </Typography>
+                <Typography variant="body1">{cleanReason}</Typography>
+              </CardContent>
+            </Card>
+          )}
+          {parsedPayload &&
+            typeof parsedPayload === "object" &&
+            Object.entries(parsedPayload)
+              .filter(([key]) => !["score", "reason"].includes(key))
+              .map(([key, value]) => (
+                <Box key={key} sx={{ mb: 2 }}>
+                  {!["damages", "inspection"].includes(key) && (
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      sx={{ textTransform: "capitalize", mb: 0.5 }}
+                    >
+                      {key.replace(/_/g, " ")}
+                    </Typography>
+                  )}
+                  {renderValue(key, value)}
+                </Box>
+              ))}
+          {(!parsedPayload || typeof parsedPayload !== "object") && !cleanReason && (
+            <Typography variant="body2" color="text.secondary">
+              No hay detalles adicionales del modelo.
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cerrar</Button>
@@ -208,6 +454,16 @@ const InspectionDetailPage = () => {
     () => inspections.find((item) => item.id === inspectionId),
     [inspections, inspectionId]
   );
+  const inspectionLLM = useMemo(
+    () =>
+      extractLLMDetails({
+        payload: inspection?.llm_payload,
+        reason: inspection?.llm_reason,
+        score: inspection?.llm_score,
+      }),
+    [inspection]
+  );
+  const inspectionPhotos = inspection?.photos ?? [];
 
   const { data: damages = [] } = useProjectInspectionDamages(projectId, inspectionId);
   const { data: tests = [] } = useProjectInspectionTests(projectId, inspectionId);
@@ -231,11 +487,12 @@ const InspectionDetailPage = () => {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [damageModalOpen, setDamageModalOpen] = useState(false);
   const [modalDamage, setModalDamage] = useState<ProjectInspectionDamage | null>(null);
-  const [damageModalFiles, setDamageModalFiles] = useState<File[]>([]);
-  const [damageModalUploading, setDamageModalUploading] = useState(false);
   const [damageDialogFiles, setDamageDialogFiles] = useState<File[]>([]);
   const [damageDialogUploading, setDamageDialogUploading] = useState(false);
   const [photoCommentValues, setPhotoCommentValues] = useState<Record<string, string>>({});
+  const [inspectionPhotoDrafts, setInspectionPhotoDrafts] = useState<InspectionPhotoDraft[]>([]);
+  const [inspectionPhotosUploading, setInspectionPhotosUploading] = useState(false);
+  const [inspectionPhotoComments, setInspectionPhotoComments] = useState<Record<string, string>>({});
   const [testModalOpen, setTestModalOpen] = useState(false);
   const [modalTest, setModalTest] = useState<ProjectInspectionTest | null>(null);
   const [documentModalOpen, setDocumentModalOpen] = useState(false);
@@ -257,6 +514,11 @@ const InspectionDetailPage = () => {
     setPhotoCommentValues({});
   }, [modalDamage?.id, editingDamage?.id]);
 
+  useEffect(() => {
+    setInspectionPhotoComments({});
+    setInspectionPhotoDrafts([]);
+  }, [inspection?.id]);
+
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testForm, setTestForm] = useState<TestFormState>(defaultTestForm);
   const [editingTest, setEditingTest] = useState<ProjectInspectionTest | null>(null);
@@ -271,6 +533,57 @@ const InspectionDetailPage = () => {
   const modalDamageWithPhotos = modalDamage
     ? damages.find((damage) => damage.id === modalDamage.id) ?? modalDamage
     : null;
+  const createInspectionPhotoDraftId = () =>
+    crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  const addInspectionPhotoFiles = (files: FileList) => {
+    const drafts = Array.from(files).map((file) => ({
+      id: createInspectionPhotoDraftId(),
+      file,
+      comment: "",
+    }));
+    setInspectionPhotoDrafts((prev) => [...prev, ...drafts]);
+  };
+
+  const updateInspectionPhotoDraft = (id: string, patch: Partial<InspectionPhotoDraft>) => {
+    setInspectionPhotoDrafts((prev) => prev.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
+  };
+
+  const removeInspectionPhotoDraft = (id: string) => {
+    setInspectionPhotoDrafts((prev) => prev.filter((draft) => draft.id !== id));
+  };
+
+  const handleUploadInspectionPhotoDrafts = async () => {
+    if (!inspectionId || !inspectionPhotoDrafts.length || !canMutate) return;
+    setInspectionPhotosUploading(true);
+    try {
+      for (const draft of inspectionPhotoDrafts) {
+        const form = new FormData();
+        form.append("file", draft.file);
+        if (draft.comment.trim()) {
+          form.append("comment", draft.comment.trim());
+        }
+        await apiClient.post(`/inspections/${inspectionId}/photos`, form);
+      }
+      setInspectionPhotoDrafts([]);
+      invalidateDetailQueries();
+    } finally {
+      setInspectionPhotosUploading(false);
+    }
+  };
+
+  const handleInspectionPhotoDelete = async (photoId?: string | null) => {
+    if (!inspectionId || !photoId || !canMutate) return;
+    await apiClient.delete(`/inspections/${inspectionId}/photos/${photoId}`);
+    invalidateDetailQueries();
+  };
+
+  const handleInspectionPhotoCommentChange = async (photoId?: string | null, comment?: string) => {
+    if (!inspectionId || !photoId || !canMutate) return;
+    await apiClient.patch(`/inspections/${inspectionId}/photos/${photoId}`, { comment: comment ?? "" });
+    setInspectionPhotoComments((prev) => ({ ...prev, [photoId]: comment ?? "" }));
+    invalidateDetailQueries();
+  };
 
   const createDamageMutation = useMutation({
     mutationFn: async (payload: DamageFormState) => {
@@ -430,7 +743,6 @@ const InspectionDetailPage = () => {
 
   const openDamageModal = (damage: ProjectInspectionDamage) => {
     setModalDamage(damage);
-    setDamageModalFiles([]);
     setDamageModalOpen(true);
   };
 
@@ -456,24 +768,8 @@ const InspectionDetailPage = () => {
   const closeDamageModal = () => {
     setDamageModalOpen(false);
     setModalDamage(null);
-    setDamageModalFiles([]);
   };
 
-  const handleDamageModalUpload = async () => {
-    if (!modalDamage || !damageModalFiles.length) {
-      return;
-    }
-    setDamageModalUploading(true);
-    try {
-      for (const file of damageModalFiles) {
-        await uploadDamagePhoto(modalDamage.id, file);
-      }
-    } finally {
-      setDamageModalUploading(false);
-      setDamageModalFiles([]);
-      invalidateDetailQueries();
-    }
-  };
 
   const handleDamageDialogUpload = async () => {
     if (!editingDamage || !damageDialogFiles.length) return;
@@ -516,7 +812,7 @@ const InspectionDetailPage = () => {
 
   const renderDamagePhotos = (
     damage: ProjectInspectionDamage | null,
-    options?: { label?: string; showDelete?: boolean }
+    options?: { label?: string; showDelete?: boolean; readOnly?: boolean }
   ) => {
     if (!damage) return null;
     const photos = damage.photos ?? [];
@@ -557,7 +853,7 @@ const InspectionDetailPage = () => {
                         alt="Foto de daño"
                         sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                       />
-                      {options?.showDelete && photoId && (
+                      {options?.showDelete && !options?.readOnly && photoId && (
                         <IconButton
                           size="small"
                           sx={{
@@ -572,6 +868,11 @@ const InspectionDetailPage = () => {
                         </IconButton>
                       )}
                     </Box>
+                    {options?.readOnly ? (
+                      <Typography variant="body2" color="text.secondary">
+                        {commentValue || "Sin comentario"}
+                      </Typography>
+                    ) : (
                       <TextField
                         size="small"
                         label="Comentario"
@@ -592,6 +893,7 @@ const InspectionDetailPage = () => {
                           }
                         }}
                       />
+                    )}
                     {photo.photo_url && (
                       <Button
                         size="small"
@@ -698,6 +1000,7 @@ const InspectionDetailPage = () => {
 
   const [downloadingReport, setDownloadingReport] = useState(false);
   const [downloadingArchive, setDownloadingArchive] = useState(false);
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
 
   const downloadFile = async (url: string, filename: string, mimeType: string) => {
     const isReport = url.includes("report");
@@ -783,6 +1086,9 @@ const InspectionDetailPage = () => {
           <Button component={RouterLink} to={`/projects/${projectId}/inspections`} variant="outlined">
             Volver al plan
           </Button>
+          <Button variant="contained" onClick={() => setSummaryDialogOpen(true)}>
+            Ver resumen
+          </Button>
           <Button
             variant="outlined"
             onClick={() => downloadFile(reportUrl, `${inspectionId}-report.pdf`, "application/pdf")}
@@ -800,63 +1106,404 @@ const InspectionDetailPage = () => {
         </Stack>
       </Stack>
 
-      <Card variant="outlined">
-        <CardContent sx={{ pt: 1, pb: 1 }}>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={3}
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Stack spacing={0.5}>
-              <Typography variant="subtitle2">Calificación técnica</Typography>
-              <Typography variant="h5">{formatScoreValue(inspection.deterministic_score)}</Typography>
-              {inspection.score_updated_at && (
-                <Typography variant="caption" color="text.secondary">
-                  Actualizado {formatScoreTimestamp(inspection.score_updated_at)}
-                </Typography>
-              )}
-            </Stack>
-            <Stack spacing={0.5}>
-              <Typography variant="subtitle2">LLM</Typography>
-              <Typography variant="h5">{formatLLMScoreValue(inspection.llm_score)}</Typography>
-              {inspection.llm_reason && (
-                <Typography variant="caption" color="text.secondary">
-                  {inspection.llm_reason}
-                </Typography>
-              )}
+      <Dialog open={summaryDialogOpen} onClose={() => setSummaryDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Resumen de la inspección</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              spacing={3}
+              alignItems={{ md: "flex-start" }}
+              justifyContent="space-between"
+            >
+              <Stack direction="row" spacing={4} flexWrap="wrap">
+                <Stack spacing={0.5} alignItems="center">
+                  <Typography variant="caption" color="text.secondary">
+                    Score Heurístico
+                  </Typography>
+                  <Chip
+                    label={formatScoreValue(inspection.deterministic_score)}
+                    color={
+                      (inspection.deterministic_score ?? 0) >= 70
+                        ? "success"
+                        : (inspection.deterministic_score ?? 0) >= 40
+                        ? "warning"
+                        : "error"
+                    }
+                    sx={{ fontWeight: 600, fontSize: "1rem", px: 1 }}
+                  />
+                </Stack>
+                <Stack spacing={0.5} alignItems="center">
+                  <Typography variant="caption" color="text.secondary">
+                    Score LLM
+                  </Typography>
+                  <Chip
+                    label={formatLLMScoreValue(inspectionLLM.score, Boolean(inspectionLLM.reason))}
+                    color={
+                      (inspectionLLM.score ?? 0) >= 70
+                        ? "success"
+                        : (inspectionLLM.score ?? 0) >= 40
+                        ? "warning"
+                        : "error"
+                    }
+                    sx={{ fontWeight: 600, fontSize: "1rem", px: 1 }}
+                  />
+                </Stack>
+                {inspection.score_updated_at && (
+                  <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
+                    Actualizado {formatScoreTimestamp(inspection.score_updated_at)}
+                  </Typography>
+                )}
+              </Stack>
               <LLMPayloadViewer
-                payload={inspection.llm_payload}
+                payload={inspectionLLM.payload}
+                reason={inspectionLLM.reason}
+                score={inspectionLLM.score}
                 title="Detalle del modelo LLM para la inspección"
               />
             </Stack>
+
+            {inspectionLLM.reason && (
+              <Card variant="outlined" sx={{ backgroundColor: "action.hover" }}>
+                <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+                  <Typography variant="body2">{inspectionLLM.reason}</Typography>
+                </CardContent>
+              </Card>
+            )}
+
+            {inspection.summary && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Resumen de hallazgos
+                </Typography>
+                <Typography variant="body2">{inspection.summary}</Typography>
+              </Box>
+            )}
+
+            {damages.length > 0 && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  Daños registrados ({damages.length})
+                </Typography>
+                <Stack spacing={1}>
+                  {damages.map((damage) => {
+                    const photos = (damage.photos ?? []).slice(0, 2);
+                    const severityColor =
+                      damage.severity === "Alta"
+                        ? "error"
+                        : damage.severity === "Media"
+                        ? "warning"
+                        : "success";
+                    const damageHeuristic = damage.deterministic_score ?? null;
+                    const damageLLM = damage.llm_score ?? null;
+                    return (
+                      <Card key={damage.id} variant="outlined">
+                        <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={2}
+                            alignItems={{ sm: "center" }}
+                          >
+                            <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
+                              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                                <Typography variant="subtitle2" fontWeight={600}>
+                                  {damage.structure || "Sin estructura"}
+                                </Typography>
+                                <Chip
+                                  label={damage.severity || "Sin severidad"}
+                                  size="small"
+                                  color={severityColor as "error" | "warning" | "success"}
+                                />
+                                {damage.extent && (
+                                  <Chip
+                                    label={`${damage.extent}`}
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                )}
+                              </Stack>
+                              <Typography variant="body2" color="text.secondary" noWrap>
+                                {damage.damage_type} · {damage.damage_cause}
+                              </Typography>
+                              {damage.comments && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{
+                                    fontStyle: "italic",
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  {damage.comments}
+                                </Typography>
+                              )}
+                            </Stack>
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+                              {(damageHeuristic !== null || damageLLM !== null) && (
+                                <Stack direction="row" spacing={0.5} alignItems="center">
+                                  {damageHeuristic !== null && (
+                                    <Chip
+                                      label={`H: ${damageHeuristic.toFixed(0)}`}
+                                      size="small"
+                                      color={
+                                        damageHeuristic >= 70
+                                          ? "success"
+                                          : damageHeuristic >= 40
+                                          ? "warning"
+                                          : "error"
+                                      }
+                                      sx={{ fontSize: "0.7rem", height: 20 }}
+                                    />
+                                  )}
+                                  {damageLLM !== null && (
+                                    <Chip
+                                      label={`L: ${damageLLM.toFixed(0)}`}
+                                      size="small"
+                                      color={
+                                        damageLLM >= 70
+                                          ? "success"
+                                          : damageLLM >= 40
+                                          ? "warning"
+                                          : "error"
+                                      }
+                                      sx={{ fontSize: "0.7rem", height: 20 }}
+                                    />
+                                  )}
+                                </Stack>
+                              )}
+                              {photos.length > 0 && (
+                                <Stack direction="row" spacing={0.5}>
+                                  {photos.map((photo, idx) => (
+                                    <Box
+                                      key={photo.id || idx}
+                                      component="img"
+                                      src={photo.photo_url ?? ""}
+                                      alt={`Foto ${idx + 1}`}
+                                      sx={{
+                                        width: 50,
+                                        height: 50,
+                                        objectFit: "cover",
+                                        borderRadius: 1,
+                                        border: "1px solid",
+                                        borderColor: "divider",
+                                        cursor: "pointer",
+                                      }}
+                                      onClick={() => photo.photo_url && window.open(photo.photo_url, "_blank")}
+                                    />
+                                  ))}
+                                  {(damage.photos ?? []).length > 2 && (
+                                    <Box
+                                      sx={{
+                                        width: 50,
+                                        height: 50,
+                                        borderRadius: 1,
+                                        border: "1px solid",
+                                        borderColor: "divider",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        backgroundColor: "action.hover",
+                                      }}
+                                    >
+                                      <Typography variant="caption" color="text.secondary">
+                                        +{(damage.photos ?? []).length - 2}
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </Stack>
+                              )}
+                            </Stack>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </Stack>
+              </Box>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSummaryDialogOpen(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+{/* aqui comienza la card del llm */}
+
+      <Card>
+        <CardContent>
+          <Stack spacing={1.5}>
+            <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ sm: "center" }} spacing={1} justifyContent="space-between">
+              <Typography variant="h6">Evaluación de la inspección</Typography>
+              {inspection && (
+                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+                  <Chip
+                    label={`H: ${formatScoreValue(inspection.deterministic_score)}`}
+                    color={getScoreColor(inspection.deterministic_score)}
+                    size="small"
+                    sx={{ fontSize: "0.7rem", height: 20 }}
+                  />
+                  <Chip
+                    label={`L: ${formatScoreValue(inspectionLLM?.score)}`}
+                    color={getScoreColor(inspectionLLM?.score)}
+                    size="small"
+                    sx={{ fontSize: "0.7rem", height: 20 }}
+                  />
+                </Stack>
+              )}
+            </Stack>
+            {!inspection ? (
+              <Typography variant="body2" color="text.secondary">
+                No hay inspecciones registradas para evaluar.
+              </Typography>
+            ) : (
+              inspectionLLM?.reason && (
+                <Typography variant="body2" color="text.secondary">
+                  {inspectionLLM.reason}
+                </Typography>
+              )
+            )}
           </Stack>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent>
-          <Typography variant="subtitle1">Resumen de hallazgos</Typography>
-          <Typography variant="body1" sx={{ mt: 1, mb: 2 }}>
-            {inspection.summary || "No se registraron comentarios adicionales."}
-          </Typography>
-          {(inspection.photos ?? []).length > 0 && (
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              {(inspection.photos ?? []).map((url) => (
-                <Chip
-                  key={url}
-                  label="Foto"
-                  component="a"
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  clickable
-                  variant="outlined"
+          <Stack spacing={2}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              alignItems={{ sm: "center" }}
+              justifyContent="space-between"
+            >
+              <Typography variant="h6">Fotografías de la inspección</Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Button component="label" variant="outlined" size="small" disabled={!canMutate}>
+                  Seleccionar fotos
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={(event) => {
+                      const files = event.target.files;
+                      if (files?.length) {
+                        addInspectionPhotoFiles(files);
+                        event.target.value = "";
+                      }
+                    }}
+                  />
+                </Button>
+                <Button
+                  variant="contained"
                   size="small"
-                />
-              ))}
+                  onClick={handleUploadInspectionPhotoDrafts}
+                  disabled={!canMutate || !inspectionPhotoDrafts.length || inspectionPhotosUploading}
+                >
+                  {inspectionPhotosUploading ? "Subiendo..." : "Subir fotos"}
+                </Button>
+              </Stack>
             </Stack>
-          )}
+
+            {inspectionPhotoDrafts.length > 0 && (
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Fotos listas para subir</Typography>
+                {inspectionPhotoDrafts.map((draft) => (
+                  <Stack
+                    key={draft.id}
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1}
+                    alignItems={{ sm: "center" }}
+                    sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }}
+                  >
+                    <Stack spacing={0.25} sx={{ flexGrow: 1 }}>
+                      <Typography variant="body2" fontWeight={600} noWrap title={draft.file.name}>
+                        {draft.file.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {Math.round(draft.file.size / 1024)} KB · se comprimirá a 1080p
+                      </Typography>
+                    </Stack>
+                    <TextField
+                      size="small"
+                      label="Comentario"
+                      value={draft.comment}
+                      onChange={(event) => updateInspectionPhotoDraft(draft.id, { comment: event.target.value })}
+                      fullWidth
+                      sx={{ minWidth: { sm: 200 } }}
+                    />
+                    <IconButton
+                      aria-label="Quitar foto"
+                      onClick={() => removeInspectionPhotoDraft(draft.id)}
+                      size="small"
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+
+            <Stack spacing={1}>
+              <Typography variant="subtitle2">Fotos guardadas</Typography>
+              {inspectionPhotos.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Sin fotografías anexas.
+                </Typography>
+              ) : (
+                <Stack direction="row" spacing={2} flexWrap="wrap">
+                  {inspectionPhotos.map((photo, index) => {
+                    const photoId = typeof photo === "string" ? null : photo?.id ?? null;
+                    const photoUrl = typeof photo === "string" ? photo : photo?.url ?? null;
+                    const baseComment = typeof photo === "string" ? "" : photo?.comment ?? "";
+                    const commentValue =
+                      photoId && inspectionPhotoComments[photoId] !== undefined
+                        ? inspectionPhotoComments[photoId]
+                        : baseComment;
+                    const key = photoId ?? photoUrl ?? `inspection-photo-${index}`;
+                    return (
+                      <Stack key={key} spacing={1} sx={{ width: 180 }}>
+                        <Box
+                          component="img"
+                          src={photoUrl ?? ""}
+                          alt="Foto de inspección"
+                          sx={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 1, border: "1px solid", borderColor: "divider" }}
+                        />
+                        <Typography variant="body2" color="text.secondary">
+                          {commentValue || "Sin comentario"}
+                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Button
+                            size="small"
+                            component="a"
+                            href={photoUrl ?? undefined}
+                            target="_blank"
+                            rel="noreferrer"
+                            startIcon={<AttachmentIcon />}
+                            disabled={!photoUrl}
+                          >
+                            Ver
+                          </Button>
+                          {photoId && canMutate && (
+                            <IconButton
+                              aria-label="Eliminar foto de inspección"
+                              size="small"
+                              onClick={() => handleInspectionPhotoDelete(photoId)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Stack>
+                      </Stack>
+                    );
+                  })}
+                </Stack>
+              )}
+            </Stack>
+          </Stack>
         </CardContent>
       </Card>
 
@@ -918,14 +1565,25 @@ const InspectionDetailPage = () => {
                         <Typography variant="body2">
                           Score: {formatScoreValue(damage.deterministic_score)}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          LLM: {formatLLMScoreValue(damage.llm_score)}
-                        </Typography>
-                        {damage.llm_reason && (
-                          <Typography variant="caption" color="text.secondary">
-                            {damage.llm_reason}
-                          </Typography>
-                        )}
+                        {(() => {
+                          const details = extractLLMDetails({
+                            payload: damage.llm_payload,
+                            reason: damage.llm_reason,
+                            score: damage.llm_score,
+                          });
+                          return (
+                            <Stack spacing={0.3}>
+                              <Typography variant="body2" color="text.secondary">
+                                LLM: {formatLLMScoreValue(details.score, Boolean(details.reason))}
+                              </Typography>
+                              {details.reason && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {details.reason}
+                                </Typography>
+                              )}
+                            </Stack>
+                          );
+                        })()}
                         {damage.score_updated_at && (
                           <Typography variant="caption" color="text.secondary">
                             Actualizado {formatScoreTimestamp(damage.score_updated_at)}
@@ -933,6 +1591,8 @@ const InspectionDetailPage = () => {
                         )}
                         <LLMPayloadViewer
                           payload={damage.llm_payload}
+                          reason={damage.llm_reason}
+                          score={damage.llm_score}
                           title={`Detalle LLM de ${damage.structure || "daño"}`}
                         />
                         {(damage.photos ?? []).length > 0 ? (
@@ -1223,29 +1883,6 @@ const InspectionDetailPage = () => {
                 </MenuItem>
               ))}
             </TextField>
-            <Button component="label" variant="outlined" size="small">
-              Seleccionar fotografía
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (!file) {
-                    return;
-                  }
-                  if (damagePhotoPreview) {
-                    URL.revokeObjectURL(damagePhotoPreview);
-                  }
-                  const previewUrl = URL.createObjectURL(file);
-                  setDamagePhotoFile(file);
-                  setDamagePhotoPreview(previewUrl);
-                }}
-              />
-            </Button>
-            {(damagePhotoPreview || damageForm.damage_photo_url) && (
-              <Box component="img" src={damagePhotoPreview || damageForm.damage_photo_url} alt="Fotografía" sx={{ width: 1, mt: 1, borderRadius: 1, border: "1px solid", borderColor: "divider" }} />
-            )}
             <TextField
               label="Extensión / magnitud"
               value={damageForm.extent}
@@ -1299,14 +1936,7 @@ const InspectionDetailPage = () => {
                 Guarda el daño para poder adjuntar fotografías adicionales.
               </Typography>
             )}
-            {editingDamageWithPhotos && renderDamagePhotos(editingDamageWithPhotos)}
-            <TextField
-              label="URL de fotografía"
-              value={damageForm.damage_photo_url}
-              onChange={(event) => setDamageForm((prev) => ({ ...prev, damage_photo_url: event.target.value }))}
-              id="damage-photo-url"
-              name="damagePhotoUrl"
-            />
+            {editingDamageWithPhotos && renderDamagePhotos(editingDamageWithPhotos, { showDelete: true })}
           </Stack>
         </DialogContent>
           <DialogActions>
@@ -1485,36 +2115,7 @@ const InspectionDetailPage = () => {
               <Typography variant="body2" component="div">
                 Comentarios: {modalDamage.comments || "Sin comentarios"}
               </Typography>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Button component="label" variant="outlined" size="small">
-                  Seleccionar fotos
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    hidden
-                    onChange={(event) => {
-                      const files = event.target.files;
-                      if (!files?.length) return;
-                      setDamageModalFiles(Array.from(files));
-                    }}
-                  />
-                </Button>
-                <Typography variant="body2" color="text.secondary" component="div">
-                  {damageModalFiles.length
-                    ? `${damageModalFiles.length} archivo(s) listo(s) para subir`
-                    : "Selecciona imágenes para subir"}
-                </Typography>
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={handleDamageModalUpload}
-                  disabled={!damageModalFiles.length || damageModalUploading}
-                >
-                  {damageModalUploading ? "Subiendo..." : "Subir fotos"}
-                </Button>
-              </Stack>
-              {renderDamagePhotos(modalDamageWithPhotos, { label: "Fotos guardadas", showDelete: true })}
+              {renderDamagePhotos(modalDamageWithPhotos, { label: "Fotos del daño", readOnly: true })}
             </Stack>
           ) : (
             <Typography>No se encontró el daño seleccionado.</Typography>
@@ -1522,30 +2123,6 @@ const InspectionDetailPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={closeDamageModal}>Cerrar</Button>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              if (modalDamage) {
-                openDamageDialog(modalDamage);
-                closeDamageModal();
-              }
-            }}
-          >
-            Editar
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={() => {
-              if (modalDamage) {
-                deleteDamageMutation.mutate(modalDamage.id);
-                closeDamageModal();
-              }
-            }}
-            disabled={!modalDamage}
-          >
-            Eliminar
-          </Button>
         </DialogActions>
       </Dialog>
 

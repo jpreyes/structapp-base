@@ -13,6 +13,7 @@ const paymentKindOptions = [
     { value: "invoice", label: "Factura" },
     { value: "advance", label: "Anticipo" },
     { value: "payment", label: "Pago" },
+    { value: "egreso", label: "Egreso" },
     { value: "credit_note", label: "Nota de crédito" },
     { value: "refund", label: "Reembolso" },
 ];

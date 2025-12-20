@@ -1,4 +1,4 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useEffect, useMemo, useState } from "react";
 import { Box, Breadcrumbs, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, Link, List, ListItem, ListItemText, MenuItem, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -12,6 +12,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useProjectInspectionDamages, useProjectInspectionDocuments, useProjectInspectionTests, useProjectInspections, } from "../hooks/useProjectInspections";
 import { DAMAGE_CAUSES, DAMAGE_SEVERITIES, DAMAGE_TYPES } from "../constants/inspectionCatalog";
 import apiClient from "../api/client";
+// const formatScoreValue = (value) => value !== undefined && value !== null ? value.toFixed(0) : "—";
+const getScoreColor = (value) => {
+    if (value === undefined || value === null)
+        return "default";
+    if (value >= 70)
+        return "success";
+    if (value >= 40)
+        return "warning";
+    return "error";
+};
 const defaultDamageForm = {
     structure: "",
     location: "",
@@ -58,21 +68,116 @@ const severityColor = (severity) => {
 };
 const confirmDeletion = (message) => window.confirm(message);
 const formatScoreValue = (value) => value !== undefined && value !== null ? value.toFixed(2) : "—";
-const formatLLMScoreValue = (value) => value !== undefined && value !== null ? value.toFixed(2) : "Pendiente";
-const renderLLMPayload = (payload) => {
+const formatLLMScoreValue = (value, hasReason) => {
+    if (value !== undefined && value !== null) {
+        return value.toFixed(2);
+    }
+    return hasReason ? "—" : "Pendiente";
+};
+const cleanLLMReason = (text) => {
+    if (!text)
+        return null;
+    const trimmed = text.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+    const tryParse = (value) => {
+        try {
+            const parsed = JSON.parse(value);
+            return typeof parsed.reason === "string" ? parsed.reason : null;
+        }
+        catch {
+            return null;
+        }
+    };
+    const parsedReason = tryParse(trimmed);
+    if (parsedReason) {
+        return parsedReason;
+    }
+    // Extraer "reason": "..." si viene como JSON mal formateado
+    const match = trimmed.match(/"reason"\s*:\s*"([^"]+)"/i);
+    if (match?.[1]) {
+        return match[1];
+    }
+    return trimmed.replace(/^{|}$/g, "");
+};
+const parseScoreFromText = (text) => {
+    if (!text)
+        return null;
+    const match = text.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i) || text.match(/score\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i);
+    return match ? Number(match[1]) : null;
+};
+export const parseLLMPayload = (payload) => {
     if (!payload)
         return null;
-    const formatted = JSON.stringify(payload, null, 2);
-    return (_jsx(Box, { component: "pre", sx: {
-            fontSize: "0.75rem",
-            backgroundColor: "rgba(0,0,0,0.03)",
-            borderRadius: 1,
-            padding: 1,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-        }, children: formatted }));
+    if (typeof payload === "string") {
+        const cleaned = payload.replace(/```/g, "").replace(/^json\s*/i, "").trim();
+        try {
+            return JSON.parse(cleaned);
+        }
+        catch {
+            // intentar extraer score de forma liberal
+            const match = cleaned.match(/"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i);
+            const reasonMatch = cleaned.match(/"reason"\s*:\s*"([^"]+)"/i);
+            if (match || reasonMatch) {
+                return {
+                    score: match ? Number(match[1]) : undefined,
+                    reason: reasonMatch ? reasonMatch[1] : undefined,
+                    raw: payload,
+                };
+            }
+            return { raw: payload };
+        }
+    }
+    return payload;
+};
+export const extractLLMDetails = ({ payload, reason, score, }) => {
+    const parsed = parseLLMPayload(payload);
+    const parsedScore = score ??
+        (parsed && typeof parsed === "object" && "score" in parsed && parsed.score !== undefined
+            ? Number(parsed.score)
+            : parseScoreFromText(reason) ?? parseScoreFromText(typeof payload === "string" ? payload : null));
+    const parsedReason = cleanLLMReason(reason) ||
+        cleanLLMReason(parsed && typeof parsed === "object" && "reason" in parsed ? String(parsed.reason) : null);
+    return { score: parsedScore, reason: parsedReason, payload: parsed };
 };
 const formatScoreTimestamp = (value) => value ? dayjs(value).format("DD/MM/YYYY HH:mm") : null;
+const renderLLMDamageItem = (damage, index) => {
+    const severityColor = damage.severity === "Alta"
+        ? "error"
+        : damage.severity === "Media"
+            ? "warning"
+            : "success";
+    return (_jsx(Card, { variant: "outlined", sx: { mb: 1 }, children: _jsx(CardContent, { sx: { py: 1.5, "&:last-child": { pb: 1.5 } }, children: _jsxs(Stack, { spacing: 0.5, children: [_jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", flexWrap: "wrap", children: [_jsx(Typography, { variant: "subtitle2", fontWeight: 600, children: String(damage.structure || "Estructura no especificada") }), _jsx(Chip, { label: String(damage.severity || "Sin severidad"), size: "small", color: severityColor }), damage.extent && (_jsx(Chip, { label: `Extensión: ${damage.extent}`, size: "small", variant: "outlined" }))] }), _jsxs(Typography, { variant: "body2", color: "text.secondary", children: [_jsx("strong", { children: "Tipo:" }), " ", String(damage.damage_type || "No especificado")] }), _jsxs(Typography, { variant: "body2", color: "text.secondary", children: [_jsx("strong", { children: "Causa:" }), " ", String(damage.damage_cause || "No especificada")] }), damage.location && (_jsxs(Typography, { variant: "body2", color: "text.secondary", children: [_jsx("strong", { children: "Ubicaci\u00F3n:" }), " ", String(damage.location)] })), damage.comments && (_jsx(Typography, { variant: "body2", sx: { mt: 0.5, fontStyle: "italic" }, children: String(damage.comments) }))] }) }) }, index));
+};
+const renderLLMInspectionSummary = (inspection) => {
+    return (_jsx(Card, { variant: "outlined", sx: { mb: 1, backgroundColor: "action.hover" }, children: _jsx(CardContent, { sx: { py: 1.5, "&:last-child": { pb: 1.5 } }, children: _jsxs(Stack, { spacing: 0.5, children: [inspection.structure && (_jsx(Typography, { variant: "subtitle2", fontWeight: 600, children: String(inspection.structure) })), inspection.summary && (_jsx(Typography, { variant: "body2", children: String(inspection.summary) }))] }) }) }));
+};
+const LLMPayloadViewer = ({ payload, reason, score, title, }) => {
+    const [open, setOpen] = useState(false);
+    if (!payload) {
+        return null;
+    }
+    const parsedPayload = parseLLMPayload(payload);
+    const { score: primaryScore, reason: cleanReason } = extractLLMDetails({ payload, reason, score });
+    const renderValue = (key, value) => {
+        if (key === "damages" && Array.isArray(value)) {
+            return (_jsxs(Box, { sx: { mt: 1 }, children: [_jsxs(Typography, { variant: "subtitle2", sx: { mb: 1 }, children: ["Da\u00F1os identificados (", value.length, ")"] }), value.map((damage, index) => renderLLMDamageItem(damage, index))] }));
+        }
+        if (key === "inspection" && typeof value === "object" && value !== null) {
+            return (_jsxs(Box, { sx: { mt: 1 }, children: [_jsx(Typography, { variant: "subtitle2", sx: { mb: 1 }, children: "Resumen de inspecci\u00F3n" }), renderLLMInspectionSummary(value)] }));
+        }
+        if (typeof value === "object" && value !== null) {
+            if (Array.isArray(value)) {
+                return (_jsx(Stack, { spacing: 0.5, children: value.map((item, idx) => (_jsxs(Typography, { variant: "body2", children: ["\u2022 ", typeof item === "object" ? JSON.stringify(item) : String(item)] }, idx))) }));
+            }
+            return (_jsx(Card, { variant: "outlined", sx: { mt: 0.5 }, children: _jsx(CardContent, { sx: { py: 1, "&:last-child": { pb: 1 } }, children: Object.entries(value).map(([k, v]) => (_jsxs(Typography, { variant: "body2", children: [_jsxs("strong", { children: [k.replace(/_/g, " "), ":"] }), " ", String(v)] }, k))) }) }));
+        }
+        return _jsx(Typography, { variant: "body2", children: String(value) });
+    };
+    return (_jsxs(_Fragment, { children: [_jsx(Button, { size: "small", variant: "text", onClick: () => setOpen(true), children: "Ver detalles del modelo" }), _jsxs(Dialog, { open: open, onClose: () => setOpen(false), maxWidth: "md", fullWidth: true, children: [_jsx(DialogTitle, { children: title ?? "Detalle del modelo" }), _jsxs(DialogContent, { dividers: true, children: [primaryScore !== undefined && primaryScore !== null && (_jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", sx: { mb: 2 }, children: [_jsx(Typography, { variant: "h6", children: "Score LLM:" }), _jsx(Chip, { label: formatLLMScoreValue(primaryScore), color: primaryScore >= 70 ? "success" : primaryScore >= 40 ? "warning" : "error" })] })), cleanReason && (_jsx(Card, { variant: "outlined", sx: { mb: 2, backgroundColor: "background.default" }, children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "subtitle2", color: "text.secondary", sx: { mb: 0.5 }, children: "An\u00E1lisis del modelo" }), _jsx(Typography, { variant: "body1", children: cleanReason })] }) })), parsedPayload &&
+                                typeof parsedPayload === "object" &&
+                                Object.entries(parsedPayload)
+                                    .filter(([key]) => !["score", "reason"].includes(key))
+                                    .map(([key, value]) => (_jsxs(Box, { sx: { mb: 2 }, children: [!["damages", "inspection"].includes(key) && (_jsx(Typography, { variant: "subtitle2", color: "text.secondary", sx: { textTransform: "capitalize", mb: 0.5 }, children: key.replace(/_/g, " ") })), renderValue(key, value)] }, key))), (!parsedPayload || typeof parsedPayload !== "object") && !cleanReason && (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "No hay detalles adicionales del modelo." }))] }), _jsx(DialogActions, { children: _jsx(Button, { onClick: () => setOpen(false), children: "Cerrar" }) })] })] }));
+};
 const InspectionDetailPage = () => {
     const { projectId, inspectionId } = useParams();
     const queryClient = useQueryClient();
@@ -90,6 +195,12 @@ const InspectionDetailPage = () => {
     };
     const { data: inspections = [], isLoading: inspectionsLoading } = useProjectInspections(projectId);
     const inspection = useMemo(() => inspections.find((item) => item.id === inspectionId), [inspections, inspectionId]);
+    const inspectionLLM = useMemo(() => extractLLMDetails({
+        payload: inspection?.llm_payload,
+        reason: inspection?.llm_reason,
+        score: inspection?.llm_score,
+    }), [inspection]);
+    const inspectionPhotos = inspection?.photos ?? [];
     const { data: damages = [] } = useProjectInspectionDamages(projectId, inspectionId);
     const { data: tests = [] } = useProjectInspectionTests(projectId, inspectionId);
     const { data: documents = [] } = useProjectInspectionDocuments(projectId, inspectionId);
@@ -111,11 +222,12 @@ const InspectionDetailPage = () => {
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [damageModalOpen, setDamageModalOpen] = useState(false);
     const [modalDamage, setModalDamage] = useState(null);
-    const [damageModalFiles, setDamageModalFiles] = useState([]);
-    const [damageModalUploading, setDamageModalUploading] = useState(false);
     const [damageDialogFiles, setDamageDialogFiles] = useState([]);
     const [damageDialogUploading, setDamageDialogUploading] = useState(false);
     const [photoCommentValues, setPhotoCommentValues] = useState({});
+    const [inspectionPhotoDrafts, setInspectionPhotoDrafts] = useState([]);
+    const [inspectionPhotosUploading, setInspectionPhotosUploading] = useState(false);
+    const [inspectionPhotoComments, setInspectionPhotoComments] = useState({});
     const [testModalOpen, setTestModalOpen] = useState(false);
     const [modalTest, setModalTest] = useState(null);
     const [documentModalOpen, setDocumentModalOpen] = useState(false);
@@ -133,6 +245,10 @@ const InspectionDetailPage = () => {
     useEffect(() => {
         setPhotoCommentValues({});
     }, [modalDamage?.id, editingDamage?.id]);
+    useEffect(() => {
+        setInspectionPhotoComments({});
+        setInspectionPhotoDrafts([]);
+    }, [inspection?.id]);
     const [testDialogOpen, setTestDialogOpen] = useState(false);
     const [testForm, setTestForm] = useState(defaultTestForm);
     const [editingTest, setEditingTest] = useState(null);
@@ -145,6 +261,54 @@ const InspectionDetailPage = () => {
     const modalDamageWithPhotos = modalDamage
         ? damages.find((damage) => damage.id === modalDamage.id) ?? modalDamage
         : null;
+    const createInspectionPhotoDraftId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const addInspectionPhotoFiles = (files) => {
+        const drafts = Array.from(files).map((file) => ({
+            id: createInspectionPhotoDraftId(),
+            file,
+            comment: "",
+        }));
+        setInspectionPhotoDrafts((prev) => [...prev, ...drafts]);
+    };
+    const updateInspectionPhotoDraft = (id, patch) => {
+        setInspectionPhotoDrafts((prev) => prev.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
+    };
+    const removeInspectionPhotoDraft = (id) => {
+        setInspectionPhotoDrafts((prev) => prev.filter((draft) => draft.id !== id));
+    };
+    const handleUploadInspectionPhotoDrafts = async () => {
+        if (!inspectionId || !inspectionPhotoDrafts.length || !canMutate)
+            return;
+        setInspectionPhotosUploading(true);
+        try {
+            for (const draft of inspectionPhotoDrafts) {
+                const form = new FormData();
+                form.append("file", draft.file);
+                if (draft.comment.trim()) {
+                    form.append("comment", draft.comment.trim());
+                }
+                await apiClient.post(`/inspections/${inspectionId}/photos`, form);
+            }
+            setInspectionPhotoDrafts([]);
+            invalidateDetailQueries();
+        }
+        finally {
+            setInspectionPhotosUploading(false);
+        }
+    };
+    const handleInspectionPhotoDelete = async (photoId) => {
+        if (!inspectionId || !photoId || !canMutate)
+            return;
+        await apiClient.delete(`/inspections/${inspectionId}/photos/${photoId}`);
+        invalidateDetailQueries();
+    };
+    const handleInspectionPhotoCommentChange = async (photoId, comment) => {
+        if (!inspectionId || !photoId || !canMutate)
+            return;
+        await apiClient.patch(`/inspections/${inspectionId}/photos/${photoId}`, { comment: comment ?? "" });
+        setInspectionPhotoComments((prev) => ({ ...prev, [photoId]: comment ?? "" }));
+        invalidateDetailQueries();
+    };
     const createDamageMutation = useMutation({
         mutationFn: async (payload) => {
             if (!projectId || !inspectionId)
@@ -297,7 +461,6 @@ const InspectionDetailPage = () => {
     };
     const openDamageModal = (damage) => {
         setModalDamage(damage);
-        setDamageModalFiles([]);
         setDamageModalOpen(true);
     };
     const openTestModal = (test) => {
@@ -319,23 +482,6 @@ const InspectionDetailPage = () => {
     const closeDamageModal = () => {
         setDamageModalOpen(false);
         setModalDamage(null);
-        setDamageModalFiles([]);
-    };
-    const handleDamageModalUpload = async () => {
-        if (!modalDamage || !damageModalFiles.length) {
-            return;
-        }
-        setDamageModalUploading(true);
-        try {
-            for (const file of damageModalFiles) {
-                await uploadDamagePhoto(modalDamage.id, file);
-            }
-        }
-        finally {
-            setDamageModalUploading(false);
-            setDamageModalFiles([]);
-            invalidateDetailQueries();
-        }
     };
     const handleDamageDialogUpload = async () => {
         if (!editingDamage || !damageDialogFiles.length)
@@ -388,12 +534,12 @@ const InspectionDetailPage = () => {
                                             overflow: "hidden",
                                             border: "1px solid",
                                             borderColor: "divider",
-                                        }, children: [_jsx(Box, { component: "img", src: photo.photo_url ?? "", alt: "Foto de da\u00F1o", sx: { width: "100%", height: "100%", objectFit: "cover" } }), options?.showDelete && photoId && (_jsx(IconButton, { size: "small", sx: {
+                                        }, children: [_jsx(Box, { component: "img", src: photo.photo_url ?? "", alt: "Foto de da\u00F1o", sx: { width: "100%", height: "100%", objectFit: "cover" } }), options?.showDelete && !options?.readOnly && photoId && (_jsx(IconButton, { size: "small", sx: {
                                                     position: "absolute",
                                                     top: 4,
                                                     right: 4,
                                                     backgroundColor: "rgba(255,255,255,0.85)",
-                                                }, onClick: () => handleDamagePhotoDelete(damage.id, photoId), children: _jsx(DeleteIcon, { fontSize: "small" }) }))] }), _jsx(TextField, { size: "small", label: "Comentario", value: commentValue, onChange: (event) => {
+                                                }, onClick: () => handleDamagePhotoDelete(damage.id, photoId), children: _jsx(DeleteIcon, { fontSize: "small" }) }))] }), options?.readOnly ? (_jsx(Typography, { variant: "body2", color: "text.secondary", children: commentValue || "Sin comentario" })) : (_jsx(TextField, { size: "small", label: "Comentario", value: commentValue, id: photoId ? `damage-photo-comment-${photoId}` : undefined, name: "damagePhotoComment", onChange: (event) => {
                                             if (photoId) {
                                                 setPhotoCommentValues((prev) => ({
                                                     ...prev,
@@ -404,7 +550,7 @@ const InspectionDetailPage = () => {
                                             if (photoId) {
                                                 handleDamagePhotoCommentChange(damage.id, photoId, event.target.value);
                                             }
-                                        } }), photo.photo_url && (_jsx(Button, { size: "small", component: "a", href: photo.photo_url, target: "_blank", rel: "noreferrer", startIcon: _jsx(AttachmentIcon, {}), children: "Ver" }))] }, photoId ?? photo.photo_url));
+                                        } })), photo.photo_url && (_jsx(Button, { size: "small", component: "a", href: photo.photo_url, target: "_blank", rel: "noreferrer", startIcon: _jsx(AttachmentIcon, {}), children: "Ver" }))] }, photoId ?? photo.photo_url));
                         }) })) })] }));
     };
     const openTestDialog = (test) => {
@@ -478,6 +624,7 @@ const InspectionDetailPage = () => {
     const archiveUrl = inspectionId ? `/inspections/${inspectionId}/archive` : "#";
     const [downloadingReport, setDownloadingReport] = useState(false);
     const [downloadingArchive, setDownloadingArchive] = useState(false);
+    const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
     const downloadFile = async (url, filename, mimeType) => {
         const isReport = url.includes("report");
         const isArchive = url.includes("archive");
@@ -523,7 +670,79 @@ const InspectionDetailPage = () => {
                                             ? "success"
                                             : inspection.overall_condition === "critica"
                                                 ? "error"
-                                                : "warning", size: "small" }), _jsxs(Typography, { color: "text.secondary", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] })] })] }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [_jsx(Button, { component: RouterLink, to: `/projects/${projectId}/inspections`, variant: "outlined", children: "Volver al plan" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(reportUrl, `${inspectionId}-report.pdf`, "application/pdf"), disabled: !inspectionId || downloadingReport, children: downloadingReport ? "Descargando..." : "Descargar informe" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(archiveUrl, `${inspectionId}-archive.zip`, "application/zip"), disabled: !inspectionId || downloadingArchive, children: downloadingArchive ? "Descargando..." : "Descargar ZIP" })] })] }), _jsx(Card, { variant: "outlined", children: _jsx(CardContent, { sx: { pt: 1, pb: 1 }, children: _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 3, alignItems: "center", justifyContent: "space-between", children: [_jsxs(Stack, { spacing: 0.5, children: [_jsx(Typography, { variant: "subtitle2", children: "Calificaci\u00F3n t\u00E9cnica" }), _jsx(Typography, { variant: "h5", children: formatScoreValue(inspection.deterministic_score) }), inspection.score_updated_at && (_jsxs(Typography, { variant: "caption", color: "text.secondary", children: ["Actualizado ", formatScoreTimestamp(inspection.score_updated_at)] }))] }), _jsxs(Stack, { spacing: 0.5, children: [_jsx(Typography, { variant: "subtitle2", children: "LLM" }), _jsx(Typography, { variant: "h5", children: formatLLMScoreValue(inspection.llm_score) }), inspection.llm_reason && (_jsx(Typography, { variant: "caption", color: "text.secondary", children: inspection.llm_reason })), renderLLMPayload(inspection.llm_payload)] })] }) }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "subtitle1", children: "Resumen de hallazgos" }), _jsx(Typography, { variant: "body1", sx: { mt: 1, mb: 2 }, children: inspection.summary || "No se registraron comentarios adicionales." }), (inspection.photos ?? []).length > 0 && (_jsx(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", children: (inspection.photos ?? []).map((url) => (_jsx(Chip, { label: "Foto", component: "a", href: url, target: "_blank", rel: "noreferrer", clickable: true, variant: "outlined", size: "small" }, url))) }))] }) }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, children: _jsxs(Card, { children: [_jsxs(CardContent, { sx: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [_jsx(Typography, { variant: "h6", children: "Da\u00F1os registrados" }), _jsx(Button, { startIcon: _jsx(AddIcon, {}), variant: "contained", onClick: () => openDamageDialog(), disabled: !canMutate, children: "Registrar da\u00F1o" })] }), _jsxs(Table, { size: "small", children: [_jsx(TableHead, { children: _jsxs(TableRow, { children: [_jsx(TableCell, { children: "Estructura" }), _jsx(TableCell, { children: "Da\u00F1o" }), _jsx(TableCell, { children: "Causa" }), _jsx(TableCell, { children: "Gravedad" }), _jsx(TableCell, { children: "Extensi\u00F3n" }), _jsx(TableCell, { children: "Score \u00B7 Fotos" }), _jsx(TableCell, { align: "right", children: "Acciones" })] }) }), _jsxs(TableBody, { children: [damages.length === 0 && (_jsx(TableRow, { children: _jsx(TableCell, { colSpan: 7, align: "center", children: _jsx(Typography, { color: "text.secondary", children: "A\u00FAn no se registran da\u00F1os vinculados." }) }) })), damages.map((damage) => (_jsxs(TableRow, { hover: true, children: [_jsxs(TableCell, { children: [_jsx(Typography, { fontWeight: 600, children: damage.structure || "Sin dato" }), _jsx(Typography, { variant: "caption", color: "text.secondary", children: damage.location || "Ubicación no indicada" })] }), _jsx(TableCell, { children: damage.damage_type }), _jsx(TableCell, { children: damage.damage_cause }), _jsx(TableCell, { children: _jsx(Chip, { label: damage.severity, color: severityColor(damage.severity), size: "small", variant: damage.severity === "Leve" ? "outlined" : "filled" }) }), _jsx(TableCell, { children: damage.extent || "Sin dato" }), _jsx(TableCell, { children: _jsxs(Stack, { spacing: 0.5, children: [_jsxs(Typography, { variant: "body2", children: ["Score: ", formatScoreValue(damage.deterministic_score)] }), _jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["LLM: ", formatLLMScoreValue(damage.llm_score)] }), damage.llm_reason && (_jsx(Typography, { variant: "caption", color: "text.secondary", children: damage.llm_reason })), damage.score_updated_at && (_jsxs(Typography, { variant: "caption", color: "text.secondary", children: ["Actualizado ", formatScoreTimestamp(damage.score_updated_at)] })), renderLLMPayload(damage.llm_payload), (damage.photos ?? []).length > 0 ? (_jsx(Button, { component: "a", href: damage.photos[0]?.photo_url, target: "_blank", rel: "noreferrer", size: "small", startIcon: _jsx(AttachmentIcon, {}), children: "Ver" })) : ("—")] }) }), _jsxs(TableCell, { align: "right", children: [_jsx(IconButton, { size: "small", "aria-label": "Ver detalles del da\u00F1o", onClick: () => openDamageModal(damage), children: _jsx(VisibilityIcon, { fontSize: "small" }) }), _jsx(IconButton, { size: "small", "aria-label": "Editar da\u00F1o", onClick: () => openDamageDialog(damage), children: _jsx(EditIcon, { fontSize: "small" }) }), _jsx(IconButton, { size: "small", "aria-label": "Eliminar da\u00F1o", onClick: () => {
+                                                : "warning", size: "small" }), _jsxs(Typography, { color: "text.secondary", children: [inspection.location, " \u00B7 ", dayjs(inspection.inspection_date).format("DD/MM/YYYY"), " \u00B7 Inspector:", " ", inspection.inspector] })] })] }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [_jsx(Button, { component: RouterLink, to: `/projects/${projectId}/inspections`, variant: "outlined", children: "Volver al plan" }), _jsx(Button, { variant: "contained", onClick: () => setSummaryDialogOpen(true), children: "Ver resumen" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(reportUrl, `${inspectionId}-report.pdf`, "application/pdf"), disabled: !inspectionId || downloadingReport, children: downloadingReport ? "Descargando..." : "Descargar informe" }), _jsx(Button, { variant: "outlined", onClick: () => downloadFile(archiveUrl, `${inspectionId}-archive.zip`, "application/zip"), disabled: !inspectionId || downloadingArchive, children: downloadingArchive ? "Descargando..." : "Descargar ZIP" })] })] }), _jsxs(Dialog, { open: summaryDialogOpen, onClose: () => setSummaryDialogOpen(false), maxWidth: "md", fullWidth: true, children: [_jsx(DialogTitle, { children: "Resumen de la inspecci\u00F3n" }), _jsx(DialogContent, { dividers: true, children: _jsxs(Stack, { spacing: 2, children: [_jsxs(Stack, { direction: { xs: "column", md: "row" }, spacing: 3, alignItems: { md: "flex-start" }, justifyContent: "space-between", children: [_jsxs(Stack, { direction: "row", spacing: 4, flexWrap: "wrap", children: [_jsxs(Stack, { spacing: 0.5, alignItems: "center", children: [_jsx(Typography, { variant: "caption", color: "text.secondary", children: "Score Heur\u00EDstico" }), _jsx(Chip, { label: formatScoreValue(inspection.deterministic_score), color: (inspection.deterministic_score ?? 0) >= 70
+                                                                ? "success"
+                                                                : (inspection.deterministic_score ?? 0) >= 40
+                                                                    ? "warning"
+                                                                    : "error", sx: { fontWeight: 600, fontSize: "1rem", px: 1 } })] }), _jsxs(Stack, { spacing: 0.5, alignItems: "center", children: [_jsx(Typography, { variant: "caption", color: "text.secondary", children: "Score LLM" }), _jsx(Chip, { label: formatLLMScoreValue(inspectionLLM.score, Boolean(inspectionLLM.reason)), color: (inspectionLLM.score ?? 0) >= 70
+                                                                ? "success"
+                                                                : (inspectionLLM.score ?? 0) >= 40
+                                                                    ? "warning"
+                                                                    : "error", sx: { fontWeight: 600, fontSize: "1rem", px: 1 } })] }), inspection.score_updated_at && (_jsxs(Typography, { variant: "caption", color: "text.secondary", sx: { alignSelf: "center" }, children: ["Actualizado ", formatScoreTimestamp(inspection.score_updated_at)] }))] }), _jsx(LLMPayloadViewer, { payload: inspectionLLM.payload, reason: inspectionLLM.reason, score: inspectionLLM.score, title: "Detalle del modelo LLM para la inspecci\u00F3n" })] }), inspectionLLM.reason && (_jsx(Card, { variant: "outlined", sx: { backgroundColor: "action.hover" }, children: _jsx(CardContent, { sx: { py: 1.5, "&:last-child": { pb: 1.5 } }, children: _jsx(Typography, { variant: "body2", children: inspectionLLM.reason }) }) })), inspection.summary && (_jsxs(Box, { children: [_jsx(Typography, { variant: "subtitle2", color: "text.secondary", sx: { mb: 0.5 }, children: "Resumen de hallazgos" }), _jsx(Typography, { variant: "body2", children: inspection.summary })] })), damages.length > 0 && (_jsxs(Box, { children: [_jsxs(Typography, { variant: "subtitle2", color: "text.secondary", sx: { mb: 1 }, children: ["Da\u00F1os registrados (", damages.length, ")"] }), _jsx(Stack, { spacing: 1, children: damages.map((damage) => {
+                                                const photos = (damage.photos ?? []).slice(0, 2);
+                                                const severityColor = damage.severity === "Alta"
+                                                    ? "error"
+                                                    : damage.severity === "Media"
+                                                        ? "warning"
+                                                        : "success";
+                                                const damageHeuristic = damage.deterministic_score ?? null;
+                                                const damageLLM = damage.llm_score ?? null;
+                                                return (_jsx(Card, { variant: "outlined", children: _jsx(CardContent, { sx: { py: 1, "&:last-child": { pb: 1 } }, children: _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 2, alignItems: { sm: "center" }, children: [_jsxs(Stack, { spacing: 0.5, sx: { flex: 1, minWidth: 0 }, children: [_jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", flexWrap: "wrap", children: [_jsx(Typography, { variant: "subtitle2", fontWeight: 600, children: damage.structure || "Sin estructura" }), _jsx(Chip, { label: damage.severity || "Sin severidad", size: "small", color: severityColor }), damage.extent && (_jsx(Chip, { label: `${damage.extent}`, size: "small", variant: "outlined" }))] }), _jsxs(Typography, { variant: "body2", color: "text.secondary", noWrap: true, children: [damage.damage_type, " \u00B7 ", damage.damage_cause] }), damage.comments && (_jsx(Typography, { variant: "caption", color: "text.secondary", sx: {
+                                                                                fontStyle: "italic",
+                                                                                display: "-webkit-box",
+                                                                                WebkitLineClamp: 2,
+                                                                                WebkitBoxOrient: "vertical",
+                                                                                overflow: "hidden",
+                                                                            }, children: damage.comments }))] }), _jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", sx: { flexShrink: 0 }, children: [(damageHeuristic !== null || damageLLM !== null) && (_jsxs(Stack, { direction: "row", spacing: 0.5, alignItems: "center", children: [damageHeuristic !== null && (_jsx(Chip, { label: `H: ${damageHeuristic.toFixed(0)}`, size: "small", color: damageHeuristic >= 70
+                                                                                        ? "success"
+                                                                                        : damageHeuristic >= 40
+                                                                                            ? "warning"
+                                                                                            : "error", sx: { fontSize: "0.7rem", height: 20 } })), damageLLM !== null && (_jsx(Chip, { label: `L: ${damageLLM.toFixed(0)}`, size: "small", color: damageLLM >= 70
+                                                                                        ? "success"
+                                                                                        : damageLLM >= 40
+                                                                                            ? "warning"
+                                                                                            : "error", sx: { fontSize: "0.7rem", height: 20 } }))] })), photos.length > 0 && (_jsxs(Stack, { direction: "row", spacing: 0.5, children: [photos.map((photo, idx) => (_jsx(Box, { component: "img", src: photo.photo_url ?? "", alt: `Foto ${idx + 1}`, sx: {
+                                                                                        width: 50,
+                                                                                        height: 50,
+                                                                                        objectFit: "cover",
+                                                                                        borderRadius: 1,
+                                                                                        border: "1px solid",
+                                                                                        borderColor: "divider",
+                                                                                        cursor: "pointer",
+                                                                                    }, onClick: () => photo.photo_url && window.open(photo.photo_url, "_blank") }, photo.id || idx))), (damage.photos ?? []).length > 2 && (_jsx(Box, { sx: {
+                                                                                        width: 50,
+                                                                                        height: 50,
+                                                                                        borderRadius: 1,
+                                                                                        border: "1px solid",
+                                                                                        borderColor: "divider",
+                                                                                        display: "flex",
+                                                                                        alignItems: "center",
+                                                                                        justifyContent: "center",
+                                                                                        backgroundColor: "action.hover",
+                                                                                    }, children: _jsxs(Typography, { variant: "caption", color: "text.secondary", children: ["+", (damage.photos ?? []).length - 2] }) }))] }))] })] }) }) }, damage.id));
+                                            }) })] }))] }) }), _jsx(DialogActions, { children: _jsx(Button, { onClick: () => setSummaryDialogOpen(false), children: "Cerrar" }) })] }), _jsx(Card, { children: _jsx(CardContent, { children: _jsxs(Stack, { spacing: 1.5, children: [_jsxs(Stack, { direction: { xs: "column", sm: "row" }, alignItems: { sm: "center" }, spacing: 1, justifyContent: "space-between", children: [_jsx(Typography, { variant: "h6", children: "Evaluaci\u00F3n de la inspecci\u00F3n" }), inspection && (_jsxs(Stack, { direction: "row", spacing: 0.75, alignItems: "center", flexWrap: "wrap", children: [_jsx(Chip, { label: `H: ${formatScoreValue(inspection.deterministic_score)}`, color: getScoreColor(inspection.deterministic_score), size: "small", sx: { fontSize: "0.7rem", height: 20 } }), _jsx(Chip, { label: `L: ${formatScoreValue(inspectionLLM?.score)}`, color: getScoreColor(inspectionLLM?.score), size: "small", sx: { fontSize: "0.7rem", height: 20 } })] }))] }), !inspection ? (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "No hay inspecciones registradas para evaluar." })) : (inspectionLLM?.reason && (_jsx(Typography, { variant: "body2", color: "text.secondary", children: inspectionLLM.reason })))] }) }) }), _jsx(Card, { children: _jsx(CardContent, { children: _jsxs(Stack, { spacing: 2, children: [_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, justifyContent: "space-between", children: [_jsx(Typography, { variant: "h6", children: "Fotograf\u00EDas de la inspecci\u00F3n" }), _jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [_jsxs(Button, { component: "label", variant: "outlined", size: "small", disabled: !canMutate, children: ["Seleccionar fotos", _jsx("input", { type: "file", accept: "image/*", multiple: true, hidden: true, onChange: (event) => {
+                                                            const files = event.target.files;
+                                                            if (files?.length) {
+                                                                addInspectionPhotoFiles(files);
+                                                                event.target.value = "";
+                                                            }
+                                                        } })] }), _jsx(Button, { variant: "contained", size: "small", onClick: handleUploadInspectionPhotoDrafts, disabled: !canMutate || !inspectionPhotoDrafts.length || inspectionPhotosUploading, children: inspectionPhotosUploading ? "Subiendo..." : "Subir fotos" })] })] }), inspectionPhotoDrafts.length > 0 && (_jsxs(Stack, { spacing: 1, children: [_jsx(Typography, { variant: "subtitle2", children: "Fotos listas para subir" }), inspectionPhotoDrafts.map((draft) => (_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 1, alignItems: { sm: "center" }, sx: { border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }, children: [_jsxs(Stack, { spacing: 0.25, sx: { flexGrow: 1 }, children: [_jsx(Typography, { variant: "body2", fontWeight: 600, noWrap: true, title: draft.file.name, children: draft.file.name }), _jsxs(Typography, { variant: "caption", color: "text.secondary", children: [Math.round(draft.file.size / 1024), " KB \u00B7 se comprimir\u00E1 a 1080p"] })] }), _jsx(TextField, { size: "small", label: "Comentario", value: draft.comment, onChange: (event) => updateInspectionPhotoDraft(draft.id, { comment: event.target.value }), fullWidth: true, sx: { minWidth: { sm: 200 } } }), _jsx(IconButton, { "aria-label": "Quitar foto", onClick: () => removeInspectionPhotoDraft(draft.id), size: "small", children: _jsx(DeleteIcon, { fontSize: "small" }) })] }, draft.id)))] })), _jsxs(Stack, { spacing: 1, children: [_jsx(Typography, { variant: "subtitle2", children: "Fotos guardadas" }), inspectionPhotos.length === 0 ? (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "Sin fotograf\u00EDas anexas." })) : (_jsx(Stack, { direction: "row", spacing: 2, flexWrap: "wrap", children: inspectionPhotos.map((photo, index) => {
+                                            const photoId = typeof photo === "string" ? null : photo?.id ?? null;
+                                            const photoUrl = typeof photo === "string" ? photo : photo?.url ?? null;
+                                            const baseComment = typeof photo === "string" ? "" : photo?.comment ?? "";
+                                            const commentValue = photoId && inspectionPhotoComments[photoId] !== undefined
+                                                ? inspectionPhotoComments[photoId]
+                                                : baseComment;
+                                            const key = photoId ?? photoUrl ?? `inspection-photo-${index}`;
+                                            return (_jsxs(Stack, { spacing: 1, sx: { width: 180 }, children: [_jsx(Box, { component: "img", src: photoUrl ?? "", alt: "Foto de inspecci\u00F3n", sx: { width: "100%", height: 120, objectFit: "cover", borderRadius: 1, border: "1px solid", borderColor: "divider" } }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: commentValue || "Sin comentario" }), _jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", children: [_jsx(Button, { size: "small", component: "a", href: photoUrl ?? undefined, target: "_blank", rel: "noreferrer", startIcon: _jsx(AttachmentIcon, {}), disabled: !photoUrl, children: "Ver" }), photoId && canMutate && (_jsx(IconButton, { "aria-label": "Eliminar foto de inspecci\u00F3n", size: "small", onClick: () => handleInspectionPhotoDelete(photoId), children: _jsx(DeleteIcon, { fontSize: "small" }) }))] })] }, key));
+                                        }) }))] })] }) }) }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, children: _jsxs(Card, { children: [_jsxs(CardContent, { sx: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [_jsx(Typography, { variant: "h6", children: "Da\u00F1os registrados" }), _jsx(Button, { startIcon: _jsx(AddIcon, {}), variant: "contained", onClick: () => openDamageDialog(), disabled: !canMutate, children: "Registrar da\u00F1o" })] }), _jsxs(Table, { size: "small", children: [_jsx(TableHead, { children: _jsxs(TableRow, { children: [_jsx(TableCell, { children: "Estructura" }), _jsx(TableCell, { children: "Da\u00F1o" }), _jsx(TableCell, { children: "Causa" }), _jsx(TableCell, { children: "Gravedad" }), _jsx(TableCell, { children: "Extensi\u00F3n" }), _jsx(TableCell, { children: "Score \u00B7 Fotos" }), _jsx(TableCell, { align: "right", children: "Acciones" })] }) }), _jsxs(TableBody, { children: [damages.length === 0 && (_jsx(TableRow, { children: _jsx(TableCell, { colSpan: 7, align: "center", children: _jsx(Typography, { color: "text.secondary", children: "A\u00FAn no se registran da\u00F1os vinculados." }) }) })), damages.map((damage) => (_jsxs(TableRow, { hover: true, children: [_jsxs(TableCell, { children: [_jsx(Typography, { fontWeight: 600, children: damage.structure || "Sin dato" }), _jsx(Typography, { variant: "caption", color: "text.secondary", children: damage.location || "Ubicación no indicada" })] }), _jsx(TableCell, { children: damage.damage_type }), _jsx(TableCell, { children: damage.damage_cause }), _jsx(TableCell, { children: _jsx(Chip, { label: damage.severity, color: severityColor(damage.severity), size: "small", variant: damage.severity === "Leve" ? "outlined" : "filled" }) }), _jsx(TableCell, { children: damage.extent || "Sin dato" }), _jsx(TableCell, { children: _jsxs(Stack, { spacing: 0.5, children: [_jsxs(Typography, { variant: "body2", children: ["Score: ", formatScoreValue(damage.deterministic_score)] }), (() => {
+                                                                        const details = extractLLMDetails({
+                                                                            payload: damage.llm_payload,
+                                                                            reason: damage.llm_reason,
+                                                                            score: damage.llm_score,
+                                                                        });
+                                                                        return (_jsxs(Stack, { spacing: 0.3, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["LLM: ", formatLLMScoreValue(details.score, Boolean(details.reason))] }), details.reason && (_jsx(Typography, { variant: "body2", color: "text.secondary", children: details.reason }))] }));
+                                                                    })(), damage.score_updated_at && (_jsxs(Typography, { variant: "caption", color: "text.secondary", children: ["Actualizado ", formatScoreTimestamp(damage.score_updated_at)] })), _jsx(LLMPayloadViewer, { payload: damage.llm_payload, reason: damage.llm_reason, score: damage.llm_score, title: `Detalle LLM de ${damage.structure || "daño"}` }), (damage.photos ?? []).length > 0 ? (_jsx(Button, { component: "a", href: damage.photos[0]?.photo_url, target: "_blank", rel: "noreferrer", size: "small", startIcon: _jsx(AttachmentIcon, {}), children: "Ver" })) : ("—")] }) }), _jsxs(TableCell, { align: "right", children: [_jsx(IconButton, { size: "small", "aria-label": "Ver detalles del da\u00F1o", onClick: () => openDamageModal(damage), children: _jsx(VisibilityIcon, { fontSize: "small" }) }), _jsx(IconButton, { size: "small", "aria-label": "Editar da\u00F1o", onClick: () => openDamageDialog(damage), children: _jsx(EditIcon, { fontSize: "small" }) }), _jsx(IconButton, { size: "small", "aria-label": "Eliminar da\u00F1o", onClick: () => {
                                                                         if (confirmDeletion(`¿Eliminar el daño "${damage.damage_type}"?`)) {
                                                                             deleteDamageMutation.mutate(damage.id);
                                                                         }
@@ -535,25 +754,14 @@ const InspectionDetailPage = () => {
                                                             if (confirmDeletion(`¿Eliminar el documento "${doc.title}"?`)) {
                                                                 deleteDocumentMutation.mutate(doc.id);
                                                             }
-                                                        }, disabled: deleteDocumentMutation.isPending, children: _jsx(DeleteIcon, { fontSize: "small" }) })] }), children: _jsx(ListItemText, { primary: _jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", children: [_jsx(Typography, { fontWeight: 600, children: doc.title }), _jsx(Chip, { label: doc.category, size: "small", variant: "outlined" })] }), primaryTypographyProps: { component: "div" }, secondaryTypographyProps: { component: "div" }, secondary: _jsxs(Stack, { spacing: 0.5, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", children: [doc.issued_by || "Autor no indicado", " \u00B7 ", doc.issued_at ? dayjs(doc.issued_at).format("DD/MM/YYYY") : "Fecha no indicada"] }), doc.notes && _jsx(Typography, { variant: "body2", children: doc.notes }), doc.url && (_jsx(Button, { component: "a", href: doc.url, target: "_blank", rel: "noreferrer", size: "small", startIcon: _jsx(AttachmentIcon, {}), children: "Abrir" }))] }) }) }, doc.id)))] })] }) })] }), _jsxs(Dialog, { open: damageDialogOpen, onClose: () => setDamageDialogOpen(false), maxWidth: "sm", fullWidth: true, children: [_jsx(DialogTitle, { children: editingDamage ? "Editar daño" : "Registrar daño" }), _jsx(DialogContent, { dividers: true, children: _jsxs(Stack, { spacing: 2, sx: { mt: 1 }, children: [_jsx(TextField, { label: "Estructura / elemento", value: damageForm.structure, onChange: (event) => setDamageForm((prev) => ({ ...prev, structure: event.target.value })) }), _jsx(TextField, { label: "Ubicaci\u00F3n", value: damageForm.location, onChange: (event) => setDamageForm((prev) => ({ ...prev, location: event.target.value })) }), _jsx(TextField, { select: true, label: "Tipo de da\u00F1o", value: damageForm.damage_type, onChange: (event) => setDamageForm((prev) => ({ ...prev, damage_type: event.target.value })), children: DAMAGE_TYPES.map((type) => (_jsx(MenuItem, { value: type, children: type }, type))) }), _jsx(TextField, { select: true, label: "Causa probable", value: damageForm.damage_cause, onChange: (event) => setDamageForm((prev) => ({ ...prev, damage_cause: event.target.value })), children: DAMAGE_CAUSES.map((cause) => (_jsx(MenuItem, { value: cause, children: cause }, cause))) }), _jsx(TextField, { select: true, label: "Gravedad", value: damageForm.severity, onChange: (event) => setDamageForm((prev) => ({ ...prev, severity: event.target.value })), children: DAMAGE_SEVERITIES.map((severity) => (_jsx(MenuItem, { value: severity, children: severity }, severity))) }), _jsxs(Button, { component: "label", variant: "outlined", size: "small", children: ["Seleccionar fotograf\u00EDa", _jsx("input", { type: "file", accept: "image/*", hidden: true, onChange: (event) => {
-                                                const file = event.target.files?.[0];
-                                                if (!file) {
-                                                    return;
-                                                }
-                                                if (damagePhotoPreview) {
-                                                    URL.revokeObjectURL(damagePhotoPreview);
-                                                }
-                                                const previewUrl = URL.createObjectURL(file);
-                                                setDamagePhotoFile(file);
-                                                setDamagePhotoPreview(previewUrl);
-                                            } })] }), (damagePhotoPreview || damageForm.damage_photo_url) && (_jsx(Box, { component: "img", src: damagePhotoPreview || damageForm.damage_photo_url, alt: "Fotograf\u00EDa", sx: { width: 1, mt: 1, borderRadius: 1, border: "1px solid", borderColor: "divider" } })), _jsx(TextField, { label: "Extensi\u00F3n / magnitud", value: damageForm.extent, onChange: (event) => setDamageForm((prev) => ({ ...prev, extent: event.target.value })) }), _jsx(TextField, { label: "Comentarios", multiline: true, minRows: 2, value: damageForm.comments, onChange: (event) => setDamageForm((prev) => ({ ...prev, comments: event.target.value })) }), editingDamage ? (_jsx(Stack, { spacing: 1, children: _jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", flexWrap: "wrap", children: [_jsxs(Button, { component: "label", variant: "outlined", size: "small", children: ["Seleccionar fotos", _jsx("input", { type: "file", accept: "image/*", multiple: true, hidden: true, onChange: (event) => {
+                                                        }, disabled: deleteDocumentMutation.isPending, children: _jsx(DeleteIcon, { fontSize: "small" }) })] }), children: _jsx(ListItemText, { primary: _jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", children: [_jsx(Typography, { fontWeight: 600, children: doc.title }), _jsx(Chip, { label: doc.category, size: "small", variant: "outlined" })] }), primaryTypographyProps: { component: "div" }, secondaryTypographyProps: { component: "div" }, secondary: _jsxs(Stack, { spacing: 0.5, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", children: [doc.issued_by || "Autor no indicado", " \u00B7 ", doc.issued_at ? dayjs(doc.issued_at).format("DD/MM/YYYY") : "Fecha no indicada"] }), doc.notes && _jsx(Typography, { variant: "body2", children: doc.notes }), doc.url && (_jsx(Button, { component: "a", href: doc.url, target: "_blank", rel: "noreferrer", size: "small", startIcon: _jsx(AttachmentIcon, {}), children: "Abrir" }))] }) }) }, doc.id)))] })] }) })] }), _jsxs(Dialog, { open: damageDialogOpen, onClose: () => setDamageDialogOpen(false), maxWidth: "sm", fullWidth: true, children: [_jsx(DialogTitle, { children: editingDamage ? "Editar daño" : "Registrar daño" }), _jsx(DialogContent, { dividers: true, children: _jsxs(Stack, { spacing: 2, sx: { mt: 1 }, children: [_jsx(TextField, { label: "Estructura / elemento", value: damageForm.structure, onChange: (event) => setDamageForm((prev) => ({ ...prev, structure: event.target.value })), id: "damage-structure", name: "damageStructure" }), _jsx(TextField, { label: "Ubicaci\u00F3n", value: damageForm.location, onChange: (event) => setDamageForm((prev) => ({ ...prev, location: event.target.value })), id: "damage-location", name: "damageLocation" }), _jsx(TextField, { select: true, label: "Tipo de da\u00F1o", value: damageForm.damage_type, onChange: (event) => setDamageForm((prev) => ({ ...prev, damage_type: event.target.value })), id: "damage-type", name: "damageType", children: DAMAGE_TYPES.map((type) => (_jsx(MenuItem, { value: type, children: type }, type))) }), _jsx(TextField, { select: true, label: "Causa probable", value: damageForm.damage_cause, onChange: (event) => setDamageForm((prev) => ({ ...prev, damage_cause: event.target.value })), id: "damage-cause", name: "damageCause", children: DAMAGE_CAUSES.map((cause) => (_jsx(MenuItem, { value: cause, children: cause }, cause))) }), _jsx(TextField, { select: true, label: "Gravedad", value: damageForm.severity, onChange: (event) => setDamageForm((prev) => ({ ...prev, severity: event.target.value })), id: "damage-severity", name: "damageSeverity", children: DAMAGE_SEVERITIES.map((severity) => (_jsx(MenuItem, { value: severity, children: severity }, severity))) }), _jsx(TextField, { label: "Extensi\u00F3n / magnitud", value: damageForm.extent, onChange: (event) => setDamageForm((prev) => ({ ...prev, extent: event.target.value })), id: "damage-extent", name: "damageExtent" }), _jsx(TextField, { label: "Comentarios", multiline: true, minRows: 2, value: damageForm.comments, onChange: (event) => setDamageForm((prev) => ({ ...prev, comments: event.target.value })), id: "damage-comments", name: "damageComments" }), editingDamage ? (_jsx(Stack, { spacing: 1, children: _jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", flexWrap: "wrap", children: [_jsxs(Button, { component: "label", variant: "outlined", size: "small", children: ["Seleccionar fotos", _jsx("input", { type: "file", accept: "image/*", multiple: true, hidden: true, onChange: (event) => {
                                                             const files = event.target.files;
                                                             if (!files?.length)
                                                                 return;
                                                             setDamageDialogFiles(Array.from(files));
                                                         } })] }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: damageDialogFiles.length
                                                     ? `${damageDialogFiles.length} archivo(s) listo(s) para subir`
-                                                    : "Selecciona imágenes para añadir" }), _jsx(Button, { variant: "contained", size: "small", onClick: handleDamageDialogUpload, disabled: !damageDialogFiles.length || damageDialogUploading, children: damageDialogUploading ? "Subiendo..." : "Subir fotos" })] }) })) : (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "Guarda el da\u00F1o para poder adjuntar fotograf\u00EDas adicionales." })), editingDamageWithPhotos && renderDamagePhotos(editingDamageWithPhotos), _jsx(TextField, { label: "URL de fotograf\u00EDa", value: damageForm.damage_photo_url, onChange: (event) => setDamageForm((prev) => ({ ...prev, damage_photo_url: event.target.value })) })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setDamageDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: handleSaveDamage, disabled: !canMutate ||
+                                                    : "Selecciona imágenes para añadir" }), _jsx(Button, { variant: "contained", size: "small", onClick: handleDamageDialogUpload, disabled: !damageDialogFiles.length || damageDialogUploading, children: damageDialogUploading ? "Subiendo..." : "Subir fotos" })] }) })) : (_jsx(Typography, { variant: "body2", color: "text.secondary", children: "Guarda el da\u00F1o para poder adjuntar fotograf\u00EDas adicionales." })), editingDamageWithPhotos && renderDamagePhotos(editingDamageWithPhotos, { showDelete: true })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setDamageDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: handleSaveDamage, disabled: !canMutate ||
                                     !damageForm.structure.trim() ||
                                     isUploadingPhoto ||
                                     updateDamageMutation.isPending ||
@@ -577,24 +785,7 @@ const InspectionDetailPage = () => {
                                         deleteDocumentMutation.mutate(modalDocument.id);
                                         closeDocumentModal();
                                     }
-                                }, disabled: !modalDocument, children: "Eliminar" })] })] }), _jsxs(Dialog, { open: damageModalOpen, onClose: closeDamageModal, maxWidth: "md", fullWidth: true, children: [_jsx(DialogTitle, { children: "Detalle de da\u00F1o" }), _jsx(DialogContent, { dividers: true, children: modalDamage ? (_jsxs(Stack, { spacing: 2, children: [_jsxs(Stack, { direction: "row", spacing: 2, flexWrap: "wrap", alignItems: "center", children: [_jsx(Typography, { variant: "h6", component: "div", children: modalDamage.structure || "Daño sin estructura" }), _jsx(Chip, { label: modalDamage.severity, color: severityColor(modalDamage.severity), size: "small" })] }), _jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: ["Tipo: ", modalDamage.damage_type, " \u00B7 Causa: ", modalDamage.damage_cause] }), _jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: ["Ubicaci\u00F3n: ", modalDamage.location || "No indicada", " \u00B7 Extensi\u00F3n: ", modalDamage.extent || "No indicada"] }), _jsxs(Typography, { variant: "body2", component: "div", children: ["Comentarios: ", modalDamage.comments || "Sin comentarios"] }), _jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", children: [_jsxs(Button, { component: "label", variant: "outlined", size: "small", children: ["Seleccionar fotos", _jsx("input", { type: "file", accept: "image/*", multiple: true, hidden: true, onChange: (event) => {
-                                                        const files = event.target.files;
-                                                        if (!files?.length)
-                                                            return;
-                                                        setDamageModalFiles(Array.from(files));
-                                                    } })] }), _jsx(Typography, { variant: "body2", color: "text.secondary", component: "div", children: damageModalFiles.length
-                                                ? `${damageModalFiles.length} archivo(s) listo(s) para subir`
-                                                : "Selecciona imágenes para subir" }), _jsx(Button, { variant: "contained", size: "small", onClick: handleDamageModalUpload, disabled: !damageModalFiles.length || damageModalUploading, children: damageModalUploading ? "Subiendo..." : "Subir fotos" })] }), renderDamagePhotos(modalDamageWithPhotos, { label: "Fotos guardadas", showDelete: true })] })) : (_jsx(Typography, { children: "No se encontr\u00F3 el da\u00F1o seleccionado." })) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: closeDamageModal, children: "Cerrar" }), _jsx(Button, { variant: "outlined", onClick: () => {
-                                    if (modalDamage) {
-                                        openDamageDialog(modalDamage);
-                                        closeDamageModal();
-                                    }
-                                }, children: "Editar" }), _jsx(Button, { variant: "contained", color: "error", onClick: () => {
-                                    if (modalDamage) {
-                                        deleteDamageMutation.mutate(modalDamage.id);
-                                        closeDamageModal();
-                                    }
-                                }, disabled: !modalDamage, children: "Eliminar" })] })] }), _jsxs(Dialog, { open: testDialogOpen, onClose: () => setTestDialogOpen(false), maxWidth: "sm", fullWidth: true, children: [_jsx(DialogTitle, { children: editingTest ? "Editar ensayo" : "Registrar ensayo" }), _jsx(DialogContent, { dividers: true, children: _jsxs(Stack, { spacing: 2, sx: { mt: 1 }, children: [_jsx(TextField, { label: "Tipo de ensayo", value: testForm.test_type, onChange: (event) => setTestForm((prev) => ({ ...prev, test_type: event.target.value })) }), _jsx(TextField, { label: "M\u00E9todo / t\u00E9cnica", value: testForm.method, onChange: (event) => setTestForm((prev) => ({ ...prev, method: event.target.value })) }), _jsx(TextField, { label: "Norma aplicada", value: testForm.standard, onChange: (event) => setTestForm((prev) => ({ ...prev, standard: event.target.value })) }), _jsxs(Stack, { direction: "row", spacing: 2, children: [_jsx(TextField, { type: "date", label: "Fecha", InputLabelProps: { shrink: true }, fullWidth: true, value: testForm.executed_at, onChange: (event) => setTestForm((prev) => ({ ...prev, executed_at: event.target.value })) }), _jsx(TextField, { label: "Laboratorio", fullWidth: true, value: testForm.laboratory, onChange: (event) => setTestForm((prev) => ({ ...prev, laboratory: event.target.value })) })] }), _jsx(TextField, { label: "Ubicaci\u00F3n / muestra", value: testForm.sample_location, onChange: (event) => setTestForm((prev) => ({ ...prev, sample_location: event.target.value })) }), _jsx(TextField, { label: "Resumen de resultados", multiline: true, minRows: 3, value: testForm.result_summary, onChange: (event) => setTestForm((prev) => ({ ...prev, result_summary: event.target.value })) }), _jsx(TextField, { label: "URL de informe", value: testForm.attachment_url, onChange: (event) => setTestForm((prev) => ({ ...prev, attachment_url: event.target.value })) })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setTestDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: () => {
+                                }, disabled: !modalDocument, children: "Eliminar" })] })] }), _jsxs(Dialog, { open: damageModalOpen, onClose: closeDamageModal, maxWidth: "md", fullWidth: true, children: [_jsx(DialogTitle, { children: "Detalle de da\u00F1o" }), _jsx(DialogContent, { dividers: true, children: modalDamage ? (_jsxs(Stack, { spacing: 2, children: [_jsxs(Stack, { direction: "row", spacing: 2, flexWrap: "wrap", alignItems: "center", children: [_jsx(Typography, { variant: "h6", component: "div", children: modalDamage.structure || "Daño sin estructura" }), _jsx(Chip, { label: modalDamage.severity, color: severityColor(modalDamage.severity), size: "small" })] }), _jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: ["Tipo: ", modalDamage.damage_type, " \u00B7 Causa: ", modalDamage.damage_cause] }), _jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: ["Ubicaci\u00F3n: ", modalDamage.location || "No indicada", " \u00B7 Extensi\u00F3n: ", modalDamage.extent || "No indicada"] }), _jsxs(Typography, { variant: "body2", component: "div", children: ["Comentarios: ", modalDamage.comments || "Sin comentarios"] }), renderDamagePhotos(modalDamageWithPhotos, { label: "Fotos del daño", readOnly: true })] })) : (_jsx(Typography, { children: "No se encontr\u00F3 el da\u00F1o seleccionado." })) }), _jsx(DialogActions, { children: _jsx(Button, { onClick: closeDamageModal, children: "Cerrar" }) })] }), _jsxs(Dialog, { open: testDialogOpen, onClose: () => setTestDialogOpen(false), maxWidth: "sm", fullWidth: true, children: [_jsx(DialogTitle, { children: editingTest ? "Editar ensayo" : "Registrar ensayo" }), _jsx(DialogContent, { dividers: true, children: _jsxs(Stack, { spacing: 2, sx: { mt: 1 }, children: [_jsx(TextField, { label: "Tipo de ensayo", value: testForm.test_type, id: "test-type", name: "testType", onChange: (event) => setTestForm((prev) => ({ ...prev, test_type: event.target.value })) }), _jsx(TextField, { label: "M\u00E9todo / t\u00E9cnica", value: testForm.method, id: "test-method", name: "testMethod", onChange: (event) => setTestForm((prev) => ({ ...prev, method: event.target.value })) }), _jsx(TextField, { label: "Norma aplicada", value: testForm.standard, id: "test-standard", name: "testStandard", onChange: (event) => setTestForm((prev) => ({ ...prev, standard: event.target.value })) }), _jsxs(Stack, { direction: "row", spacing: 2, children: [_jsx(TextField, { type: "date", label: "Fecha", InputLabelProps: { shrink: true }, fullWidth: true, value: testForm.executed_at, id: "test-date", name: "testDate", onChange: (event) => setTestForm((prev) => ({ ...prev, executed_at: event.target.value })) }), _jsx(TextField, { label: "Laboratorio", fullWidth: true, value: testForm.laboratory, id: "test-laboratory", name: "testLaboratory", onChange: (event) => setTestForm((prev) => ({ ...prev, laboratory: event.target.value })) })] }), _jsx(TextField, { label: "Ubicaci\u00F3n / muestra", value: testForm.sample_location, id: "test-sample", name: "testSample", onChange: (event) => setTestForm((prev) => ({ ...prev, sample_location: event.target.value })) }), _jsx(TextField, { label: "Resumen de resultados", multiline: true, minRows: 3, value: testForm.result_summary, id: "test-summary", name: "testSummary", onChange: (event) => setTestForm((prev) => ({ ...prev, result_summary: event.target.value })) }), _jsx(TextField, { label: "URL de informe", value: testForm.attachment_url, id: "test-attachment", name: "testAttachment", onChange: (event) => setTestForm((prev) => ({ ...prev, attachment_url: event.target.value })) })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setTestDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: () => {
                                     if (!canMutate)
                                         return;
                                     if (editingTest) {
@@ -602,10 +793,10 @@ const InspectionDetailPage = () => {
                                         return;
                                     }
                                     createTestMutation.mutate(testForm);
-                                }, disabled: !canMutate || !testForm.test_type.trim(), children: "Guardar" })] })] }), _jsxs(Dialog, { open: documentDialogOpen, onClose: () => setDocumentDialogOpen(false), maxWidth: "sm", fullWidth: true, children: [_jsx(DialogTitle, { children: editingDocument ? "Editar documento" : "Documento de inspección" }), _jsx(DialogContent, { dividers: true, children: _jsxs(Stack, { spacing: 2, sx: { mt: 1 }, children: [_jsx(TextField, { label: "T\u00EDtulo", value: documentForm.title, onChange: (event) => setDocumentForm((prev) => ({ ...prev, title: event.target.value })) }), _jsxs(TextField, { select: true, label: "Categor\u00EDa", value: documentForm.category, onChange: (event) => setDocumentForm((prev) => ({
+                                }, disabled: !canMutate || !testForm.test_type.trim(), children: "Guardar" })] })] }), _jsxs(Dialog, { open: documentDialogOpen, onClose: () => setDocumentDialogOpen(false), maxWidth: "sm", fullWidth: true, children: [_jsx(DialogTitle, { children: editingDocument ? "Editar documento" : "Documento de inspección" }), _jsx(DialogContent, { dividers: true, children: _jsxs(Stack, { spacing: 2, sx: { mt: 1 }, children: [_jsx(TextField, { label: "T\u00EDtulo", value: documentForm.title, id: "document-title", name: "documentTitle", onChange: (event) => setDocumentForm((prev) => ({ ...prev, title: event.target.value })) }), _jsxs(TextField, { select: true, label: "Categor\u00EDa", value: documentForm.category, id: "document-category", name: "documentCategory", onChange: (event) => setDocumentForm((prev) => ({
                                         ...prev,
                                         category: event.target.value,
-                                    })), children: [_jsx(MenuItem, { value: "informe", children: "Informe" }), _jsx(MenuItem, { value: "fotografia", children: "Fotograf\u00EDa" }), _jsx(MenuItem, { value: "ensayo", children: "Ensayo" }), _jsx(MenuItem, { value: "otro", children: "Otro" })] }), _jsxs(Stack, { direction: "row", spacing: 2, children: [_jsx(TextField, { type: "date", label: "Fecha", InputLabelProps: { shrink: true }, fullWidth: true, value: documentForm.issued_at, onChange: (event) => setDocumentForm((prev) => ({ ...prev, issued_at: event.target.value })) }), _jsx(TextField, { label: "Emitido por", fullWidth: true, value: documentForm.issued_by, onChange: (event) => setDocumentForm((prev) => ({ ...prev, issued_by: event.target.value })) })] }), _jsx(TextField, { label: "URL", value: documentForm.url, onChange: (event) => setDocumentForm((prev) => ({ ...prev, url: event.target.value })) }), _jsx(TextField, { label: "Notas", multiline: true, minRows: 2, value: documentForm.notes, onChange: (event) => setDocumentForm((prev) => ({ ...prev, notes: event.target.value })) })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setDocumentDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: () => {
+                                    })), children: [_jsx(MenuItem, { value: "informe", children: "Informe" }), _jsx(MenuItem, { value: "fotografia", children: "Fotograf\u00EDa" }), _jsx(MenuItem, { value: "ensayo", children: "Ensayo" }), _jsx(MenuItem, { value: "otro", children: "Otro" })] }), _jsxs(Stack, { direction: "row", spacing: 2, children: [_jsx(TextField, { type: "date", label: "Fecha", InputLabelProps: { shrink: true }, fullWidth: true, value: documentForm.issued_at, id: "document-date", name: "documentDate", onChange: (event) => setDocumentForm((prev) => ({ ...prev, issued_at: event.target.value })) }), _jsx(TextField, { label: "Emitido por", fullWidth: true, value: documentForm.issued_by, id: "document-issued-by", name: "documentIssuedBy", onChange: (event) => setDocumentForm((prev) => ({ ...prev, issued_by: event.target.value })) })] }), _jsx(TextField, { label: "URL", value: documentForm.url, id: "document-url", name: "documentUrl", onChange: (event) => setDocumentForm((prev) => ({ ...prev, url: event.target.value })) }), _jsx(TextField, { label: "Notas", multiline: true, minRows: 2, value: documentForm.notes, id: "document-notes", name: "documentNotes", onChange: (event) => setDocumentForm((prev) => ({ ...prev, notes: event.target.value })) })] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setDocumentDialogOpen(false), children: "Cancelar" }), _jsx(Button, { variant: "contained", onClick: () => {
                                     if (!canMutate)
                                         return;
                                     if (editingDocument) {

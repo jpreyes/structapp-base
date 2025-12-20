@@ -3,7 +3,8 @@ import { useSession } from "../store/useSession";
 const baseURL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 export const apiClient = axios.create({
     baseURL,
-    withCredentials: false,
+    // Usar cookies de sesión cuando el backend las envía (por ejemplo, CSRF + auth por cookie).
+    withCredentials: true,
 });
 apiClient.interceptors.request.use((config) => {
     const token = localStorage.getItem("structapp_token");
@@ -13,7 +14,9 @@ apiClient.interceptors.request.use((config) => {
     return config;
 });
 apiClient.interceptors.response.use((response) => response, (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    if (status === 401) {
+        // Token inválido/expirado: limpiar sesión y redirigir a login.
         const { setToken, setUser } = useSession.getState();
         setToken(null);
         setUser(undefined);

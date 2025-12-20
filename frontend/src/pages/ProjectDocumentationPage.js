@@ -241,7 +241,7 @@ const ProjectDocumentationPage = () => {
         }
         setEditingError(null);
     }, [editingRun]);
-    // Agrupar cÃ¡lculos por tipo
+    // Agrupar cálculos por tipo
     const groupedCalculations = useMemo(() => {
         const grouped = {};
         calculationTypes.forEach((type) => {
@@ -268,15 +268,15 @@ const ProjectDocumentationPage = () => {
     const handleCreateCalculation = (typeId) => {
         if (inlineEditorTypes.has(typeId)) {
             if (!selectedProjectId) {
-                setError("Selecciona un proyecto para crear un c�lculo");
+                setError("Selecciona un proyecto para crear un cálculo");
                 return;
             }
             if (!sessionUserId) {
-                setError("No se pudo identificar al usuario para crear el c�lculo");
+                setError("No se pudo identificar al usuario para crear el cálculo");
                 return;
             }
             if (["wind_load", "snow_load", "seismic"].includes(typeId) && !designOptions) {
-                setError("Las opciones de dise�o a�n no est�n disponibles. Intenta nuevamente en unos segundos");
+                setError("Las opciones de diseño aún no están disponibles. Intenta nuevamente en unos segundos");
                 return;
             }
             const draft = {
@@ -469,10 +469,10 @@ const ProjectDocumentationPage = () => {
     const canSaveEditing = () => Boolean(buildUpdatePayload());
     const createDraftCalculation = async (normalizedType, payload) => {
         if (!selectedProjectId) {
-            throw new Error("Selecciona un proyecto antes de crear un c�lculo");
+            throw new Error("Selecciona un proyecto antes de crear un cálculo");
         }
         if (!sessionUserId) {
-            throw new Error("No se pudo identificar al usuario para crear el c�lculo");
+            throw new Error("No se pudo identificar al usuario para crear el cálculo");
         }
         const body = {
             ...payload,
@@ -503,7 +503,7 @@ const ProjectDocumentationPage = () => {
             await apiClient.post("/design-bases/seismic", body);
             return;
         }
-        throw new Error("Este tipo de c�lculo no se puede crear desde esta pantalla");
+        throw new Error("Este tipo de cálculo no se puede crear desde esta pantalla");
     };
     const handleSaveEditing = async () => {
         if (!editingRun) {
@@ -578,7 +578,7 @@ const ProjectDocumentationPage = () => {
         const normalized = normalizeElementType(editingRun.element_type);
         if (normalized === "live_load") {
             if (!designOptions) {
-                return _jsx(Alert, { severity: "info", sx: { mt: 2 }, children: "Cargando cat\uFFFDlogos..." });
+                return _jsx(Alert, { severity: "info", sx: { mt: 2 }, children: "Cargando cat\u00E1logos..." });
             }
             const buildingTypes = Object.keys(designOptions.liveLoadCategories || {});
             const usageOptionsForEdit = editingValues.buildingType
@@ -587,17 +587,17 @@ const ProjectDocumentationPage = () => {
             return (_jsxs(Stack, { spacing: 2, sx: { mt: 2 }, children: [_jsx(TextField, { select: true, label: "Tipo de edificio", value: editingValues.buildingType ?? "", onChange: (event) => handleEditingValueChange("buildingType", event.target.value), fullWidth: true, children: buildingTypes.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }), _jsx(TextField, { select: true, label: "Uso / recinto", value: editingValues.usage ?? "", onChange: (event) => handleEditingValueChange("usage", event.target.value), fullWidth: true, disabled: !editingValues.buildingType, children: usageOptionsForEdit.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) })] }));
         }
         if (normalized === "building_description") {
-            return (_jsxs(Stack, { spacing: 2, sx: { mt: 2 }, children: [_jsx(TextField, { label: "Descripci\uFFFDn del edificio", value: editingValues.text ?? "", onChange: (event) => handleEditingValueChange("text", event.target.value), fullWidth: true, multiline: true, minRows: 3 }), _jsx(TextField, { label: "Ubicaci\uFFFDn", value: editingValues.location ?? "", onChange: (event) => handleEditingValueChange("location", event.target.value), fullWidth: true }), _jsx(TextField, { label: "\uFFFDrea total (m\uFFFD)", type: "number", value: editingValues.area ?? "", onChange: (event) => handleEditingValueChange("area", event.target.value), fullWidth: true }), _jsx(TextField, { label: "Altura (m)", type: "number", value: editingValues.height ?? "", onChange: (event) => handleEditingValueChange("height", event.target.value), fullWidth: true })] }));
+            return (_jsxs(Stack, { spacing: 2, sx: { mt: 2 }, children: [_jsx(TextField, { label: "Descripci\u00F3n del edificio", value: editingValues.text ?? "", onChange: (event) => handleEditingValueChange("text", event.target.value), fullWidth: true, multiline: true, minRows: 3 }), _jsx(TextField, { label: "Ubicaci\u00F3n", value: editingValues.location ?? "", onChange: (event) => handleEditingValueChange("location", event.target.value), fullWidth: true }), _jsx(TextField, { label: "\u00C1rea total (m\u00B2)", type: "number", value: editingValues.area ?? "", onChange: (event) => handleEditingValueChange("area", event.target.value), fullWidth: true }), _jsx(TextField, { label: "Altura (m)", type: "number", value: editingValues.height ?? "", onChange: (event) => handleEditingValueChange("height", event.target.value), fullWidth: true })] }));
         }
         if (normalized === "wind_load") {
             if (!designOptions) {
-                return _jsx(Alert, { severity: "info", sx: { mt: 2 }, children: "Cargando cat\uFFFDlogos..." });
+                return _jsx(Alert, { severity: "info", sx: { mt: 2 }, children: "Cargando cat\u00E1logos..." });
             }
             return (_jsxs(Stack, { spacing: 2, sx: { mt: 2 }, children: [_jsx(TextField, { select: true, label: "Ambiente", value: editingValues.environment ?? "", onChange: (event) => handleEditingValueChange("environment", event.target.value), fullWidth: true, children: designOptions.windEnvironments.map((env) => (_jsx(MenuItem, { value: env, children: env }, env))) }), _jsx(TextField, { label: "Altura sobre el terreno (m)", type: "number", value: editingValues.height ?? "", onChange: (event) => handleEditingValueChange("height", event.target.value), fullWidth: true })] }));
         }
         if (normalized === "snow_load") {
             if (!designOptions) {
-                return _jsx(Alert, { severity: "info", sx: { mt: 2 }, children: "Cargando cat\uFFFDlogos..." });
+                return _jsx(Alert, { severity: "info", sx: { mt: 2 }, children: "Cargando cat\u00E1logos..." });
             }
             const latitudeBand = editingValues.latitudeBand ?? "";
             const exposureCategory = editingValues.exposureCategory ?? "";
@@ -610,20 +610,20 @@ const ProjectDocumentationPage = () => {
             return (_jsx(Stack, { spacing: 2, sx: { mt: 2 }, children: _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Latitud", value: latitudeBand, onChange: (event) => {
                                     handleEditingValueChange("latitudeBand", event.target.value);
                                     handleEditingValueChange("altitudeBand", "");
-                                }, fullWidth: true, children: Object.keys(designOptions.snowLatitudeBands || {}).map((lat) => (_jsx(MenuItem, { value: lat, children: lat }, lat))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Altitud", value: editingValues.altitudeBand ?? "", onChange: (event) => handleEditingValueChange("altitudeBand", event.target.value), fullWidth: true, disabled: !latitudeBand, children: altitudeOptionsForLat.map((alt) => (_jsx(MenuItem, { value: alt, children: alt }, alt))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Condici\uFFFDn t\uFFFDrmica", value: editingValues.thermalCondition ?? "", onChange: (event) => handleEditingValueChange("thermalCondition", event.target.value), fullWidth: true, children: designOptions.snowThermalConditions.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Categor\uFFFDa de importancia", value: editingValues.importanceCategory ?? "", onChange: (event) => handleEditingValueChange("importanceCategory", event.target.value), fullWidth: true, children: designOptions.snowImportanceCategories.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Categor\uFFFDa de exposici\uFFFDn", value: exposureCategory, onChange: (event) => {
+                                }, fullWidth: true, children: Object.keys(designOptions.snowLatitudeBands || {}).map((lat) => (_jsx(MenuItem, { value: lat, children: lat }, lat))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Altitud", value: editingValues.altitudeBand ?? "", onChange: (event) => handleEditingValueChange("altitudeBand", event.target.value), fullWidth: true, disabled: !latitudeBand, children: altitudeOptionsForLat.map((alt) => (_jsx(MenuItem, { value: alt, children: alt }, alt))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Condici?n t?rmica", value: editingValues.thermalCondition ?? "", onChange: (event) => handleEditingValueChange("thermalCondition", event.target.value), fullWidth: true, children: designOptions.snowThermalConditions.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Categor\u00EDa de importancia", value: editingValues.importanceCategory ?? "", onChange: (event) => handleEditingValueChange("importanceCategory", event.target.value), fullWidth: true, children: designOptions.snowImportanceCategories.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Categor\u00EDa de exposici\u00F3n", value: exposureCategory, onChange: (event) => {
                                     handleEditingValueChange("exposureCategory", event.target.value);
                                     handleEditingValueChange("exposureCondition", "");
-                                }, fullWidth: true, children: Object.keys(designOptions.snowExposureCategories || {}).map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Condici\uFFFDn de exposici\uFFFDn", value: editingValues.exposureCondition ?? "", onChange: (event) => handleEditingValueChange("exposureCondition", event.target.value), fullWidth: true, disabled: !exposureCategory, children: exposureConditions.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Tipo de superficie", value: editingValues.surfaceType ?? "", onChange: (event) => handleEditingValueChange("surfaceType", event.target.value), fullWidth: true, children: designOptions.snowSurfaceTypes.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { label: "Inclinaci\uFFFDn (\uFFFD)", type: "number", value: editingValues.roofPitch ?? "", onChange: (event) => handleEditingValueChange("roofPitch", event.target.value), fullWidth: true }) })] }) }));
+                                }, fullWidth: true, children: Object.keys(designOptions.snowExposureCategories || {}).map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Condici\u00F3n de exposici\u00F3n", value: editingValues.exposureCondition ?? "", onChange: (event) => handleEditingValueChange("exposureCondition", event.target.value), fullWidth: true, disabled: !exposureCategory, children: exposureConditions.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { select: true, label: "Tipo de superficie", value: editingValues.surfaceType ?? "", onChange: (event) => handleEditingValueChange("surfaceType", event.target.value), fullWidth: true, children: designOptions.snowSurfaceTypes.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, sm: 6, children: _jsx(TextField, { label: "Inclinaci\u00F3n (\u00B0)", type: "number", value: editingValues.roofPitch ?? "", onChange: (event) => handleEditingValueChange("roofPitch", event.target.value), fullWidth: true }) })] }) }));
         }
         if (normalized === "seismic") {
             if (!designOptions) {
-                return _jsx(Alert, { severity: "info", sx: { mt: 2 }, children: "Cargando cat\uFFFDlogos..." });
+                return _jsx(Alert, { severity: "info", sx: { mt: 2 }, children: "Cargando cat\u00E1logos..." });
             }
-            return (_jsxs(Stack, { spacing: 2, sx: { mt: 2 }, children: [_jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { select: true, label: "Categor\uFFFDa estructural", value: editingValues.category ?? "", onChange: (event) => handleEditingValueChange("category", event.target.value), fullWidth: true, children: designOptions.seismicCategories.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { select: true, label: "Zona s\uFFFDsmica", value: editingValues.zone ?? "", onChange: (event) => handleEditingValueChange("zone", event.target.value), fullWidth: true, children: designOptions.seismicZones.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { select: true, label: "Tipo de suelo", value: editingValues.soil ?? "", onChange: (event) => handleEditingValueChange("soil", event.target.value), fullWidth: true, children: designOptions.seismicSoils.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { label: "Coeficiente R", type: "number", value: editingValues.rs ?? "", onChange: (event) => handleEditingValueChange("rs", event.target.value), fullWidth: true }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { label: "Peso s\uFFFDsmico total (kN)", type: "number", value: editingValues.ps ?? "", onChange: (event) => handleEditingValueChange("ps", event.target.value), fullWidth: true }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { label: "Periodo Tx (s)", type: "number", value: editingValues.tx ?? "", onChange: (event) => handleEditingValueChange("tx", event.target.value), fullWidth: true }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { label: "Periodo Ty (s)", type: "number", value: editingValues.ty ?? "", onChange: (event) => handleEditingValueChange("ty", event.target.value), fullWidth: true }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { label: "R\uFFFD'0 (deriva)", type: "number", value: editingValues.r0 ?? "", onChange: (event) => handleEditingValueChange("r0", event.target.value), fullWidth: true }) })] }), _jsx(Divider, {}), _jsx(Typography, { variant: "subtitle2", children: "Distribuci\uFFFDn de niveles" }), _jsxs(Stack, { spacing: 1, children: [editingStories.map((story, index) => (_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 2, alignItems: "center", children: [_jsxs(Typography, { variant: "body2", children: ["Nivel ", index + 1] }), _jsx(TextField, { label: "Altura (m)", type: "number", value: story.height, onChange: (event) => handleEditingStoryChange(story.id, "height", event.target.value), sx: { minWidth: 140 } }), _jsx(TextField, { label: "Peso (kN)", type: "number", value: story.weight, onChange: (event) => handleEditingStoryChange(story.id, "weight", event.target.value), sx: { minWidth: 140 } }), _jsx(IconButton, { onClick: () => handleRemoveEditingStory(story.id), disabled: editingStories.length <= 1, children: _jsx(DeleteIcon, { fontSize: "small" }) })] }, story.id))), _jsx(Button, { startIcon: _jsx(AddIcon, {}), onClick: handleAddEditingStory, variant: "outlined", sx: { alignSelf: "flex-start" }, children: "Agregar nivel" })] })] }));
+            return (_jsxs(Stack, { spacing: 2, sx: { mt: 2 }, children: [_jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { select: true, label: "Categor?a estructural", value: editingValues.category ?? "", onChange: (event) => handleEditingValueChange("category", event.target.value), fullWidth: true, children: designOptions.seismicCategories.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { select: true, label: "Zona s\u00EDsmica", value: editingValues.zone ?? "", onChange: (event) => handleEditingValueChange("zone", event.target.value), fullWidth: true, children: designOptions.seismicZones.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { select: true, label: "Tipo de suelo", value: editingValues.soil ?? "", onChange: (event) => handleEditingValueChange("soil", event.target.value), fullWidth: true, children: designOptions.seismicSoils.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { label: "Coeficiente R", type: "number", value: editingValues.rs ?? "", onChange: (event) => handleEditingValueChange("rs", event.target.value), fullWidth: true }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { label: "Peso s\u00EDsmico total (kN)", type: "number", value: editingValues.ps ?? "", onChange: (event) => handleEditingValueChange("ps", event.target.value), fullWidth: true }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { label: "Periodo Tx (s)", type: "number", value: editingValues.tx ?? "", onChange: (event) => handleEditingValueChange("tx", event.target.value), fullWidth: true }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { label: "Periodo Ty (s)", type: "number", value: editingValues.ty ?? "", onChange: (event) => handleEditingValueChange("ty", event.target.value), fullWidth: true }) }), _jsx(Grid, { item: true, xs: 12, md: 4, children: _jsx(TextField, { label: "R0 (deriva)", type: "number", value: editingValues.r0 ?? "", onChange: (event) => handleEditingValueChange("r0", event.target.value), fullWidth: true }) })] }), _jsx(Divider, {}), _jsx(Typography, { variant: "subtitle2", children: "Distribuci?n de niveles" }), _jsxs(Stack, { spacing: 1, children: [editingStories.map((story, index) => (_jsxs(Stack, { direction: { xs: "column", sm: "row" }, spacing: 2, alignItems: "center", children: [_jsxs(Typography, { variant: "body2", children: ["Nivel ", index + 1] }), _jsx(TextField, { label: "Altura (m)", type: "number", value: story.height, onChange: (event) => handleEditingStoryChange(story.id, "height", event.target.value), sx: { minWidth: 140 } }), _jsx(TextField, { label: "Peso (kN)", type: "number", value: story.weight, onChange: (event) => handleEditingStoryChange(story.id, "weight", event.target.value), sx: { minWidth: 140 } }), _jsx(IconButton, { onClick: () => handleRemoveEditingStory(story.id), disabled: editingStories.length <= 1, children: _jsx(DeleteIcon, { fontSize: "small" }) })] }, story.id))), _jsx(Button, { startIcon: _jsx(AddIcon, {}), onClick: handleAddEditingStory, variant: "outlined", sx: { alignSelf: "flex-start" }, children: "Agregar nivel" })] })] }));
         }
         if (normalized === "reduction") {
             const elementOptions = designOptions?.liveLoadElementTypes || [];
-            return (_jsxs(Stack, { spacing: 2, sx: { mt: 2 }, children: [_jsx(TextField, { select: true, label: "Elemento estructural", value: editingValues.elementType ?? "", onChange: (event) => handleEditingValueChange("elementType", event.target.value), fullWidth: true, children: elementOptions.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }), _jsx(TextField, { label: "\uFFFDrea tributaria (m\uFFFD)", type: "number", value: editingValues.tributaryArea ?? "", onChange: (event) => handleEditingValueChange("tributaryArea", event.target.value), fullWidth: true }), _jsx(TextField, { label: "Carga base (kN/m\uFFFD)", type: "number", value: editingValues.baseLoad ?? "", onChange: (event) => handleEditingValueChange("baseLoad", event.target.value), fullWidth: true })] }));
+            return (_jsxs(Stack, { spacing: 2, sx: { mt: 2 }, children: [_jsx(TextField, { select: true, label: "Elemento estructural", value: editingValues.elementType ?? "", onChange: (event) => handleEditingValueChange("elementType", event.target.value), fullWidth: true, children: elementOptions.map((option) => (_jsx(MenuItem, { value: option, children: option }, option))) }), _jsx(TextField, { label: "\u00C1rea tributaria (m\u00B2)", type: "number", value: editingValues.tributaryArea ?? "", onChange: (event) => handleEditingValueChange("tributaryArea", event.target.value), fullWidth: true }), _jsx(TextField, { label: "Carga base (kN/m\u00B2)", type: "number", value: editingValues.baseLoad ?? "", onChange: (event) => handleEditingValueChange("baseLoad", event.target.value), fullWidth: true })] }));
         }
         return null;
     };
@@ -678,25 +678,25 @@ const ProjectDocumentationPage = () => {
                 result = await setCriticalMutation.mutateAsync(runId);
                 console.log("Set critical result:", result);
             }
-            // Verificar que el backend devolviÃ³ datos
+            // Verificar que el backend devolvió datos
             if (!result?.run) {
                 console.error("Backend returned null run data:", result);
-                throw new Error("El backend no devolviÃ³ datos actualizados");
+                throw new Error("El backend no devolvió datos actualizados");
             }
             console.log("Updated run data:", result.run);
-            // Actualizar el cachÃ© de React Query manualmente
+            // Actualizar el caché de React Query manualmente
             queryClient.setQueryData(["calculation-runs", selectedProjectId], (oldData) => {
                 if (!oldData)
                     return oldData;
                 console.log("Updating cache, old data:", oldData);
-                // Si se estÃ¡ marcando como crÃ­tico, desmarcar otros del mismo tipo
+                // Si se está marcando como crítico, desmarcar otros del mismo tipo
                 const updatedData = oldData.map((run) => {
                     if (run.id === runId) {
-                        // Este es el elemento que se modificÃ³
+                        // Este es el elemento que se modificó
                         return { ...run, is_critical: result.run.is_critical };
                     }
                     else if (run.element_type === elementType && !currentIsCritical) {
-                        // Si estamos marcando uno como crÃ­tico, desmarcar los demÃ¡s del mismo tipo
+                        // Si estamos marcando uno como crítico, desmarcar los demás del mismo tipo
                         return { ...run, is_critical: false };
                     }
                     return run;
@@ -708,7 +708,7 @@ const ProjectDocumentationPage = () => {
         }
         catch (error) {
             console.error("Error toggling critical element:", error);
-            setError("Error al marcar elemento crÃ­tico. Verifica que la base de datos tenga la columna 'is_critical'.");
+            setError("Error al marcar elemento crítico. Verifica que la base de datos tenga la columna 'is_critical'.");
             // Refrescar desde el servidor en caso de error
             await queryClient.refetchQueries({
                 queryKey: ["calculation-runs", selectedProjectId],
@@ -741,13 +741,13 @@ const ProjectDocumentationPage = () => {
                         transform: "scale(1.1)",
                     },
                     transition: "transform 0.2s",
-                }, children: params.row.is_critical ? (_jsx(StarIcon, { color: "warning", titleAccess: "Elemento cr\u00C3\u00ADtico para reportes" })) : (_jsx(StarBorderIcon, { color: "action", titleAccess: "Marcar como cr\u00C3\u00ADtico" })) })),
+                }, children: params.row.is_critical ? (_jsx(StarIcon, { color: "warning", titleAccess: "Elemento cr\u00EDtico para reportes" })) : (_jsx(StarBorderIcon, { color: "action", titleAccess: "Marcar como cr\u00EDtico" })) })),
         },
         {
             field: "created_at",
             headerName: "Fecha",
             width: 150,
-            valueFormatter: (params) => (params.value ? dayjs(params.value).format("DD/MM/YYYY HH:mm") : "â€”"),
+            valueFormatter: (params) => (params.value ? dayjs(params.value).format("DD/MM/YYYY HH:mm") : "—"),
         },
         { field: "summary", headerName: "Resumen", flex: 1, minWidth: 250 },
         {
@@ -773,60 +773,60 @@ const ProjectDocumentationPage = () => {
                 if (result?.text)
                     parts.push(result.text.substring(0, 50) + (result.text.length > 50 ? "..." : ""));
                 if (result?.location)
-                    parts.push(`ðŸ“ ${result.location}`);
+                    parts.push(`📍 ${result.location}`);
                 if (result?.area)
-                    parts.push(`ðŸ“ ${result.area} mÂ²`);
+                    parts.push(`📐 ${result.area} m²`);
                 if (result?.height)
-                    parts.push(`ðŸ“ ${result.height} m`);
-                return parts.length > 0 ? parts.join(" | ") : "â€”";
+                    parts.push(`📏 ${result.height} m`);
+                return parts.length > 0 ? parts.join(" | ") : "—";
             }
             case "live_load":
-                return `${inputs?.buildingType || "â€”"} | ${inputs?.usage || "â€”"} | ${result?.uniformLoad || result?.uniformLoadRaw || "â€”"} kN/mÂ²`;
+                return `${inputs?.buildingType || "—"} | ${inputs?.usage || "—"} | ${result?.uniformLoad || result?.uniformLoadRaw || "—"} kN/m²`;
             case "reduction":
             case "live_load_reduction":
-                return `Elemento: ${inputs?.elementType || "â€”"} | Área: ${inputs?.tributaryArea || inputs?.tributary_area || "â€”"} m² | Carga reducida: ${typeof result?.reducedLoad === "number" ? result.reducedLoad.toFixed(3) : result?.reducedLoad || "â€”"} kN/m²`;
+                return `Elemento: ${inputs?.elementType || "—"} | Área: ${inputs?.tributaryArea || inputs?.tributary_area || "—"} m² | Carga reducida: ${typeof result?.reducedLoad === "number" ? result.reducedLoad.toFixed(3) : result?.reducedLoad || "—"} kN/m²`;
             case "wind_load":
-                return `Ambiente: ${inputs?.environment || "â€”"} | Altura: ${inputs?.height || "â€”"}m | q = ${result?.q?.toFixed(2) || "â€”"} kN/mÂ²`;
+                return `Ambiente: ${inputs?.environment || "—"} | Altura: ${inputs?.height || "—"}m | q = ${result?.q?.toFixed(2) || "—"} kN/m²`;
             case "snow_load":
-                return `Banda ${inputs?.latitudeBand || "â€”"} | pf = ${result?.pf?.toFixed(2) || "â€”"} kN/mÂ²`;
+                return `Banda ${inputs?.latitudeBand || "—"} | pf = ${result?.pf?.toFixed(2) || "—"} kN/m²`;
             case "seismic":
-                return `Zona ${inputs?.zone || "â€”"} | Qbas,x = ${result?.Qbasx?.toFixed(2) || "â€”"} kN | Qbas,y = ${result?.Qbasy?.toFixed(2) || "â€”"} kN`;
+                return `Zona ${inputs?.zone || "—"} | Qbas,x = ${result?.Qbasx?.toFixed(2) || "—"} kN | Qbas,y = ${result?.Qbasy?.toFixed(2) || "—"} kN`;
             case "rc_column": {
                 const longSteel = result?.longitudinalSteel;
                 const transSteel = result?.transverseSteel;
                 if (longSteel && transSteel) {
-                    return `${longSteel.numBars}Ï†${longSteel.barDiameter} (${Math.round(longSteel.totalArea)}mmÂ²), Est Ï†${transSteel.diameter}@${transSteel.spacing}mm`;
+                    return `${longSteel.numBars}φ${longSteel.barDiameter} (${Math.round(longSteel.totalArea)}mm²), Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
                 }
-                return "â€”";
+                return "—";
             }
             case "rc_beam": {
                 const posReinf = result?.positiveReinforcemenet || result?.positiveReinforcement;
                 const negReinf = result?.negativeReinforcement;
                 const transSteel = result?.transverseSteel;
                 if (posReinf && negReinf && transSteel) {
-                    return `Sup: ${negReinf.numBars}Ï†${negReinf.barDiameter}, Inf: ${posReinf.numBars}Ï†${posReinf.barDiameter}, Est Ï†${transSteel.diameter}@${transSteel.spacing}mm`;
+                    return `Sup: ${negReinf.numBars}φ${negReinf.barDiameter}, Inf: ${posReinf.numBars}φ${posReinf.barDiameter}, Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
                 }
-                return "â€”";
+                return "—";
             }
             case "steel_column":
-                return `Perfil: ${inputs?.profileName || "Personalizado"} | Pn = ${result?.pn?.toFixed(1) || "â€”"} kN | Ratio: ${((result?.interactionRatio || 0) * 100).toFixed(1)}%`;
+                return `Perfil: ${inputs?.profileName || "Personalizado"} | Pn = ${result?.pn?.toFixed(1) || "—"} kN | Ratio: ${((result?.interactionRatio || 0) * 100).toFixed(1)}%`;
             case "steel_beam":
-                return `Perfil: ${inputs?.profileName || "Personalizado"} | Mn = ${result?.mn?.toFixed(1) || "â€”"} kNÂ·m | Ratio: ${((result?.flexureRatio || 0) * 100).toFixed(1)}%`;
+                return `Perfil: ${inputs?.profileName || "Personalizado"} | Mn = ${result?.mn?.toFixed(1) || "—"} kN·m | Ratio: ${((result?.flexureRatio || 0) * 100).toFixed(1)}%`;
             case "wood_column":
-                return `SecciÃ³n: ${inputs?.width || "â€”"}x${inputs?.depth || "â€”"} cm | Pn = ${result?.pn?.toFixed(1) || "â€”"} kN | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
+                return `Sección: ${inputs?.width || "—"}x${inputs?.depth || "—"} cm | Pn = ${result?.pn?.toFixed(1) || "—"} kN | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
             case "wood_beam":
-                return `SecciÃ³n: ${inputs?.width || "â€”"}x${inputs?.height || "â€”"} cm | Mn = ${result?.mn?.toFixed(1) || "â€”"} kNÂ·m | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
+                return `Sección: ${inputs?.width || "—"}x${inputs?.height || "—"} cm | Mn = ${result?.mn?.toFixed(1) || "—"} kN·m | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
             case "footing":
-                return `Tipo: ${inputs?.footingType || "â€”"} | DimensiÃ³n: ${inputs?.length || "â€”"}x${inputs?.width || "â€”"} m | H = ${inputs?.footingDepth || "â€”"} cm`;
+                return `Tipo: ${inputs?.footingType || "—"} | Dimensión: ${inputs?.length || "—"}x${inputs?.width || "—"} m | H = ${inputs?.footingDepth || "—"} cm`;
             default:
-                return "â€”";
+                return "—";
         }
     };
-    return (_jsxs(Box, { sx: { display: "flex", flexDirection: "column", gap: 3 }, children: [_jsxs(Box, { sx: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }, children: [_jsx(Typography, { variant: "h5", children: "Documentaci\u00C3\u00B3n del proyecto" }), _jsx(TextField, { select: true, label: "Proyecto", size: "small", value: selectedProjectId ?? "", onChange: (event) => {
+    return (_jsxs(Box, { sx: { display: "flex", flexDirection: "column", gap: 3 }, children: [_jsxs(Box, { sx: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }, children: [_jsx(Typography, { variant: "h5", children: "Documentaci\u00F3n del proyecto" }), _jsx(TextField, { select: true, label: "Proyecto", size: "small", value: selectedProjectId ?? "", onChange: (event) => {
                             setSelectedProjectId(event.target.value);
                             setProjectInSession(event.target.value);
                             setSelectedCalculations({});
-                        }, sx: { minWidth: 220 }, children: projectOptions.map((project) => (_jsx(MenuItem, { value: project.id, children: project.name }, project.id))) })] }), !selectedProjectId && (_jsx(Alert, { severity: "info", children: "Selecciona un proyecto para ver los c\u00C3\u00A1lculos disponibles y generar la memoria de c\u00C3\u00A1lculo." })), selectedProjectId && (_jsxs(_Fragment, { children: [_jsx(Card, { children: _jsxs(CardContent, { children: [_jsxs(Stack, { direction: "row", spacing: 2, alignItems: "center", justifyContent: "space-between", children: [_jsxs(Box, { children: [_jsx(Typography, { variant: "h6", gutterBottom: true, children: "Generar Memoria de C\u00C3\u00A1lculo" }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: "Selecciona los c\u00C3\u00A1lculos que deseas incluir en el documento Word. Puedes elegir m\u00C3\u00BAltiples c\u00C3\u00A1lculos de cada tipo." })] }), _jsx(Button, { variant: "contained", startIcon: _jsx(DownloadIcon, {}), onClick: handleGenerateDocument, disabled: generating || totalSelected === 0, children: generating ? "Generando..." : `Generar Word (${totalSelected})` })] }), error && (_jsx(Alert, { severity: "error", sx: { mt: 2 }, children: error }))] }) }), calculationTypes.map((type) => {
+                        }, sx: { minWidth: 220 }, children: projectOptions.map((project) => (_jsx(MenuItem, { value: project.id, children: project.name }, project.id))) })] }), !selectedProjectId && (_jsx(Alert, { severity: "info", children: "Selecciona un proyecto para ver los c\u00E1lculos disponibles y generar la memoria de c\u00E1lculo." })), selectedProjectId && (_jsxs(_Fragment, { children: [_jsx(Card, { children: _jsxs(CardContent, { children: [_jsxs(Stack, { direction: "row", spacing: 2, alignItems: "center", justifyContent: "space-between", children: [_jsxs(Box, { children: [_jsx(Typography, { variant: "h6", gutterBottom: true, children: "Generar Memoria de C\u00E1lculo" }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: "Selecciona los c\u00E1lculos que deseas incluir en el documento Word. Puedes elegir m\u00FAltiples c\u00E1lculos de cada tipo." })] }), _jsx(Button, { variant: "contained", startIcon: _jsx(DownloadIcon, {}), onClick: handleGenerateDocument, disabled: generating || totalSelected === 0, children: generating ? "Generando..." : `Generar Word (${totalSelected})` })] }), error && (_jsx(Alert, { severity: "error", sx: { mt: 2 }, children: error }))] }) }), calculationTypes.map((type) => {
                         const calculations = groupedCalculations[type.id] || [];
                         const selectedCount = selectedCalculations[type.id]?.length || 0;
                         const allSelected = calculations.length > 0 && selectedCount === calculations.length;

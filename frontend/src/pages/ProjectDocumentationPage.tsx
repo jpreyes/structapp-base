@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -268,7 +268,7 @@ const ProjectDocumentationPage = () => {
     setEditingError(null);
   }, [editingRun]);
 
-  // Agrupar cÃ¡lculos por tipo
+  // Agrupar cálculos por tipo
   const groupedCalculations = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     calculationTypes.forEach((type) => {
@@ -299,15 +299,15 @@ const ProjectDocumentationPage = () => {
   const handleCreateCalculation = (typeId: string) => {
     if (inlineEditorTypes.has(typeId)) {
       if (!selectedProjectId) {
-        setError("Selecciona un proyecto para crear un c�lculo");
+        setError("Selecciona un proyecto para crear un cálculo");
         return;
       }
       if (!sessionUserId) {
-        setError("No se pudo identificar al usuario para crear el c�lculo");
+        setError("No se pudo identificar al usuario para crear el cálculo");
         return;
       }
       if (["wind_load", "snow_load", "seismic"].includes(typeId) && !designOptions) {
-        setError("Las opciones de dise�o a�n no est�n disponibles. Intenta nuevamente en unos segundos");
+        setError("Las opciones de diseño aún no están disponibles. Intenta nuevamente en unos segundos");
         return;
       }
       const draft: EditableRun = {
@@ -522,10 +522,10 @@ const ProjectDocumentationPage = () => {
 
   const createDraftCalculation = async (normalizedType: string, payload: Record<string, unknown>) => {
     if (!selectedProjectId) {
-      throw new Error("Selecciona un proyecto antes de crear un c�lculo");
+      throw new Error("Selecciona un proyecto antes de crear un cálculo");
     }
     if (!sessionUserId) {
-      throw new Error("No se pudo identificar al usuario para crear el c�lculo");
+      throw new Error("No se pudo identificar al usuario para crear el cálculo");
     }
     const body = {
       ...payload,
@@ -556,7 +556,7 @@ const ProjectDocumentationPage = () => {
       await apiClient.post("/design-bases/seismic", body);
       return;
     }
-    throw new Error("Este tipo de c�lculo no se puede crear desde esta pantalla");
+    throw new Error("Este tipo de cálculo no se puede crear desde esta pantalla");
   };
 
   const handleSaveEditing = async () => {
@@ -628,7 +628,7 @@ const ProjectDocumentationPage = () => {
     const normalized = normalizeElementType(editingRun.element_type);
     if (normalized === "live_load") {
       if (!designOptions) {
-        return <Alert severity="info" sx={{ mt: 2 }}>Cargando cat�logos...</Alert>;
+        return <Alert severity="info" sx={{ mt: 2 }}>Cargando catálogos...</Alert>;
       }
       const buildingTypes = Object.keys(designOptions.liveLoadCategories || {});
       const usageOptionsForEdit = editingValues.buildingType
@@ -670,7 +670,7 @@ const ProjectDocumentationPage = () => {
       return (
         <Stack spacing={2} sx={{ mt: 2 }}>
           <TextField
-            label="Descripci�n del edificio"
+            label="Descripción del edificio"
             value={editingValues.text ?? ""}
             onChange={(event) => handleEditingValueChange("text", event.target.value)}
             fullWidth
@@ -678,13 +678,13 @@ const ProjectDocumentationPage = () => {
             minRows={3}
           />
           <TextField
-            label="Ubicaci�n"
+            label="Ubicación"
             value={editingValues.location ?? ""}
             onChange={(event) => handleEditingValueChange("location", event.target.value)}
             fullWidth
           />
           <TextField
-            label="�rea total (m�)"
+            label="Área total (m²)"
             type="number"
             value={editingValues.area ?? ""}
             onChange={(event) => handleEditingValueChange("area", event.target.value)}
@@ -702,7 +702,7 @@ const ProjectDocumentationPage = () => {
     }
     if (normalized === "wind_load") {
       if (!designOptions) {
-        return <Alert severity="info" sx={{ mt: 2 }}>Cargando cat�logos...</Alert>;
+        return <Alert severity="info" sx={{ mt: 2 }}>Cargando catálogos...</Alert>;
       }
       return (
         <Stack spacing={2} sx={{ mt: 2 }}>
@@ -731,7 +731,7 @@ const ProjectDocumentationPage = () => {
     }
     if (normalized === "snow_load") {
       if (!designOptions) {
-        return <Alert severity="info" sx={{ mt: 2 }}>Cargando cat�logos...</Alert>;
+        return <Alert severity="info" sx={{ mt: 2 }}>Cargando catálogos...</Alert>;
       }
       const latitudeBand = editingValues.latitudeBand ?? "";
       const exposureCategory = editingValues.exposureCategory ?? "";
@@ -781,7 +781,7 @@ const ProjectDocumentationPage = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 select
-                label="Condici�n t�rmica"
+                label="Condici?n t?rmica"
                 value={editingValues.thermalCondition ?? ""}
                 onChange={(event) => handleEditingValueChange("thermalCondition", event.target.value)}
                 fullWidth
@@ -796,7 +796,7 @@ const ProjectDocumentationPage = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 select
-                label="Categor�a de importancia"
+                label="Categoría de importancia"
                 value={editingValues.importanceCategory ?? ""}
                 onChange={(event) => handleEditingValueChange("importanceCategory", event.target.value)}
                 fullWidth
@@ -811,7 +811,7 @@ const ProjectDocumentationPage = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 select
-                label="Categor�a de exposici�n"
+                label="Categoría de exposición"
                 value={exposureCategory}
                 onChange={(event) => {
                   handleEditingValueChange("exposureCategory", event.target.value);
@@ -829,7 +829,7 @@ const ProjectDocumentationPage = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 select
-                label="Condici�n de exposici�n"
+                label="Condición de exposición"
                 value={editingValues.exposureCondition ?? ""}
                 onChange={(event) => handleEditingValueChange("exposureCondition", event.target.value)}
                 fullWidth
@@ -859,7 +859,7 @@ const ProjectDocumentationPage = () => {
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Inclinaci�n (�)"
+                label="Inclinación (°)"
                 type="number"
                 value={editingValues.roofPitch ?? ""}
                 onChange={(event) => handleEditingValueChange("roofPitch", event.target.value)}
@@ -872,7 +872,7 @@ const ProjectDocumentationPage = () => {
     }
     if (normalized === "seismic") {
       if (!designOptions) {
-        return <Alert severity="info" sx={{ mt: 2 }}>Cargando cat�logos...</Alert>;
+        return <Alert severity="info" sx={{ mt: 2 }}>Cargando catálogos...</Alert>;
       }
       return (
         <Stack spacing={2} sx={{ mt: 2 }}>
@@ -880,7 +880,7 @@ const ProjectDocumentationPage = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 select
-                label="Categor�a estructural"
+                label="Categor?a estructural"
                 value={editingValues.category ?? ""}
                 onChange={(event) => handleEditingValueChange("category", event.target.value)}
                 fullWidth
@@ -895,7 +895,7 @@ const ProjectDocumentationPage = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 select
-                label="Zona s�smica"
+                label="Zona sísmica"
                 value={editingValues.zone ?? ""}
                 onChange={(event) => handleEditingValueChange("zone", event.target.value)}
                 fullWidth
@@ -933,7 +933,7 @@ const ProjectDocumentationPage = () => {
             </Grid>
             <Grid item xs={12} md={4}>
               <TextField
-                label="Peso s�smico total (kN)"
+                label="Peso sísmico total (kN)"
                 type="number"
                 value={editingValues.ps ?? ""}
                 onChange={(event) => handleEditingValueChange("ps", event.target.value)}
@@ -960,7 +960,7 @@ const ProjectDocumentationPage = () => {
             </Grid>
             <Grid item xs={12} md={4}>
               <TextField
-                label="R�'0 (deriva)"
+                label="R0 (deriva)"
                 type="number"
                 value={editingValues.r0 ?? ""}
                 onChange={(event) => handleEditingValueChange("r0", event.target.value)}
@@ -969,7 +969,7 @@ const ProjectDocumentationPage = () => {
             </Grid>
           </Grid>
           <Divider />
-          <Typography variant="subtitle2">Distribuci�n de niveles</Typography>
+          <Typography variant="subtitle2">Distribuci?n de niveles</Typography>
           <Stack spacing={1}>
             {editingStories.map((story, index) => (
               <Stack key={story.id} direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center">
@@ -1018,14 +1018,14 @@ const ProjectDocumentationPage = () => {
             ))}
           </TextField>
           <TextField
-            label="�rea tributaria (m�)"
+            label="Área tributaria (m²)"
             type="number"
             value={editingValues.tributaryArea ?? ""}
             onChange={(event) => handleEditingValueChange("tributaryArea", event.target.value)}
             fullWidth
           />
           <TextField
-            label="Carga base (kN/m�)"
+            label="Carga base (kN/m²)"
             type="number"
             value={editingValues.baseLoad ?? ""}
             onChange={(event) => handleEditingValueChange("baseLoad", event.target.value)}
@@ -1098,15 +1098,15 @@ const ProjectDocumentationPage = () => {
         console.log("Set critical result:", result);
       }
 
-      // Verificar que el backend devolviÃ³ datos
+      // Verificar que el backend devolvió datos
       if (!result?.run) {
         console.error("Backend returned null run data:", result);
-        throw new Error("El backend no devolviÃ³ datos actualizados");
+        throw new Error("El backend no devolvió datos actualizados");
       }
 
       console.log("Updated run data:", result.run);
 
-      // Actualizar el cachÃ© de React Query manualmente
+      // Actualizar el caché de React Query manualmente
       queryClient.setQueryData<CalculationRun[]>(
         ["calculation-runs", selectedProjectId],
         (oldData) => {
@@ -1114,13 +1114,13 @@ const ProjectDocumentationPage = () => {
 
           console.log("Updating cache, old data:", oldData);
 
-          // Si se estÃ¡ marcando como crÃ­tico, desmarcar otros del mismo tipo
+          // Si se está marcando como crítico, desmarcar otros del mismo tipo
           const updatedData = oldData.map((run) => {
             if (run.id === runId) {
-              // Este es el elemento que se modificÃ³
+              // Este es el elemento que se modificó
               return { ...run, is_critical: result.run.is_critical };
             } else if (run.element_type === elementType && !currentIsCritical) {
-              // Si estamos marcando uno como crÃ­tico, desmarcar los demÃ¡s del mismo tipo
+              // Si estamos marcando uno como crítico, desmarcar los demás del mismo tipo
               return { ...run, is_critical: false };
             }
             return run;
@@ -1134,7 +1134,7 @@ const ProjectDocumentationPage = () => {
       console.log("Cache manually updated");
     } catch (error) {
       console.error("Error toggling critical element:", error);
-      setError("Error al marcar elemento crÃ­tico. Verifica que la base de datos tenga la columna 'is_critical'.");
+      setError("Error al marcar elemento crítico. Verifica que la base de datos tenga la columna 'is_critical'.");
 
       // Refrescar desde el servidor en caso de error
       await queryClient.refetchQueries({
@@ -1182,9 +1182,9 @@ const ProjectDocumentationPage = () => {
           }}
         >
           {params.row.is_critical ? (
-            <StarIcon color="warning" titleAccess="Elemento crÃ­tico para reportes" />
+            <StarIcon color="warning" titleAccess="Elemento crítico para reportes" />
           ) : (
-            <StarBorderIcon color="action" titleAccess="Marcar como crÃ­tico" />
+            <StarBorderIcon color="action" titleAccess="Marcar como crítico" />
           )}
         </Box>
       ),
@@ -1193,7 +1193,7 @@ const ProjectDocumentationPage = () => {
       field: "created_at",
       headerName: "Fecha",
       width: 150,
-      valueFormatter: (params) => (params.value ? dayjs(params.value).format("DD/MM/YYYY HH:mm") : "â€”"),
+      valueFormatter: (params) => (params.value ? dayjs(params.value).format("DD/MM/YYYY HH:mm") : "—"),
     },
     { field: "summary", headerName: "Resumen", flex: 1, minWidth: 250 },
     {
@@ -1236,35 +1236,35 @@ const ProjectDocumentationPage = () => {
       case "building_description": {
         const parts = [];
         if (result?.text) parts.push(result.text.substring(0, 50) + (result.text.length > 50 ? "..." : ""));
-        if (result?.location) parts.push(`ðŸ“ ${result.location}`);
-        if (result?.area) parts.push(`ðŸ“ ${result.area} mÂ²`);
-        if (result?.height) parts.push(`ðŸ“ ${result.height} m`);
-        return parts.length > 0 ? parts.join(" | ") : "â€”";
+        if (result?.location) parts.push(`📍 ${result.location}`);
+        if (result?.area) parts.push(`📐 ${result.area} m²`);
+        if (result?.height) parts.push(`📏 ${result.height} m`);
+        return parts.length > 0 ? parts.join(" | ") : "—";
       }
 
       case "live_load":
-        return `${inputs?.buildingType || "â€”"} | ${inputs?.usage || "â€”"} | ${result?.uniformLoad || result?.uniformLoadRaw || "â€”"} kN/mÂ²`;
+        return `${inputs?.buildingType || "—"} | ${inputs?.usage || "—"} | ${result?.uniformLoad || result?.uniformLoadRaw || "—"} kN/m²`;
 
       case "reduction":
       case "live_load_reduction":
-        return `Elemento: ${inputs?.elementType || "â€”"} | Área: ${inputs?.tributaryArea || inputs?.tributary_area || "â€”"} m² | Carga reducida: ${typeof result?.reducedLoad === "number" ? result.reducedLoad.toFixed(3) : result?.reducedLoad || "â€”"} kN/m²`;
+        return `Elemento: ${inputs?.elementType || "—"} | Área: ${inputs?.tributaryArea || inputs?.tributary_area || "—"} m² | Carga reducida: ${typeof result?.reducedLoad === "number" ? result.reducedLoad.toFixed(3) : result?.reducedLoad || "—"} kN/m²`;
 
       case "wind_load":
-        return `Ambiente: ${inputs?.environment || "â€”"} | Altura: ${inputs?.height || "â€”"}m | q = ${result?.q?.toFixed(2) || "â€”"} kN/mÂ²`;
+        return `Ambiente: ${inputs?.environment || "—"} | Altura: ${inputs?.height || "—"}m | q = ${result?.q?.toFixed(2) || "—"} kN/m²`;
 
       case "snow_load":
-        return `Banda ${inputs?.latitudeBand || "â€”"} | pf = ${result?.pf?.toFixed(2) || "â€”"} kN/mÂ²`;
+        return `Banda ${inputs?.latitudeBand || "—"} | pf = ${result?.pf?.toFixed(2) || "—"} kN/m²`;
 
       case "seismic":
-        return `Zona ${inputs?.zone || "â€”"} | Qbas,x = ${result?.Qbasx?.toFixed(2) || "â€”"} kN | Qbas,y = ${result?.Qbasy?.toFixed(2) || "â€”"} kN`;
+        return `Zona ${inputs?.zone || "—"} | Qbas,x = ${result?.Qbasx?.toFixed(2) || "—"} kN | Qbas,y = ${result?.Qbasy?.toFixed(2) || "—"} kN`;
 
       case "rc_column": {
         const longSteel = result?.longitudinalSteel;
         const transSteel = result?.transverseSteel;
         if (longSteel && transSteel) {
-          return `${longSteel.numBars}Ï†${longSteel.barDiameter} (${Math.round(longSteel.totalArea)}mmÂ²), Est Ï†${transSteel.diameter}@${transSteel.spacing}mm`;
+          return `${longSteel.numBars}φ${longSteel.barDiameter} (${Math.round(longSteel.totalArea)}mm²), Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
         }
-        return "â€”";
+        return "—";
       }
 
       case "rc_beam": {
@@ -1272,35 +1272,35 @@ const ProjectDocumentationPage = () => {
         const negReinf = result?.negativeReinforcement;
         const transSteel = result?.transverseSteel;
         if (posReinf && negReinf && transSteel) {
-          return `Sup: ${negReinf.numBars}Ï†${negReinf.barDiameter}, Inf: ${posReinf.numBars}Ï†${posReinf.barDiameter}, Est Ï†${transSteel.diameter}@${transSteel.spacing}mm`;
+          return `Sup: ${negReinf.numBars}φ${negReinf.barDiameter}, Inf: ${posReinf.numBars}φ${posReinf.barDiameter}, Est φ${transSteel.diameter}@${transSteel.spacing}mm`;
         }
-        return "â€”";
+        return "—";
       }
 
       case "steel_column":
-        return `Perfil: ${inputs?.profileName || "Personalizado"} | Pn = ${result?.pn?.toFixed(1) || "â€”"} kN | Ratio: ${((result?.interactionRatio || 0) * 100).toFixed(1)}%`;
+        return `Perfil: ${inputs?.profileName || "Personalizado"} | Pn = ${result?.pn?.toFixed(1) || "—"} kN | Ratio: ${((result?.interactionRatio || 0) * 100).toFixed(1)}%`;
 
       case "steel_beam":
-        return `Perfil: ${inputs?.profileName || "Personalizado"} | Mn = ${result?.mn?.toFixed(1) || "â€”"} kNÂ·m | Ratio: ${((result?.flexureRatio || 0) * 100).toFixed(1)}%`;
+        return `Perfil: ${inputs?.profileName || "Personalizado"} | Mn = ${result?.mn?.toFixed(1) || "—"} kN·m | Ratio: ${((result?.flexureRatio || 0) * 100).toFixed(1)}%`;
 
       case "wood_column":
-        return `SecciÃ³n: ${inputs?.width || "â€”"}x${inputs?.depth || "â€”"} cm | Pn = ${result?.pn?.toFixed(1) || "â€”"} kN | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
+        return `Sección: ${inputs?.width || "—"}x${inputs?.depth || "—"} cm | Pn = ${result?.pn?.toFixed(1) || "—"} kN | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
 
       case "wood_beam":
-        return `SecciÃ³n: ${inputs?.width || "â€”"}x${inputs?.height || "â€”"} cm | Mn = ${result?.mn?.toFixed(1) || "â€”"} kNÂ·m | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
+        return `Sección: ${inputs?.width || "—"}x${inputs?.height || "—"} cm | Mn = ${result?.mn?.toFixed(1) || "—"} kN·m | Ratio: ${((result?.utilizationRatio || 0) * 100).toFixed(1)}%`;
 
       case "footing":
-        return `Tipo: ${inputs?.footingType || "â€”"} | DimensiÃ³n: ${inputs?.length || "â€”"}x${inputs?.width || "â€”"} m | H = ${inputs?.footingDepth || "â€”"} cm`;
+        return `Tipo: ${inputs?.footingType || "—"} | Dimensión: ${inputs?.length || "—"}x${inputs?.width || "—"} m | H = ${inputs?.footingDepth || "—"} cm`;
 
       default:
-        return "â€”";
+        return "—";
     }
   };
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
-        <Typography variant="h5">DocumentaciÃ³n del proyecto</Typography>
+        <Typography variant="h5">Documentación del proyecto</Typography>
         <TextField
           select
           label="Proyecto"
@@ -1323,7 +1323,7 @@ const ProjectDocumentationPage = () => {
 
       {!selectedProjectId && (
         <Alert severity="info">
-          Selecciona un proyecto para ver los cÃ¡lculos disponibles y generar la memoria de cÃ¡lculo.
+          Selecciona un proyecto para ver los cálculos disponibles y generar la memoria de cálculo.
         </Alert>
       )}
 
@@ -1334,10 +1334,10 @@ const ProjectDocumentationPage = () => {
               <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography variant="h6" gutterBottom>
-                    Generar Memoria de CÃ¡lculo
+                    Generar Memoria de Cálculo
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Selecciona los cÃ¡lculos que deseas incluir en el documento Word. Puedes elegir mÃºltiples cÃ¡lculos de
+                    Selecciona los cálculos que deseas incluir en el documento Word. Puedes elegir múltiples cálculos de
                     cada tipo.
                   </Typography>
                 </Box>
