@@ -6,14 +6,15 @@ import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import SavingsRoundedIcon from "@mui/icons-material/SavingsRounded";
 import ChecklistRoundedIcon from "@mui/icons-material/ChecklistRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import { useTheme } from "@mui/material/styles";
 import { useProjects } from "../hooks/useProjects";
-import { useTasks } from "../hooks/useTasks";
 import { useSession } from "../store/useSession";
 import { useNavigate } from "react-router-dom";
+import apiClient from "../api/client";
 const StatCard = ({ title, value, helper, icon, color }) => {
     const theme = useTheme();
     return (_jsx(Card, { sx: { height: "100%", overflow: "hidden" }, children: _jsxs(CardContent, { sx: { display: "flex", flexDirection: "column", gap: 1 }, children: [_jsxs(Stack, { direction: "row", spacing: 1.5, alignItems: "center", children: [_jsx(Avatar, { variant: "rounded", sx: {
@@ -24,16 +25,23 @@ const StatCard = ({ title, value, helper, icon, color }) => {
                             }, children: icon }), _jsx(Typography, { variant: "body2", color: "text.secondary", children: title })] }), _jsx(Typography, { variant: "h5", sx: { letterSpacing: "-0.02em" }, children: value }), helper && (_jsx(Typography, { variant: "body2", color: "text.secondary", children: helper }))] }) }));
 };
 const DashboardPage = () => {
-    const projectId = useSession((state) => state.projectId);
     const setProject = useSession((state) => state.setProject);
     const { data: projects } = useProjects();
-    const { data: tasks } = useTasks(projectId ?? projects?.[0]?.id);
+    const { data: tasks = [] } = useQuery({
+        queryKey: ["tasks", "all"],
+        enabled: Boolean(projects?.length),
+        queryFn: async () => {
+            const responses = await Promise.all((projects ?? []).map((project) => apiClient.get(`/tasks/${project.id}`)));
+            return responses.flatMap((res) => res.data);
+        },
+    });
     const navigate = useNavigate();
     const metrics = useMemo(() => {
         const totalProjects = projects?.length ?? 0;
         const totalBudget = projects?.reduce((acc, project) => acc + (project.budget ?? 0), 0) ?? 0;
-        const totalTasks = tasks?.length ?? 0;
-        const completedTasks = tasks?.filter((task) => task.status === "done").length ?? 0;
+        const totalTasks = tasks.length;
+        const completedTasks = tasks.filter((task) => task.status === "done").length;
+        const openTasks = totalTasks - completedTasks;
         const totalPaid = projects?.reduce((acc, project) => acc + (project.payments_pagado ?? 0), 0) ?? 0;
         const totalEgresos = projects?.reduce((acc, project) => acc + (project.payments_egresos ?? 0), 0) ?? 0;
         const totalOutstanding = projects?.reduce((acc, project) => acc + (project.payments_saldo ?? 0), 0) ?? 0;
@@ -44,6 +52,7 @@ const DashboardPage = () => {
             totalProjects,
             totalBudget,
             totalTasks,
+            openTasks,
             completedTasks,
             totalPaid,
             totalEgresos,
@@ -89,7 +98,7 @@ const DashboardPage = () => {
         },
         {
             title: "Tareas abiertas",
-            value: metrics.totalTasks.toString(),
+            value: metrics.openTasks.toString(),
             helper: `${metrics.completedTasks} completadas`,
             icon: _jsx(TaskAltRoundedIcon, { fontSize: "small" }),
             color: "#f97316",

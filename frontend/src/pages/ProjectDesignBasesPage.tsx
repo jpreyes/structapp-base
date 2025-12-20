@@ -21,6 +21,7 @@ import {
   Stack,
   TextField,
   Typography,
+  useTheme,
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -33,6 +34,16 @@ import DownloadIcon from "@mui/icons-material/Download";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useMutation } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
+import {
+  ChartComponent,
+  SeriesCollectionDirective,
+  SeriesDirective,
+  Inject,
+  LineSeries,
+  Legend,
+  Tooltip,
+} from "@syncfusion/ej2-react-charts";
+import "@syncfusion/ej2-base/styles/material.css";
 
 import apiClient from "../api/client";
 import { useDesignBaseOptions } from "../hooks/useDesignBaseOptions";
@@ -116,6 +127,13 @@ const ProjectDesignBasesPage = () => {
   const user = useSession((state) => state.user);
   const setProjectInSession = useSession((state) => state.setProject);
   const { projectId: routeProjectId } = useParams<{ projectId?: string }>();
+  const theme = useTheme();
+  const spectrumColors = useMemo(
+    () => [theme.palette.primary.main, theme.palette.secondary.main],
+    [theme.palette.primary.main, theme.palette.secondary.main]
+  );
+  const gridColor = theme.palette.divider;
+  const axisLabelColor = theme.palette.text.secondary;
 
   const [buildingType, setBuildingType] = useState<string>("");
   const [usage, setUsage] = useState<string>("");
@@ -1483,6 +1501,77 @@ const ProjectDesignBasesPage = () => {
                 }}
                 pageSizeOptions={[10, 25, 50]}
               />
+              <Box
+                sx={{
+                  border: `1px solid ${gridColor}`,
+                  borderRadius: 2,
+                  p: { xs: 1.5, md: 2 },
+                  backgroundColor: theme.palette.background.paper,
+                }}
+              >
+                <ChartComponent
+                  primaryXAxis={{
+                    title: "Periodo (s)",
+                    valueType: "Double",
+                    edgeLabelPlacement: "Shift",
+                    majorGridLines: { color: gridColor, width: 1 },
+                    minorGridLines: { width: 0 },
+                    lineStyle: { color: gridColor, width: 1 },
+                    labelStyle: { color: axisLabelColor, size: "12px" },
+                    titleStyle: { color: axisLabelColor, size: "12px" },
+                  }}
+                  primaryYAxis={{
+                    title: "Sa (g)",
+                    minimum: 0,
+                    majorGridLines: { color: gridColor, width: 1 },
+                    minorGridLines: { width: 0 },
+                    lineStyle: { color: gridColor, width: 1 },
+                    labelStyle: { color: axisLabelColor, size: "12px" },
+                    titleStyle: { color: axisLabelColor, size: "12px" },
+                  }}
+                  chartArea={{ border: { width: 0 } }}
+                  legendSettings={{ visible: true, position: "Bottom" }}
+                  tooltip={{ enable: true, shared: true }}
+                  background="transparent"
+                  height="340px"
+                >
+                  <Inject services={[LineSeries, Legend, Tooltip]} />
+                  <SeriesCollectionDirective>
+                    <SeriesDirective
+                      name="SaX"
+                      dataSource={seismicMutation.data.spectrum}
+                      xName="period"
+                      yName="SaX"
+                      type="Line"
+                      width={3}
+                      fill={spectrumColors[0]}
+                      marker={{
+                        visible: true,
+                        width: 8,
+                        height: 8,
+                        shape: "Circle",
+                        border: { width: 1, color: "#ffffff" },
+                      }}
+                    />
+                    <SeriesDirective
+                      name="SaY"
+                      dataSource={seismicMutation.data.spectrum}
+                      xName="period"
+                      yName="SaY"
+                      type="Line"
+                      width={3}
+                      fill={spectrumColors[1]}
+                      marker={{
+                        visible: true,
+                        width: 8,
+                        height: 8,
+                        shape: "Diamond",
+                        border: { width: 1, color: "#ffffff" },
+                      }}
+                    />
+                  </SeriesCollectionDirective>
+                </ChartComponent>
+              </Box>
             </Box>
           )}
         </CardContent>
