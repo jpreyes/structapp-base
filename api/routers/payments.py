@@ -6,10 +6,40 @@ from supa.client import supa
 
 router = APIRouter()
 
+def _require_project(project_id: str, user_id: str) -> None:
+    project = (
+        supa()
+        .table("projects")
+        .select("id")
+        .eq("id", project_id)
+        .eq("created_by", user_id)
+        .single()
+        .execute()
+        .data
+    )
+    if not project:
+        raise ValueError("Proyecto no encontrado")
+
+
+def _get_payment(payment_id: str) -> dict:
+    payment = (
+        supa()
+        .table("project_payments")
+        .select("*")
+        .eq("id", payment_id)
+        .single()
+        .execute()
+        .data
+    )
+    if not payment:
+        raise ValueError("Pago no encontrado")
+    return payment
+
 
 @router.get("/{project_id}", response_model=list[PaymentResponse])
 async def list_payments(project_id: str, user_id: UserIdDep):
     try:
+        _require_project(project_id, user_id)
         data = (
             supa()
             .table("project_payments")
@@ -19,6 +49,8 @@ async def list_payments(project_id: str, user_id: UserIdDep):
             .execute()
             .data
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
     return data
@@ -27,6 +59,7 @@ async def list_payments(project_id: str, user_id: UserIdDep):
 @router.post("/", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
 async def create_payment(payload: PaymentCreate, user_id: UserIdDep):
     try:
+        _require_project(payload.project_id, user_id)
         payload_data = payload.model_dump()
         for field in ("event_date", "due_date"):
             if field in payload_data and hasattr(payload_data[field], "isoformat"):
@@ -38,6 +71,8 @@ async def create_payment(payload: PaymentCreate, user_id: UserIdDep):
             .insert(payload_data)
             .execute()
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     if not response.data:
@@ -48,6 +83,8 @@ async def create_payment(payload: PaymentCreate, user_id: UserIdDep):
 @router.patch("/{payment_id}", response_model=PaymentResponse)
 async def update_payment(payment_id: str, payload: PaymentUpdate, user_id: UserIdDep):
     try:
+        payment = _get_payment(payment_id)
+        _require_project(payment["project_id"], user_id)
         patch = payload.model_dump(exclude_unset=True)
         for field in ("event_date", "due_date"):
             if field in patch and hasattr(patch[field], "isoformat"):
@@ -59,6 +96,8 @@ async def update_payment(payment_id: str, payload: PaymentUpdate, user_id: UserI
             .eq("id", payment_id)
             .execute()
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     if not response.data:
@@ -69,7 +108,11 @@ async def update_payment(payment_id: str, payload: PaymentUpdate, user_id: UserI
 @router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_payment(payment_id: str, user_id: UserIdDep):
     try:
+        payment = _get_payment(payment_id)
+        _require_project(payment["project_id"], user_id)
         supa().table("project_payments").delete().eq("id", payment_id).execute()
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return None

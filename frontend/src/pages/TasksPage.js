@@ -2,6 +2,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid, MenuItem, Tab, Tabs, TextField, Typography, } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import { useTasks } from "../hooks/useTasks";
 import { useProjects } from "../hooks/useProjects";
 import { useSession } from "../store/useSession";
@@ -14,13 +15,16 @@ const TasksPage = () => {
     const sessionProjectId = useSession((state) => state.projectId);
     const setProjectInSession = useSession((state) => state.setProject);
     const { data: projects } = useProjects();
+    const { projectId: routeProjectId } = useParams();
+    const isWorkspaceView = Boolean(routeProjectId);
     const [activeTab, setActiveTab] = useState("kanban");
-    const [selectedProjectId, setSelectedProjectId] = useState(sessionProjectId);
-    const isAllProjects = selectedProjectId === "all";
+    const [selectedProjectId, setSelectedProjectId] = useState(isWorkspaceView ? routeProjectId : sessionProjectId);
+    const allowAllProjects = !isWorkspaceView;
+    const isAllProjects = allowAllProjects && selectedProjectId === "all";
     const [formOpen, setFormOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
     const [taskPendingDelete, setTaskPendingDelete] = useState(null);
-    const effectiveProjectId = isAllProjects ? undefined : selectedProjectId ?? projects?.[0]?.id;
+    const effectiveProjectId = routeProjectId ?? (isAllProjects ? undefined : selectedProjectId ?? projects?.[0]?.id);
     const { data: projectTasks = [] } = useTasks(effectiveProjectId);
     const { data: allTasks = [], isFetching: isFetchingAll } = useQuery({
         queryKey: ["tasks", "all"],
@@ -33,12 +37,29 @@ const TasksPage = () => {
     const tasks = isAllProjects ? allTasks : projectTasks;
     const queryClient = useQueryClient();
     useEffect(() => {
+        if (routeProjectId) {
+            setSelectedProjectId(routeProjectId);
+            setProjectInSession(routeProjectId);
+        }
+    }, [routeProjectId, setProjectInSession]);
+    useEffect(() => {
+        if (isWorkspaceView) {
+            return;
+        }
         if (!selectedProjectId && projects?.length) {
             const firstProjectId = sessionProjectId ?? projects[0].id;
             setSelectedProjectId(firstProjectId);
             setProjectInSession(firstProjectId);
         }
-    }, [projects, selectedProjectId, sessionProjectId, setProjectInSession]);
+    }, [isWorkspaceView, projects, selectedProjectId, sessionProjectId, setProjectInSession]);
+    useEffect(() => {
+        if (isWorkspaceView || selectedProjectId === "all") {
+            return;
+        }
+        if (sessionProjectId && selectedProjectId !== sessionProjectId) {
+            setSelectedProjectId(sessionProjectId);
+        }
+    }, [isWorkspaceView, selectedProjectId, sessionProjectId]);
     const metrics = useMemo(() => {
         if (!tasks.length) {
             return { total: 0, byStatus: { todo: 0, doing: 0, blocked: 0, done: 0 } };
@@ -49,6 +70,12 @@ const TasksPage = () => {
         }, { todo: 0, doing: 0, blocked: 0, done: 0 });
         return { total: tasks.length, byStatus };
     }, [tasks]);
+    const activeProjectName = useMemo(() => {
+        if (!projects?.length || !effectiveProjectId) {
+            return "";
+        }
+        return projects.find((project) => project.id === effectiveProjectId)?.name ?? "";
+    }, [projects, effectiveProjectId]);
     const createTaskMutation = useMutation({
         mutationFn: async (payload) => {
             const { data } = await apiClient.post("/tasks", {
@@ -155,11 +182,11 @@ const TasksPage = () => {
             handleEditTask(task);
         }
     };
-    return (_jsxs(Box, { sx: { display: "flex", flexDirection: "column", gap: 3 }, children: [_jsxs(Box, { sx: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [_jsxs(Box, { sx: { display: "flex", gap: 2, alignItems: "center" }, children: [_jsx(Typography, { variant: "h5", children: "Tareas" }), _jsxs(TextField, { select: true, label: "Proyecto activo", size: "small", value: isAllProjects ? "all" : effectiveProjectId ?? "", onChange: (event) => {
+    return (_jsxs(Box, { sx: { display: "flex", flexDirection: "column", gap: 3 }, children: [_jsxs(Box, { sx: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [_jsxs(Box, { sx: { display: "flex", gap: 2, alignItems: "center" }, children: [_jsx(Typography, { variant: "h5", children: "Tareas" }), !isWorkspaceView ? (_jsxs(TextField, { select: true, label: "Proyecto activo", size: "small", value: isAllProjects ? "all" : effectiveProjectId ?? "", onChange: (event) => {
                                     const value = event.target.value;
                                     setSelectedProjectId(value);
                                     setProjectInSession(value === "all" ? undefined : value);
-                                }, sx: { minWidth: 220 }, children: [_jsx(MenuItem, { value: "all", children: "Todos los proyectos" }), (projects ?? []).map((project) => (_jsx(MenuItem, { value: project.id, children: project.name }, project.id)))] })] }), _jsx(Button, { variant: "contained", onClick: handleCreateClick, disabled: !effectiveProjectId || isAllProjects, children: "Nueva tarea" })] }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 6, md: 3, children: _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "button", color: "text.secondary", children: "Total de tareas" }), _jsx(Typography, { variant: "h5", children: metrics.total })] }) }) }), Object.entries(STATUS_META).map(([status, meta]) => (_jsx(Grid, { item: true, xs: 12, sm: 6, md: 3, children: _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "button", color: "text.secondary", children: meta.label }), _jsx(Typography, { variant: "h5", children: metrics.byStatus[status] ?? 0 })] }) }) }, status)))] }), _jsxs(Tabs, { value: activeTab, onChange: (_, value) => setActiveTab(value), sx: { borderBottom: 1, borderColor: "divider" }, children: [_jsx(Tab, { value: "kanban", label: "Kanban" }), _jsx(Tab, { value: "calendar", label: "Calendario" }), _jsx(Tab, { value: "gantt", label: "Gantt" })] }), activeTab === "kanban" && (_jsx(TaskBoard, { tasks: tasks, onEdit: handleEditTask, onDelete: handleDeleteTask, onStatusChange: handleStatusChange })), activeTab === "calendar" && (_jsx(TaskCalendar, { tasks: tasks, onSelectTask: handleSelectTask })), activeTab === "gantt" && _jsx(TaskGantt, { tasks: tasks, onSelectTask: handleSelectTask }), _jsx(TaskFormDialog, { open: formOpen, initialTask: editingTask ?? undefined, onClose: () => {
+                                }, sx: { minWidth: 220 }, children: [_jsx(MenuItem, { value: "all", children: "Todos los proyectos" }), (projects ?? []).map((project) => (_jsx(MenuItem, { value: project.id, children: project.name }, project.id)))] })) : (_jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["Proyecto: ", activeProjectName || "Sin proyecto"] }))] }), _jsx(Button, { variant: "contained", onClick: handleCreateClick, disabled: !effectiveProjectId || isAllProjects, children: "Nueva tarea" })] }), _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 6, md: 3, children: _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "button", color: "text.secondary", children: "Total de tareas" }), _jsx(Typography, { variant: "h5", children: metrics.total })] }) }) }), Object.entries(STATUS_META).map(([status, meta]) => (_jsx(Grid, { item: true, xs: 12, sm: 6, md: 3, children: _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "button", color: "text.secondary", children: meta.label }), _jsx(Typography, { variant: "h5", children: metrics.byStatus[status] ?? 0 })] }) }) }, status)))] }), _jsxs(Tabs, { value: activeTab, onChange: (_, value) => setActiveTab(value), sx: { borderBottom: 1, borderColor: "divider" }, children: [_jsx(Tab, { value: "kanban", label: "Kanban" }), _jsx(Tab, { value: "calendar", label: "Calendario" }), _jsx(Tab, { value: "gantt", label: "Gantt" })] }), activeTab === "kanban" && (_jsx(TaskBoard, { tasks: tasks, onEdit: handleEditTask, onDelete: handleDeleteTask, onStatusChange: handleStatusChange })), activeTab === "calendar" && (_jsx(TaskCalendar, { tasks: tasks, onSelectTask: handleSelectTask })), activeTab === "gantt" && _jsx(TaskGantt, { tasks: tasks, onSelectTask: handleSelectTask }), _jsx(TaskFormDialog, { open: formOpen, initialTask: editingTask ?? undefined, onClose: () => {
                     setFormOpen(false);
                     setEditingTask(null);
                 }, onSubmit: handleSubmitForm, loading: createTaskMutation.isPending || updateTaskMutation.isPending }), _jsxs(Dialog, { open: Boolean(taskPendingDelete), onClose: () => setTaskPendingDelete(null), children: [_jsx(DialogTitle, { children: "Eliminar tarea" }), _jsx(DialogContent, { children: _jsxs(DialogContentText, { children: ["\u00BFSeguro que deseas eliminar la tarea \"", taskPendingDelete?.title, "\"? Esta acci\u00F3n no se puede deshacer."] }) }), _jsxs(DialogActions, { children: [_jsx(Button, { onClick: () => setTaskPendingDelete(null), children: "Cancelar" }), _jsx(Button, { variant: "contained", color: "error", onClick: () => taskPendingDelete && deleteTaskMutation.mutate(taskPendingDelete.id), disabled: deleteTaskMutation.isPending, children: "Eliminar" })] })] })] }));

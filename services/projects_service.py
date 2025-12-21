@@ -6,6 +6,57 @@ from supa.client import supa
 from services.tasks_service import list_tasks
 
 
+def _require_project(project_id: str, user_id: str) -> dict:
+    project = (
+        supa()
+        .table("projects")
+        .select("*")
+        .eq("id", project_id)
+        .eq("created_by", user_id)
+        .single()
+        .execute()
+        .data
+    )
+    if not project:
+        raise ValueError("Proyecto no encontrado")
+    return project
+
+
+def _get_project_limit(user_id: str) -> Optional[int]:
+    profile = (
+        supa()
+        .table("profiles")
+        .select("project_limit")
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+        .data
+    )
+    if not profile:
+        return None
+    return profile.get("project_limit")
+
+
+def _count_user_projects(user_id: str) -> int:
+    projects = (
+        supa()
+        .table("projects")
+        .select("id")
+        .eq("created_by", user_id)
+        .execute()
+        .data
+    )
+    return len(projects or [])
+
+
+def _ensure_project_limit(user_id: str) -> None:
+    limit = _get_project_limit(user_id)
+    if limit is None or limit <= 0:
+        return
+    if _count_user_projects(user_id) >= limit:
+        raise ValueError("Limite de proyectos alcanzado")
+
+
 def _to_date_str(value: Any) -> Optional[str]:
     if value in (None, "", "null"):
         return None
@@ -16,8 +67,14 @@ def _to_date_str(value: Any) -> Optional[str]:
     return str(value)
 
 
-def fetch_projects(archived: bool | None = None):
-    query = supa().table("projects").select("*").order("updated_at", desc=True)
+def fetch_projects(user_id: str, archived: bool | None = None):
+    query = (
+        supa()
+        .table("projects")
+        .select("*")
+        .eq("created_by", user_id)
+        .order("updated_at", desc=True)
+    )
     if archived is True:
         query = query.eq("is_archived", True)
     elif archived is False:
@@ -85,18 +142,8 @@ def fetch_projects(archived: bool | None = None):
     return projects
 
 
-def fetch_project_detail(project_id: str):
-    project_res = (
-        supa()
-        .table("projects")
-        .select("*")
-        .eq("id", project_id)
-        .single()
-        .execute()
-    )
-    project = project_res.data
-    if not project:
-        raise ValueError("Proyecto no encontrado")
+def fetch_project_detail(project_id: str, user_id: str):
+    project = _require_project(project_id, user_id)
 
     payments_res = (
         supa()
@@ -124,7 +171,7 @@ def fetch_project_detail(project_id: str):
     project["payments_egresos"] = egresos
     project["payments_saldo"] = saldo
 
-    tasks = list_tasks(project_id)
+    tasks = list_tasks(project_id, user_id)
     tasks = tasks or []
     total_tasks = len(tasks)
     completed_tasks = sum(1 for task in tasks if task.get("status") == "done")
@@ -168,6 +215,7 @@ def fetch_project_detail(project_id: str):
 
 
 def create_project(user_id: str, name: str, extra: dict):
+    _ensure_project_limit(user_id)
     payload = {
         "name": name,
         "created_by": user_id,
@@ -181,7 +229,8 @@ def create_project(user_id: str, name: str, extra: dict):
     return supa().table("projects").insert(payload).execute().data[0]
 
 
-def update_project(pid: str, patch: dict):
+def update_project(pid: str, user_id: str, patch: dict):
+    _require_project(pid, user_id)
     patch["updated_at"] = datetime.utcnow().isoformat()
     if "start_date" in patch:
         patch["start_date"] = _to_date_str(patch["start_date"])
@@ -190,5 +239,6 @@ def update_project(pid: str, patch: dict):
     return supa().table("projects").update(patch).eq("id", pid).execute().data[0]
 
 
-def delete_project(pid: str):
+def delete_project(pid: str, user_id: str):
+    _require_project(pid, user_id)
     supa().table("projects").delete().eq("id", pid).execute()

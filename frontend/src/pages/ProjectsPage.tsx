@@ -1,4 +1,5 @@
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -31,9 +32,9 @@ type ProjectForm = {
 };
 
 const statusOptions = [
-  { value: "draft", label: "Planificacion" },
-  { value: "in_design", label: "Diseno en curso" },
-  { value: "in_review", label: "En revision" },
+  { value: "draft", label: "Planificación" },
+  { value: "in_design", label: "Diseño en curso" },
+  { value: "in_review", label: "En revisión" },
   { value: "delivered", label: "Entregado" },
 ];
 
@@ -50,6 +51,7 @@ const ProjectsPage = () => {
   const { data: projects } = useProjects();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<ProjectForm>(defaultForm);
+  const [error, setError] = useState<string | null>(null);
   const setProject = useSession((state) => state.setProject);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -70,8 +72,17 @@ const ProjectsPage = () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       setDialogOpen(false);
       setForm(defaultForm);
+      setError(null);
       setProject(data.id);
       navigate(`/projects/${data.id}`);
+    },
+    onError: (err: any) => {
+      const detail = err?.response?.data?.detail ?? "No pudimos crear el proyecto.";
+      const normalized = detail.toLowerCase();
+      const message = normalized.includes("limite de proyectos")
+        ? "Límite de proyectos alcanzado. Actualiza tu plan para crear más."
+        : detail;
+      setError(message);
     },
   });
 
@@ -104,6 +115,11 @@ const ProjectsPage = () => {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <Grid container spacing={2}>
+        {error && (
+          <Grid item xs={12}>
+            <Alert severity="error">{error}</Alert>
+          </Grid>
+        )}
         <Grid item xs={12} sm={4}>
           <Card>
             <CardContent>
@@ -170,7 +186,13 @@ const ProjectsPage = () => {
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Typography variant="h6">Proyectos</Typography>
-        <Button variant="contained" onClick={() => setDialogOpen(true)}>
+        <Button
+          variant="contained"
+          onClick={() => {
+            setError(null);
+            setDialogOpen(true);
+          }}
+        >
           Nuevo proyecto
         </Button>
       </Box>
@@ -286,7 +308,7 @@ const ProjectsPage = () => {
               InputLabelProps={{ shrink: true }}
             />
             <TextField
-              label="Termino"
+              label="Término"
               type="date"
               fullWidth
               value={form.end_date?.format("YYYY-MM-DD")}

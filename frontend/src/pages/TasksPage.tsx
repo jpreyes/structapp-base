@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 
 import { useTasks, Task } from "../hooks/useTasks";
 import { useProjects } from "../hooks/useProjects";
@@ -33,14 +34,20 @@ const TasksPage = () => {
   const sessionProjectId = useSession((state) => state.projectId);
   const setProjectInSession = useSession((state) => state.setProject);
   const { data: projects } = useProjects();
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const isWorkspaceView = Boolean(routeProjectId);
   const [activeTab, setActiveTab] = useState<TaskTab>("kanban");
-  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(sessionProjectId);
-  const isAllProjects = selectedProjectId === "all";
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(
+    isWorkspaceView ? routeProjectId : sessionProjectId
+  );
+  const allowAllProjects = !isWorkspaceView;
+  const isAllProjects = allowAllProjects && selectedProjectId === "all";
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
 
-  const effectiveProjectId = isAllProjects ? undefined : selectedProjectId ?? projects?.[0]?.id;
+  const effectiveProjectId =
+    routeProjectId ?? (isAllProjects ? undefined : selectedProjectId ?? projects?.[0]?.id);
   const { data: projectTasks = [] } = useTasks(effectiveProjectId);
   const { data: allTasks = [], isFetching: isFetchingAll } = useQuery({
     queryKey: ["tasks", "all"],
@@ -56,12 +63,31 @@ const TasksPage = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (routeProjectId) {
+      setSelectedProjectId(routeProjectId);
+      setProjectInSession(routeProjectId);
+    }
+  }, [routeProjectId, setProjectInSession]);
+
+  useEffect(() => {
+    if (isWorkspaceView) {
+      return;
+    }
     if (!selectedProjectId && projects?.length) {
       const firstProjectId = sessionProjectId ?? projects[0].id;
       setSelectedProjectId(firstProjectId);
       setProjectInSession(firstProjectId);
     }
-  }, [projects, selectedProjectId, sessionProjectId, setProjectInSession]);
+  }, [isWorkspaceView, projects, selectedProjectId, sessionProjectId, setProjectInSession]);
+
+  useEffect(() => {
+    if (isWorkspaceView || selectedProjectId === "all") {
+      return;
+    }
+    if (sessionProjectId && selectedProjectId !== sessionProjectId) {
+      setSelectedProjectId(sessionProjectId);
+    }
+  }, [isWorkspaceView, selectedProjectId, sessionProjectId]);
 
   const metrics = useMemo(() => {
     if (!tasks.length) {
@@ -76,6 +102,13 @@ const TasksPage = () => {
     );
     return { total: tasks.length, byStatus };
   }, [tasks]);
+
+  const activeProjectName = useMemo(() => {
+    if (!projects?.length || !effectiveProjectId) {
+      return "";
+    }
+    return projects.find((project) => project.id === effectiveProjectId)?.name ?? "";
+  }, [projects, effectiveProjectId]);
 
   const createTaskMutation = useMutation({
     mutationFn: async (payload: TaskFormValues & { projectId: string }) => {
@@ -198,25 +231,31 @@ const TasksPage = () => {
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
           <Typography variant="h5">Tareas</Typography>
-          <TextField
-            select
-            label="Proyecto activo"
-            size="small"
-            value={isAllProjects ? "all" : effectiveProjectId ?? ""}
-            onChange={(event) => {
-              const value = event.target.value;
-              setSelectedProjectId(value);
-              setProjectInSession(value === "all" ? undefined : value);
-            }}
-            sx={{ minWidth: 220 }}
-          >
-            <MenuItem value="all">Todos los proyectos</MenuItem>
-            {(projects ?? []).map((project) => (
-              <MenuItem key={project.id} value={project.id}>
-                {project.name}
-              </MenuItem>
-            ))}
-          </TextField>
+          {!isWorkspaceView ? (
+            <TextField
+              select
+              label="Proyecto activo"
+              size="small"
+              value={isAllProjects ? "all" : effectiveProjectId ?? ""}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSelectedProjectId(value);
+                setProjectInSession(value === "all" ? undefined : value);
+              }}
+              sx={{ minWidth: 220 }}
+            >
+              <MenuItem value="all">Todos los proyectos</MenuItem>
+              {(projects ?? []).map((project) => (
+                <MenuItem key={project.id} value={project.id}>
+                  {project.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Proyecto: {activeProjectName || "Sin proyecto"}
+            </Typography>
+          )}
         </Box>
         <Button
           variant="contained"

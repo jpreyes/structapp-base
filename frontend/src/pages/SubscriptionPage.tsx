@@ -3,7 +3,7 @@ import apiClient from "../api/client";
 
 const paidPlans = [
   { plan: "monthly", label: "Plan mensual", price: "$12.000 CLP / mes" },
-  { plan: "annual", label: "Plan anual", price: "$100.000 CLP / anio" },
+  { plan: "annual", label: "Plan anual", price: "$100.000 CLP / año" },
 ];
 
 const SubscriptionPage = () => {
@@ -11,26 +11,26 @@ const SubscriptionPage = () => {
     try {
       const { data } = await apiClient.post("/subscription/flow/subscribe", { plan });
       const subscriptionId = data?.subscription?.subscriptionId || data?.subscription?.id || "(sin id)";
-      alert(`Suscripcion Flow creada (${subscriptionId}). Revisa tu correo para completar el pago.`);
+      alert(`Suscripción Flow creada (${subscriptionId}). Revisa tu correo para completar el pago.`);
     } catch (error) {
       console.error(error);
-      alert("No pudimos crear la suscripcion con Flow. Intenta nuevamente.");
+      alert("No pudimos crear la suscripción con Flow. Intenta nuevamente.");
     }
   };
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <Typography variant="h5">Suscripcion</Typography>
+      <Typography variant="h5">Suscripción</Typography>
       <Typography variant="body1">
-        Disfruta la prueba gratis de 60 dias con todas las funciones y luego confirma tu suscripcion con Flow.
+        Disfruta la prueba gratis de 60 días con todas las funciones y luego confirma tu suscripción con Flow.
       </Typography>
       <Grid container spacing={2}>
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
-              <Typography variant="h6">Prueba 60 dias (CLP 0)</Typography>
+              <Typography variant="h6">Prueba de 60 días (CLP 0)</Typography>
               <Typography variant="body2" color="text.secondary">
-                Acceso completo durante 60 dias. Flow cobrara solo si no cancelas antes del vencimiento.
+                Acceso completo durante 60 días. Flow cobrará solo si no cancelas antes del vencimiento.
               </Typography>
               <Button
                 variant="contained"
@@ -38,7 +38,7 @@ const SubscriptionPage = () => {
                 onClick={async () => {
                   try {
                     await apiClient.post("/subscription/start-trial");
-                    alert("Prueba activada por 60 dias.");
+                    alert("Prueba activada por 60 días.");
                   } catch (e) {
                     console.error(e);
                   }
@@ -54,7 +54,7 @@ const SubscriptionPage = () => {
             <CardContent>
               <Typography variant="h6">Plan Free</Typography>
               <Typography variant="body2" color="text.secondary">
-                Tres proyectos activos simultaneos, bases de calculo y vigas HA basicas.
+                Hasta tres proyectos activos, bases de cálculo y vigas HA básicas.
               </Typography>
               <Button
                 variant="outlined"
@@ -68,7 +68,7 @@ const SubscriptionPage = () => {
                   }
                 }}
               >
-                Usar version Free
+                Activar plan Free
               </Button>
             </CardContent>
           </Card>
@@ -78,7 +78,7 @@ const SubscriptionPage = () => {
             <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <Typography variant="h6">Suscripciones Flow</Typography>
               <Typography variant="body2" color="text.secondary">
-                Selecciona el plan y generaremos la suscripcion directamente en Flow (trial de 60 dias incluido).
+                Selecciona el plan y generaremos la suscripción directamente en Flow (60 días de prueba incluidos).
               </Typography>
               {paidPlans.map(({ plan, label, price }) => (
                 <Button key={plan} variant="contained" color="secondary" onClick={() => handleSubscribe(plan)}>

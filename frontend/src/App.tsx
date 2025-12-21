@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import DashboardPage from "./pages/DashboardPage";
 import ProjectsPage from "./pages/ProjectsPage";
@@ -16,6 +16,15 @@ import ProjectDesignBasesPage from "./pages/ProjectDesignBasesPage";
 import ProjectInspectionsPage from "./pages/ProjectInspectionsPage";
 import ProjectWorkspacePage from "./pages/ProjectWorkspacePage";
 import InspectionDetailPage from "./pages/InspectionDetailPage";
+import { useSession } from "./store/useSession";
+
+const ProjectModuleRedirect = ({ module }: { module: string }) => {
+  const projectId = useSession((state) => state.projectId);
+  if (!projectId) {
+    return <Navigate to="/projects" replace />;
+  }
+  return <Navigate to={`/projects/${projectId}/${module}`} replace />;
+};
 
 function App() {
   return (
@@ -28,19 +37,30 @@ function App() {
           <Route path="/projects/:projectId/*" element={<ProjectWorkspacePage />}>
             <Route index element={<ProjectDetailPage />} />
             <Route path="overview" element={<ProjectDetailPage />} />
+            <Route path="tasks" element={<TasksPage />} />
             <Route path="calculations" element={<ProjectCalculationsPage />} />
             <Route path="bases" element={<ProjectDesignBasesPage />} />
             <Route path="inspections" element={<ProjectInspectionsPage />} />
             <Route path="inspections/:inspectionId" element={<InspectionDetailPage />} />
             <Route path="documentation" element={<ProjectDocumentationPage />} />
           </Route>
-          <Route path="/projects/calculations" element={<ProjectCalculationsPage />} />
-          <Route path="/projects/bases" element={<ProjectDesignBasesPage />} />
-          <Route path="/projects/documentation" element={<ProjectDocumentationPage />} />
-          <Route path="/projects/inspections" element={<ProjectInspectionsPage />} />
+          <Route
+            path="/projects/calculations"
+            element={<ProjectModuleRedirect module="calculations" />}
+          />
+          <Route path="/projects/bases" element={<ProjectModuleRedirect module="bases" />} />
+          <Route
+            path="/projects/documentation"
+            element={<ProjectModuleRedirect module="documentation" />}
+          />
+          <Route
+            path="/projects/inspections"
+            element={<ProjectModuleRedirect module="inspections" />}
+          />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/subscription" element={<SubscriptionPage />} />
         </Route>
       </Route>
     </Routes>

@@ -71,6 +71,15 @@ const PaymentsPage = () => {
     }
   }, [projects, selectedProjectId, sessionProjectId, setProjectInSession]);
 
+  useEffect(() => {
+    if (!sessionProjectId) {
+      return;
+    }
+    if (sessionProjectId !== selectedProjectId) {
+      setSelectedProjectId(sessionProjectId);
+    }
+  }, [sessionProjectId, selectedProjectId]);
+
   const metrics = useMemo(() => {
     if (!payments.length) {
       return { facturado: 0, pagado: 0, saldo: 0 };

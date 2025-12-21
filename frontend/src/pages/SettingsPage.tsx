@@ -14,6 +14,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
 import { useSession } from "../store/useSession";
 import { useProjects } from "../hooks/useProjects";
@@ -23,6 +24,8 @@ type SettingsProfile = {
   full_name?: string | null;
   profession?: string | null;
   avatar_url?: string | null;
+  company_name?: string | null;
+  company_role?: string | null;
   plan: string;
   plan_status?: string | null;
   plan_started_at?: string | null;
@@ -37,6 +40,7 @@ const SettingsPage = () => {
   const setUser = useSession((state) => state.setUser);
   const token = useSession((state) => state.token);
   const setToken = useSession((state) => state.setToken);
+  const navigate = useNavigate();
   const { data: projects } = useProjects();
   const [profile, setProfile] = useState<SettingsProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +52,8 @@ const SettingsPage = () => {
     fullName: "",
     profession: "",
     avatarUrl: "",
+    companyName: "",
+    companyRole: "",
   });
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -59,7 +65,7 @@ const SettingsPage = () => {
     const status = profile.plan_status?.toLowerCase() ?? "activo";
     return (
       <Chip
-        label={`${profile.plan ?? "Plan"} • ${status}`}
+        label={`${profile.plan ?? "Plan"} - ${status}`}
         color="primary"
         variant="outlined"
         size="small"
@@ -67,6 +73,16 @@ const SettingsPage = () => {
       />
     );
   }, [profile]);
+
+  const companyNameLabel = useMemo(() => {
+    const value = formState.companyName.trim() || profile?.company_name?.trim() || "";
+    return value || "Empresa individual";
+  }, [formState.companyName, profile?.company_name]);
+
+  const companyRoleLabel = useMemo(() => {
+    const value = formState.companyRole.trim() || profile?.company_role?.trim() || "";
+    return value || "Propietario";
+  }, [formState.companyRole, profile?.company_role]);
 
   useEffect(() => {
     if (!token) {
@@ -84,6 +100,8 @@ const SettingsPage = () => {
           fullName: data.full_name ?? "",
           profession: data.profession ?? "",
           avatarUrl: data.avatar_url ?? "",
+          companyName: data.company_name ?? "",
+          companyRole: data.company_role ?? "",
         });
       } catch (err) {
         console.error(err);
@@ -114,6 +132,8 @@ const SettingsPage = () => {
       email: formState.email.trim(),
       full_name: formState.fullName.trim(),
       profession: formState.profession.trim(),
+      company_name: formState.companyName.trim(),
+      company_role: formState.companyRole.trim(),
       avatar_url: formState.avatarUrl.trim(),
     };
     if (password) {
@@ -128,10 +148,12 @@ const SettingsPage = () => {
         fullName: data.full_name ?? "",
         profession: data.profession ?? "",
         avatarUrl: data.avatar_url ?? "",
+        companyName: data.company_name ?? "",
+        companyRole: data.company_role ?? "",
       });
       setPassword("");
       setConfirmPassword("");
-      setMessage("Perfil actualizado.");
+      setMessage("Cambios guardados correctamente.");
       const currentUser = useSession.getState().user;
       if (currentUser) {
         setUser({ ...currentUser, email: data.email, plan: data.plan });
@@ -199,7 +221,7 @@ const SettingsPage = () => {
           Configuración
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Actualiza tus datos y mantén tu perfil alineado con el equipo.
+          Gestiona tu perfil, empresa y seguridad en un solo lugar.
         </Typography>
       </Box>
 
@@ -208,179 +230,241 @@ const SettingsPage = () => {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Stack spacing={2}>
-                <Avatar
-                  sx={{
-                    width: 64,
-                    height: 64,
-                    bgcolor: "primary.main",
-                    fontWeight: 700,
-                    fontSize: "1.2rem",
-                  }}
-                >
-                  {initials}
-                </Avatar>
-                <Box>
-                  <Typography variant="h6">
-                    {profile?.full_name || "Tu perfil"}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {formState.email}
-                  </Typography>
-                  {profile?.full_name && (
-                    <Typography variant="body2" color="text.secondary">
-                      {profile.full_name}
+          <Stack spacing={3}>
+            <Card>
+              <CardContent>
+                <Stack spacing={2}>
+                  <Avatar
+                    sx={{
+                      width: 64,
+                      height: 64,
+                      bgcolor: "primary.main",
+                      fontWeight: 700,
+                      fontSize: "1.2rem",
+                    }}
+                  >
+                    {initials}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6">
+                      {profile?.full_name || "Tu perfil"}
                     </Typography>
-                  )}
-                </Box>
-                {planBadge}
-                <Divider />
-                <Stack spacing={1}>
-                  <Typography variant="body2" color="text.secondary">
-                    Profesión
-                  </Typography>
-                  <Typography variant="body1">
-                    {formState.profession || "Sin información"}
-                  </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {formState.email}
+                    </Typography>
+                    {formState.profession && (
+                      <Typography variant="body2" color="text.secondary">
+                        {formState.profession}
+                      </Typography>
+                    )}
+                  </Box>
+                  {planBadge}
                 </Stack>
-              </Stack>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card sx={{ mt: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Plan y uso
-              </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Estado del plan actual y fechas relevantes.
-              </Typography>
-              <Stack spacing={1.5} sx={{ mt: 1 }}>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Inicio
-                  </Typography>
-                  <Typography variant="body2">{formatDate(profile?.plan_started_at)}</Typography>
+            <Card>
+              <CardContent>
+                <Stack spacing={2}>
+                  <Box>
+                    <Typography variant="h6">Empresa/Equipo</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {profile?.company_name ? "Datos de tu empresa." : "Empresa individual."}
+                    </Typography>
+                  </Box>
+                  <Divider />
+                  <Stack spacing={1}>
+                    <Typography variant="body2" color="text.secondary">
+                      Empresa
+                    </Typography>
+                    <Typography variant="body1">{companyNameLabel}</Typography>
+                  </Stack>
+                  <Stack spacing={1}>
+                    <Typography variant="body2" color="text.secondary">
+                      Rol
+                    </Typography>
+                    <Typography variant="body1">{companyRoleLabel}</Typography>
+                  </Stack>
                 </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Expira
-                  </Typography>
-                  <Typography variant="body2">{formatDate(profile?.plan_expires_at)}</Typography>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Plan y uso
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Estado del plan actual y fechas relevantes.
+                </Typography>
+                <Stack spacing={1.5} sx={{ mt: 1 }}>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      Inicio
+                    </Typography>
+                    <Typography variant="body2">{formatDate(profile?.plan_started_at)}</Typography>
+                  </Stack>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      Expira
+                    </Typography>
+                    <Typography variant="body2">{formatDate(profile?.plan_expires_at)}</Typography>
+                  </Stack>
+                  <Divider />
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      Proyectos creados
+                    </Typography>
+                    <Typography variant="body1" fontWeight={700}>
+                      {projectCount}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      Límite de proyectos
+                    </Typography>
+                    <Typography variant="body1" fontWeight={700}>
+                      {profile?.project_limit ?? "Sin límite"}
+                    </Typography>
+                  </Stack>
                 </Stack>
-                <Divider />
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Proyectos creados
-                  </Typography>
-                  <Typography variant="body1" fontWeight={700}>
-                    {projectCount}
-                  </Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Límite de proyectos
-                  </Typography>
-                  <Typography variant="body1" fontWeight={700}>
-                    {profile?.project_limit ?? "Sin límite"}
-                  </Typography>
-                </Stack>
-              </Stack>
-            </CardContent>
-          </Card>
+                <Button
+                  variant="outlined"
+                  sx={{ mt: 2 }}
+                  onClick={() => navigate("/subscription")}
+                >
+                  Administrar plan
+                </Button>
+              </CardContent>
+            </Card>
+          </Stack>
         </Grid>
 
         <Grid item xs={12} md={8}>
           <Card>
             <CardContent>
-              <Stack spacing={0.5}>
-                <Typography variant="h6">Datos de la cuenta</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Información visible en reportes y notificaciones.
-                </Typography>
-              </Stack>
               <Box component="form" onSubmit={handleSave} noValidate>
-                <Grid container spacing={2} sx={{ mt: 1 }}>
-                  <Grid item xs={12}>
-                    <TextField
-                      label="Email"
-                      type="email"
-                      value={formState.email}
-                      onChange={(event) =>
-                        setFormState((prev) => ({ ...prev, email: event.target.value }))
-                      }
-                      required
-                      fullWidth
-                    />
+                <Stack spacing={3}>
+                  <Box>
+                    <Typography variant="h6">Perfil</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Información visible en reportes y notificaciones.
+                    </Typography>
+                  </Box>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Email"
+                        type="email"
+                        value={formState.email}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, email: event.target.value }))
+                        }
+                        required
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Nombre completo"
+                        value={formState.fullName}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, fullName: event.target.value }))
+                        }
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Profesión"
+                        value={formState.profession}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, profession: event.target.value }))
+                        }
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="URL del avatar"
+                        value={formState.avatarUrl}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, avatarUrl: event.target.value }))
+                        }
+                        fullWidth
+                      />
+                    </Grid>
                   </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Nombre completo"
-                      value={formState.fullName}
-                      onChange={(event) =>
-                        setFormState((prev) => ({ ...prev, fullName: event.target.value }))
-                      }
-                      fullWidth
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Profesión"
-                      value={formState.profession}
-                      onChange={(event) =>
-                        setFormState((prev) => ({ ...prev, profession: event.target.value }))
-                      }
-                      fullWidth
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      label="URL del avatar"
-                      value={formState.avatarUrl}
-                      onChange={(event) =>
-                        setFormState((prev) => ({ ...prev, avatarUrl: event.target.value }))
-                      }
-                      fullWidth
-                    />
-                  </Grid>
-                </Grid>
 
-                <Divider sx={{ my: 3 }} />
+                  <Divider />
 
-                <Stack spacing={0.5} sx={{ mb: 1 }}>
-                  <Typography variant="subtitle1">Seguridad</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Cambia la contraseña cuando sea necesario.
-                  </Typography>
-                </Stack>
-
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Nueva contraseña"
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      fullWidth
-                    />
+                  <Box>
+                    <Typography variant="h6">Empresa/Equipo</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Si trabajas de forma individual, usa "Empresa individual".
+                    </Typography>
+                  </Box>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={7}>
+                      <TextField
+                        label="Nombre de empresa"
+                        value={formState.companyName}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, companyName: event.target.value }))
+                        }
+                        placeholder="Empresa individual"
+                        helperText="Deja vacío para usar Empresa individual."
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={5}>
+                      <TextField
+                        label="Rol en la empresa"
+                        value={formState.companyRole}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, companyRole: event.target.value }))
+                        }
+                        placeholder="Propietario"
+                        helperText="Ej: Propietario, Director técnico."
+                        fullWidth
+                      />
+                    </Grid>
                   </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Confirmar contraseña"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
-                      fullWidth
-                    />
-                  </Grid>
-                </Grid>
 
-                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="flex-end" gap={2} mt={3}>
-                  <Button type="submit" variant="contained" disabled={saving}>
-                    {saving ? "Guardando..." : "Guardar cambios"}
-                  </Button>
+                  <Divider />
+
+                  <Box>
+                    <Typography variant="h6">Seguridad</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Cambia tu contraseña cuando sea necesario.
+                    </Typography>
+                  </Box>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Nueva contraseña"
+                        type="password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Confirmar contraseña"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        fullWidth
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <Stack direction={{ xs: "column", sm: "row" }} justifyContent="flex-end" gap={2} mt={1}>
+                    <Button type="submit" variant="contained" disabled={saving}>
+                      {saving ? "Guardando..." : "Guardar cambios"}
+                    </Button>
+                  </Stack>
                 </Stack>
               </Box>
             </CardContent>

@@ -34,6 +34,8 @@ def get_user_profile_summary(user_id: str) -> dict:
         "full_name": profile.get("full_name"),
         "profession": profile.get("profession"),
         "avatar_url": profile.get("avatar_url"),
+        "company_name": profile.get("company_name"),
+        "company_role": profile.get("company_role"),
         "plan": subscription.get("plan") or profile.get("plan") or "basic",
         "plan_status": subscription.get("status"),
         "plan_started_at": subscription.get("started_at"),

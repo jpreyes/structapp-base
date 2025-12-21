@@ -6,18 +6,17 @@ import FolderIcon from "@mui/icons-material/Folder";
 import PaymentIcon from "@mui/icons-material/Payments";
 import SettingsIcon from "@mui/icons-material/Settings";
 import MenuIcon from "@mui/icons-material/Menu";
-import CalculateIcon from "@mui/icons-material/Calculate";
-import DescriptionIcon from "@mui/icons-material/Description";
 import ArchitectureIcon from "@mui/icons-material/Architecture";
-import FactCheckIcon from "@mui/icons-material/FactCheck";
 import LoginIcon from "@mui/icons-material/Login";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "@mui/material/styles";
+import { useProjects } from "../hooks/useProjects";
 import { useThemeStore } from "../store/useTheme";
 import { useSession } from "../store/useSession";
+import ProjectSwitcher from "./ProjectSwitcher";
 const expandedDrawerWidth = 280;
 const collapsedDrawerWidth = 88;
 const isSectionItem = (item) => item.isSection === true;
@@ -31,8 +30,19 @@ const Layout = () => {
     const setToken = useSession((state) => state.setToken);
     const setUser = useSession((state) => state.setUser);
     const user = useSession((state) => state.user);
+    const projectId = useSession((state) => state.projectId);
+    const setProjectInSession = useSession((state) => state.setProject);
+    const { data: projects = [] } = useProjects();
     const themeMode = useThemeStore((state) => state.mode);
     const currentDrawerWidth = isCollapsed ? collapsedDrawerWidth : expandedDrawerWidth;
+    useEffect(() => {
+        if (!token) {
+            return;
+        }
+        if (!projectId && projects.length) {
+            setProjectInSession(projects[0].id);
+        }
+    }, [token, projectId, projects, setProjectInSession]);
     const navItems = useMemo(() => [
         { label: "Dashboard", icon: _jsx(DashboardIcon, {}), path: "/", requiresAuth: true },
         { label: "Proyectos", isSection: true, requiresAuth: true },
@@ -43,34 +53,6 @@ const Layout = () => {
             requiresAuth: true,
             indent: true,
         },
-        {
-            label: "Calculos de proyecto",
-            icon: _jsx(CalculateIcon, {}),
-            path: "/projects/calculations",
-            requiresAuth: true,
-            indent: true,
-        },
-        {
-            label: "Bases de calculo",
-            icon: _jsx(ArchitectureIcon, {}),
-            path: "/projects/bases",
-            requiresAuth: true,
-            indent: true,
-        },
-        {
-            label: "Documentacion",
-            icon: _jsx(DescriptionIcon, {}),
-            path: "/projects/documentation",
-            requiresAuth: true,
-            indent: true,
-        },
-        {
-            label: "Inspecciones y ensayos",
-            icon: _jsx(FactCheckIcon, {}),
-            path: "/projects/inspections",
-            requiresAuth: true,
-            indent: true,
-        },
         { label: "Tareas", icon: _jsx(AssignmentIcon, {}), path: "/tasks", requiresAuth: true },
         { label: "Finanzas", icon: _jsx(PaymentIcon, {}), path: "/payments", requiresAuth: true },
         // { label: "Perfil", icon: <SettingsIcon />, path: "/settings", requiresAuth: true },
@@ -78,6 +60,23 @@ const Layout = () => {
     ], []);
     const pageContext = useMemo(() => {
         const path = location.pathname;
+        if (path.includes("/tasks")) {
+            const taskPath = path.startsWith("/projects/") ? path : "/tasks";
+            return {
+                title: "Tareas",
+                subtitle: "Seguimiento de pendientes y asignaciones del equipo.",
+                ctaLabel: "Nueva tarea",
+                ctaPath: taskPath,
+            };
+        }
+        if (path.startsWith("/projects/") && path !== "/projects") {
+            return {
+                title: "Proyecto",
+                subtitle: "Gestión del proyecto seleccionado.",
+                ctaLabel: "Ver proyectos",
+                ctaPath: "/projects",
+            };
+        }
         if (path.startsWith("/projects")) {
             return {
                 title: "Proyectos",
@@ -86,25 +85,17 @@ const Layout = () => {
                 ctaPath: "/projects",
             };
         }
-        if (path.startsWith("/tasks")) {
-            return {
-                title: "Tareas",
-                subtitle: "Seguimiento de pendientes y asignaciones del equipo.",
-                ctaLabel: "Nueva tarea",
-                ctaPath: "/tasks",
-            };
-        }
         if (path.startsWith("/payments")) {
             return {
                 title: "Finanzas",
-                subtitle: "Flujo de caja, pagos y cobranzas al dia.",
+                subtitle: "Flujo de caja, pagos y cobranzas al día.",
                 ctaLabel: "Nuevo pago",
                 ctaPath: "/payments",
             };
         }
         if (path.startsWith("/settings")) {
             return {
-                title: "Configuracion",
+                title: "Configuración",
                 subtitle: "Preferencias de cuenta, equipo y accesos.",
             };
         }
@@ -198,7 +189,7 @@ const Layout = () => {
                     zIndex: (muiTheme) => muiTheme.zIndex.drawer + 1,
                     width: { sm: `calc(100% - ${currentDrawerWidth}px)` },
                     ml: { sm: `${currentDrawerWidth}px` },
-                }, children: _jsxs(Toolbar, { sx: { minHeight: 68 }, children: [_jsx(IconButton, { color: "inherit", edge: "start", onClick: () => setMobileOpen(!mobileOpen), sx: { mr: 2, display: { sm: "none" } }, children: _jsx(MenuIcon, {}) }), _jsxs(Box, { sx: { display: "flex", flexDirection: "column", gap: 0.5, minWidth: 0 }, children: [_jsxs(Breadcrumbs, { "aria-label": "breadcrumb", sx: { color: "text.secondary", fontSize: 12, letterSpacing: 0.4 }, children: [_jsx(Typography, { color: "text.secondary", children: "Inicio" }), _jsx(Typography, { color: "text.primary", children: pageContext.title })] }), _jsx(Typography, { variant: "h6", noWrap: true, component: "div", children: pageContext.title }), _jsx(Typography, { variant: "body2", color: "text.secondary", noWrap: true, children: pageContext.subtitle })] }), _jsx(Box, { sx: { flexGrow: 1 } }), _jsxs(Stack, { direction: "row", alignItems: "center", spacing: 2, children: [pageContext.ctaLabel && (_jsx(Button, { variant: "contained", color: "primary", onClick: () => {
+                }, children: _jsxs(Toolbar, { sx: { minHeight: 68 }, children: [_jsx(IconButton, { color: "inherit", edge: "start", onClick: () => setMobileOpen(!mobileOpen), sx: { mr: 2, display: { sm: "none" } }, children: _jsx(MenuIcon, {}) }), _jsxs(Box, { sx: { display: "flex", flexDirection: "column", gap: 0.5, minWidth: 0 }, children: [_jsxs(Breadcrumbs, { "aria-label": "breadcrumb", sx: { color: "text.secondary", fontSize: 12, letterSpacing: 0.4 }, children: [_jsx(Typography, { color: "text.secondary", children: "Inicio" }), _jsx(Typography, { color: "text.primary", children: pageContext.title })] }), _jsx(Typography, { variant: "h6", noWrap: true, component: "div", children: pageContext.title }), _jsx(Typography, { variant: "body2", color: "text.secondary", noWrap: true, children: pageContext.subtitle })] }), _jsx(Box, { sx: { flexGrow: 1 } }), _jsxs(Stack, { direction: "row", alignItems: "center", spacing: 2, children: [token && projects.length > 0 && (_jsx(ProjectSwitcher, { projects: projects, value: projectId, onChange: (value) => setProjectInSession(value) })), pageContext.ctaLabel && (_jsx(Button, { variant: "contained", color: "primary", onClick: () => {
                                         if (pageContext.ctaPath) {
                                             navigate(pageContext.ctaPath);
                                         }
@@ -211,7 +202,7 @@ const Layout = () => {
                                         else {
                                             navigate("/login");
                                         }
-                                    }, children: token ? "Cerrar sesion" : "Iniciar sesion" })] })] }) }), _jsxs(Box, { component: "nav", sx: { width: { sm: currentDrawerWidth }, flexShrink: { sm: 0 } }, children: [_jsx(Drawer, { variant: "temporary", open: mobileOpen, onClose: () => setMobileOpen(false), ModalProps: { keepMounted: true }, sx: {
+                                    }, children: token ? "Cerrar sesión" : "Iniciar sesión" })] })] }) }), _jsxs(Box, { component: "nav", sx: { width: { sm: currentDrawerWidth }, flexShrink: { sm: 0 } }, children: [_jsx(Drawer, { variant: "temporary", open: mobileOpen, onClose: () => setMobileOpen(false), ModalProps: { keepMounted: true }, sx: {
                             display: { xs: "block", sm: "none" },
                             "& .MuiDrawer-paper": { boxSizing: "border-box", width: currentDrawerWidth },
                         }, children: drawerContent }), _jsx(Drawer, { variant: "permanent", sx: {

@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/", response_model=list[ProjectResponse])
 async def list_projects(user_id: UserIdDep, archived: Optional[bool] = Query(default=None)):
     try:
-        projects = fetch_projects(archived=archived)
+        projects = fetch_projects(user_id, archived=archived)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
     return projects
@@ -35,7 +35,9 @@ async def create_new_project(user_id: UserIdDep, payload: ProjectCreate):
 @router.patch("/{project_id}", response_model=ProjectResponse)
 async def update_existing_project(project_id: str, user_id: UserIdDep, payload: ProjectUpdate):
     try:
-        project = update_project(project_id, payload.model_dump(exclude_unset=True))
+        project = update_project(project_id, user_id, payload.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return project
@@ -44,7 +46,7 @@ async def update_existing_project(project_id: str, user_id: UserIdDep, payload: 
 @router.get("/{project_id}", response_model=ProjectDetailResponse)
 async def get_project_detail(project_id: str, user_id: UserIdDep):
     try:
-        detail = fetch_project_detail(project_id)
+        detail = fetch_project_detail(project_id, user_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
@@ -55,7 +57,9 @@ async def get_project_detail(project_id: str, user_id: UserIdDep):
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_project(project_id: str, user_id: UserIdDep):
     try:
-        delete_project(project_id)
+        delete_project(project_id, user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

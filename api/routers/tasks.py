@@ -10,7 +10,9 @@ router = APIRouter()
 @router.get("/{project_id}", response_model=list[TaskResponse])
 async def get_tasks(project_id: str, user_id: UserIdDep):
     try:
-        tasks = list_tasks(project_id)
+        tasks = list_tasks(project_id, user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
     return tasks
@@ -21,6 +23,7 @@ async def create_new_task(payload: TaskCreate, user_id: UserIdDep):
     try:
         task = create_task(
             payload.project_id,
+            user_id,
             payload.title,
             str(payload.start_date),
             str(payload.end_date),
@@ -29,6 +32,8 @@ async def create_new_task(payload: TaskCreate, user_id: UserIdDep):
             assignee=payload.assignee or "",
             notes=payload.notes or "",
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return task
@@ -37,7 +42,13 @@ async def create_new_task(payload: TaskCreate, user_id: UserIdDep):
 @router.patch("/{task_id}", response_model=TaskResponse)
 async def update_existing_task(task_id: str, payload: TaskUpdate, user_id: UserIdDep):
     try:
-        task = update_task(task_id, {k: (str(v) if hasattr(v, "isoformat") else v) for k, v in payload.model_dump(exclude_unset=True).items()})
+        task = update_task(
+            task_id,
+            user_id,
+            {k: (str(v) if hasattr(v, "isoformat") else v) for k, v in payload.model_dump(exclude_unset=True).items()},
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return task
@@ -46,7 +57,9 @@ async def update_existing_task(task_id: str, payload: TaskUpdate, user_id: UserI
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_existing_task(task_id: str, user_id: UserIdDep):
     try:
-        delete_task(task_id)
+        delete_task(task_id, user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return None

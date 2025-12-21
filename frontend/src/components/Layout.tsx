@@ -22,19 +22,18 @@ import FolderIcon from "@mui/icons-material/Folder";
 import PaymentIcon from "@mui/icons-material/Payments";
 import SettingsIcon from "@mui/icons-material/Settings";
 import MenuIcon from "@mui/icons-material/Menu";
-import CalculateIcon from "@mui/icons-material/Calculate";
-import DescriptionIcon from "@mui/icons-material/Description";
 import ArchitectureIcon from "@mui/icons-material/Architecture";
-import FactCheckIcon from "@mui/icons-material/FactCheck";
 import LoginIcon from "@mui/icons-material/Login";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useMemo, useState, ReactNode } from "react";
+import { useEffect, useMemo, useState, ReactNode } from "react";
 import { useTheme } from "@mui/material/styles";
 
+import { useProjects } from "../hooks/useProjects";
 import { useThemeStore } from "../store/useTheme";
 import { useSession } from "../store/useSession";
+import ProjectSwitcher from "./ProjectSwitcher";
 
 const expandedDrawerWidth = 280;
 const collapsedDrawerWidth = 88;
@@ -69,8 +68,20 @@ const Layout = () => {
   const setToken = useSession((state) => state.setToken);
   const setUser = useSession((state) => state.setUser);
   const user = useSession((state) => state.user);
+  const projectId = useSession((state) => state.projectId);
+  const setProjectInSession = useSession((state) => state.setProject);
+  const { data: projects = [] } = useProjects();
   const themeMode = useThemeStore((state) => state.mode);
   const currentDrawerWidth = isCollapsed ? collapsedDrawerWidth : expandedDrawerWidth;
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    if (!projectId && projects.length) {
+      setProjectInSession(projects[0].id);
+    }
+  }, [token, projectId, projects, setProjectInSession]);
 
   const navItems: NavItem[] = useMemo(
     () => [
@@ -80,34 +91,6 @@ const Layout = () => {
         label: "Listado",
         icon: <FolderIcon />,
         path: "/projects",
-        requiresAuth: true,
-        indent: true,
-      },
-      {
-        label: "Calculos de proyecto",
-        icon: <CalculateIcon />,
-        path: "/projects/calculations",
-        requiresAuth: true,
-        indent: true,
-      },
-      {
-        label: "Bases de calculo",
-        icon: <ArchitectureIcon />,
-        path: "/projects/bases",
-        requiresAuth: true,
-        indent: true,
-      },
-      {
-        label: "Documentacion",
-        icon: <DescriptionIcon />,
-        path: "/projects/documentation",
-        requiresAuth: true,
-        indent: true,
-      },
-      {
-        label: "Inspecciones y ensayos",
-        icon: <FactCheckIcon />,
-        path: "/projects/inspections",
         requiresAuth: true,
         indent: true,
       },
@@ -121,6 +104,23 @@ const Layout = () => {
 
   const pageContext = useMemo(() => {
     const path = location.pathname;
+    if (path.includes("/tasks")) {
+      const taskPath = path.startsWith("/projects/") ? path : "/tasks";
+      return {
+        title: "Tareas",
+        subtitle: "Seguimiento de pendientes y asignaciones del equipo.",
+        ctaLabel: "Nueva tarea",
+        ctaPath: taskPath,
+      };
+    }
+    if (path.startsWith("/projects/") && path !== "/projects") {
+      return {
+        title: "Proyecto",
+        subtitle: "Gestión del proyecto seleccionado.",
+        ctaLabel: "Ver proyectos",
+        ctaPath: "/projects",
+      };
+    }
     if (path.startsWith("/projects")) {
       return {
         title: "Proyectos",
@@ -129,25 +129,17 @@ const Layout = () => {
         ctaPath: "/projects",
       };
     }
-    if (path.startsWith("/tasks")) {
-      return {
-        title: "Tareas",
-        subtitle: "Seguimiento de pendientes y asignaciones del equipo.",
-        ctaLabel: "Nueva tarea",
-        ctaPath: "/tasks",
-      };
-    }
     if (path.startsWith("/payments")) {
       return {
         title: "Finanzas",
-        subtitle: "Flujo de caja, pagos y cobranzas al dia.",
+        subtitle: "Flujo de caja, pagos y cobranzas al día.",
         ctaLabel: "Nuevo pago",
         ctaPath: "/payments",
       };
     }
     if (path.startsWith("/settings")) {
       return {
-        title: "Configuracion",
+        title: "Configuración",
         subtitle: "Preferencias de cuenta, equipo y accesos.",
       };
     }
@@ -380,6 +372,13 @@ const Layout = () => {
           </Box>
           <Box sx={{ flexGrow: 1 }} />
           <Stack direction="row" alignItems="center" spacing={2}>
+            {token && projects.length > 0 && (
+              <ProjectSwitcher
+                projects={projects}
+                value={projectId}
+                onChange={(value) => setProjectInSession(value)}
+              />
+            )}
             {pageContext.ctaLabel && (
               <Button
                 variant="contained"
@@ -412,7 +411,7 @@ const Layout = () => {
                 }
               }}
             >
-              {token ? "Cerrar sesion" : "Iniciar sesion"}
+              {token ? "Cerrar sesión" : "Iniciar sesión"}
             </Button>
           </Stack>
         </Toolbar>

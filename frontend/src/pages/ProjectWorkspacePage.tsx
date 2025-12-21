@@ -6,6 +6,7 @@ import { useSession } from "../store/useSession";
 
 const tabItems = [
   { value: "overview", label: "Descripción", path: "" },
+  { value: "tasks", label: "Tareas", path: "tasks" },
   { value: "calculations", label: "Cálculos", path: "calculations" },
   { value: "bases", label: "Bases de cálculo", path: "bases" },
   { value: "inspections", label: "Inspecciones", path: "inspections" },
