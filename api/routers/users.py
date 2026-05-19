@@ -57,7 +57,11 @@ async def update_profile(payload: UpdateProfilePayload, user=Depends(CurrentUser
         updates["avatar_url"] = payload.avatar_url.strip() or None
 
     if updates:
-        update_profile_metadata(user.id, updates)
+        try:
+            update_profile_metadata(user.id, updates, token)
+        except RuntimeError as exc:
+            detail = str(exc) or "No se pudo actualizar el perfil."
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail) from exc
 
     auth_updates: dict[str, str] = {}
     if payload.email and payload.email != user.email:

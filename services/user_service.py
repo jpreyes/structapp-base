@@ -1,11 +1,28 @@
-from supa.client import supa
+from supabase import ClientOptions, create_client
+
+from core.config import SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, SUPABASE_URL
+from supa.client import supa, supa_service
 
 from services.subscription_service import get_subscription
 
 
+def _profile_client(user_token: str | None = None):
+    if SUPABASE_SERVICE_KEY:
+        return supa_service()
+    if user_token:
+        if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+            raise RuntimeError("Faltan SUPABASE_URL o SUPABASE_ANON_KEY")
+        return create_client(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY,
+            ClientOptions(headers={"Authorization": f"Bearer {user_token}"}),
+        )
+    return supa()
+
+
 def _get_profile_record(user_id: str) -> dict:
     profile_res = (
-        supa()
+        _profile_client()
         .table("profiles")
         .select("*")
         .eq("user_id", user_id)
@@ -47,7 +64,20 @@ def get_user_profile_summary(user_id: str) -> dict:
     }
 
 
-def update_profile_metadata(user_id: str, updates: dict) -> None:
+def update_profile_metadata(user_id: str, updates: dict, user_token: str | None = None) -> None:
     if not updates:
         return
-    supa().table("profiles").update(updates).eq("user_id", user_id).execute()
+    response = (
+        _profile_client(user_token)
+        .table("profiles")
+        .update(updates)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    error = getattr(response, "error", None)
+    if error:
+        message = getattr(error, "message", None) or str(error)
+        raise RuntimeError(message)
+    data = getattr(response, "data", None)
+    if isinstance(data, list) and not data:
+        raise RuntimeError("No se encontró el perfil para actualizar.")

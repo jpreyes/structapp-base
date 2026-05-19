@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 
 from supa.client import supa
 
@@ -12,7 +12,8 @@ def get_supabase():
 SupabaseClientDep = Annotated[object, Depends(get_supabase)]
 
 
-async def get_current_token(authorization: Annotated[str | None, Header()] = None) -> str:
+async def get_current_token(request: Request) -> str:
+    authorization = request.headers.get("authorization")
     if not authorization:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authorization header")
     if not authorization.startswith("Bearer "):
